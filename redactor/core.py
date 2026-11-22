@@ -427,20 +427,28 @@ def cancellable_ocr(command, data, creationflags, cancel, *, timeout=120, env=No
 
 
 def recognize_regions(image, executable, settings, enhanced=False, cancel=None, *,
-                      color_assisted=False, incomplete=None, area=None, area_layout=None):
+                      color_assisted=False, incomplete=None, area=None, area_layout=None,
+                      progress=None):
+    def report(text):
+        if progress is not None:
+            progress(text)
+
     if area is not None:
+        report('Scanning area')
         left, top, right, bottom = area
         crop = image.crop(area)
         factor = min(4, 2400 / max(crop.size))
         enlarged = crop.resize((max(1, round(crop.width*factor)), max(1, round(crop.height*factor))), Image.Resampling.LANCZOS)
         boxes = recognize_regions(enlarged, executable, settings, enhanced, cancel,
                                   color_assisted=color_assisted, incomplete=incomplete,
-                                  area_layout='7' if crop.width >= 6*crop.height else '6')
+                                  area_layout='7' if crop.width >= 6*crop.height else '6',
+                                  progress=progress)
         all_text, _, confidence, pattern = settings
         if (not boxes and executable is None and not all_text and pattern
                 and crop.height <= 180 and crop.width <= min(600, 6*crop.height)):
             if cancel is not None and cancel.is_set():
                 raise ScanCancelled
+            report('Reading selected label')
             from rapidocr_backend import recognize_single_label
             text, score = recognize_single_label(crop)
             if cancel is not None and cancel.is_set():
@@ -484,6 +492,7 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
 
     try:
         with stage('standard_ocr_pass') as timing:
+            report('Recognizing text')
             boxes = new_ocr_boxes(run(image, ('--psm', area_layout) if area_layout else ()))
             if timing is not None:
                 timing['new_suggestions'] = len(boxes)
@@ -533,12 +542,14 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
     if color_assisted:
         check_cancel()
         from ocr_preprocess import strike_reduced_variant
+        report('Recovering struck-through text')
         with stage('strikethrough_preprocess'):
             strike_reduced = strike_reduced_variant(working)
         if strike_reduced is not None and not add_pass(strike_reduced, 'strikethrough recovery'):
             return boxes
 
     if enhanced:
+        report('Enhancing image')
         with stage('grayscale_preprocess'):
             contrast = ImageOps.autocontrast(ImageOps.grayscale(working).filter(ImageFilter.MedianFilter(3)), cutoff=1)
         if not add_pass(contrast, 'enhanced OCR'):
@@ -546,6 +557,7 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
         if executable is None and area_layout is None:
             from ocr_preprocess import small_text_tiles
             for index, (bounds, tile) in enumerate(small_text_tiles(image), 1):
+                report(f'Reading small-text section {index}')
                 if not add_pass(tile, f'small-text section {index}', bounds):
                     return boxes
     if color_assisted:
@@ -554,6 +566,7 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
         with stage('color_preprocess'):
             variants = list(color_ocr_variants(working))
         for index, variant in enumerate(variants, 1):
+            report(f'Color pass {index} of {len(variants)}')
             if not add_pass(variant, f'color pass {index}'):
                 break
     return boxes

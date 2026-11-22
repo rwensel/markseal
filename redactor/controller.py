@@ -4,7 +4,6 @@ import io
 import json
 import os
 import re
-import subprocess
 from datetime import datetime
 from pathlib import Path
 from queue import Empty, Queue
@@ -172,6 +171,7 @@ class Controller(QObject):
     folderChanged = Signal()
     busyChanged = Signal()
     progressChanged = Signal()
+    scanStageChanged = Signal()
     settingsChanged = Signal()
     captureChanged = Signal()
     scrollRequested = Signal(int)
@@ -205,6 +205,7 @@ class Controller(QObject):
         self.progress_max = 1
         self.progress_detail = ''
         self.progress_current = ''
+        self.scan_stage = ''
         self.image_revision = 0
         self._display_qimage = QImage()
         self._job = None
@@ -437,6 +438,15 @@ class Controller(QObject):
     @Property(str, notify=progressChanged)
     def progressCurrent(self):
         return self.progress_current
+
+    @Property(str, notify=scanStageChanged)
+    def scanStage(self):
+        return self.scan_stage
+
+    def _set_scan_stage(self, text):
+        if self.scan_stage != text:
+            self.scan_stage = text
+            self.scanStageChanged.emit()
 
     @Property(str, constant=True)
     def displayFont(self):
@@ -794,7 +804,7 @@ class Controller(QObject):
                 if anchor[2] - anchor[0] < 4 or anchor[3] - anchor[1] < 4:
                     self._set_status('Area too small. Click Scan area and draw around the text again.')
                 elif self.active is None:
-                    self._scan_single(area=anchor)
+                    self._start_single_scan(area=anchor)
                 else:
                     self._start_scan([self.entries[self.active]], rescan=True, area=anchor)
             else:
@@ -947,48 +957,78 @@ class Controller(QObject):
         if self.active is not None:
             self._start_scan([self.entries[self.active]], rescan=True)
             return
-        self._scan_single()
+        self._start_single_scan()
 
-    def _scan_single(self, area=None):
-        if self.review.image is None:
+    def _start_single_scan(self, area=None):
+        if self.review.image is None or self._busy:
             return
         try:
             executable = self._scan_backend()
+            settings = self._scan_settings()
         except OSError as error:
             self._error('OCR unavailable', str(error))
             return
-        try:
-            settings = self._scan_settings()
+        except (ValueError, re.error) as error:
+            self._error('Invalid detection settings', str(error))
+            return
+        stages = Queue()
+        info = {'added': None, 'incomplete': [], 'error': None}
+        label = 'Scanning area' if area is not None else 'Scanning image'
+
+        def operation(job):
             incomplete = []
-            trace = PerformanceRun(
-                'Scanning area' if area is not None else 'Scanning image', 1,
-                self._scan_metrics(),
+            found = core.recognize_regions(
+                self.review.image, executable, settings, self._settings['enhancedOcr'],
+                color_assisted=self._settings['colorOcr'], incomplete=incomplete,
+                area=area, progress=stages.put,
             )
-            try:
-                with trace.image(0) as metrics:
-                    found = core.recognize_regions(
-                        self.review.image, executable, settings,
-                        self._settings['enhancedOcr'],
-                        color_assisted=self._settings['colorOcr'],
-                        incomplete=incomplete, area=area,
-                    )
-                    metrics.update(suggestions=len(found), incomplete_passes=len(incomplete))
-            finally:
-                trace.finish()
+            return None, found, incomplete
+
+        def accept(index, result, error):
+            if error is not None:
+                info['error'] = error
+                self._set_status(f'Scan failed: {error}')
+                return
+            _, found, incomplete = result
             added = self.review.add_suggestions(found)
             self._refresh_display()
             self._store_active()
             self._emit_review()
             self._emit_view()
+            info['added'] = added
+            info['incomplete'] = incomplete
             detail = f' Incomplete OCR passes: {", ".join(incomplete)}.' if incomplete else ''
             self._set_status(
                 f'{added} selected suggestions added.{detail} Review the entire image.'
             )
-            self._info('Review required', f'Added {added} selected boxes.{detail} Review the image before confirming.')
-        except (ValueError, re.error) as error:
-            self._error('Invalid detection settings', str(error))
-        except (OSError, subprocess.SubprocessError, TimeoutError) as error:
-            self._error('Local OCR failed', f'Text recognition failed: {error}')
+
+        def finish():
+            if info['error'] is not None:
+                return 'Scan failed'
+            return f'{info["added"] or 0} new OCR suggestions'
+
+        def complete():
+            if info['error'] is not None:
+                self._error('Local OCR failed', f'Text recognition failed: {info["error"]}')
+                return
+            if info['added'] is None:
+                return
+            detail = (f' Incomplete OCR passes: {", ".join(info["incomplete"])}.'
+                      if info['incomplete'] else '')
+            self._info(
+                'Review required',
+                f'Added {info["added"]} selected boxes.{detail} Review the image before confirming.',
+            )
+
+        self._set_status(
+            'Scanning the selected area. Progress is shown above the screenshot.' if area is not None
+            else 'Scanning image. Progress is shown above the screenshot.'
+        )
+        self._run_jobs(
+            label, [self.review.path], operation, accept, finish,
+            metrics_settings=self._scan_metrics(), stage_queue=stages,
+            complete=complete, report_failures=False,
+        )
 
     @Slot()
     def beginScanArea(self):
@@ -1165,7 +1205,8 @@ class Controller(QObject):
         return {entry.path: index for index, entry in enumerate(self.entries)}
 
     def _run_jobs(self, label, jobs, operation, accept, finish=None, *, cancel=None,
-                  show_image=None, metrics_settings=None, rows=None, workers=None):
+                  show_image=None, metrics_settings=None, rows=None, workers=None,
+                  stage_queue=None, complete=None, report_failures=True):
         if not jobs or self._busy:
             return
         self._cancel_capture()
@@ -1192,6 +1233,7 @@ class Controller(QObject):
         self.progress_value = 0
         self.progress_detail = ''
         self.progress_current = ''
+        self._set_scan_stage('')
         self._folder_model.set_job_states(
             {row: 'queued' for row in job_rows if row is not None}
         )
@@ -1243,7 +1285,8 @@ class Controller(QObject):
             'completed': 0, 'accept': accept, 'finish': finish, 'cancel': cancel,
             'show_image': show_image, 'pace': pace, 'failures': failures, 'advance': advance,
             'trace': trace, 'workers': worker_count, 'job_rows': job_rows, 'stop': stop,
-            'model': self._folder_model,
+            'model': self._folder_model, 'stage_queue': stage_queue,
+            'complete': complete, 'report_failures': report_failures,
         }
         if not pace:
             self._show_progress(label, 0, total, jobs, worker_count)
@@ -1272,6 +1315,14 @@ class Controller(QObject):
             return
         previous = job['completed']
         finished = False
+        stages = job.get('stage_queue')
+        if stages is not None:
+            while True:
+                try:
+                    text = stages.get_nowait()
+                except Empty:
+                    break
+                self._set_scan_stage(text)
         while True:
             try:
                 item = job['queue'].get_nowait()
@@ -1319,6 +1370,7 @@ class Controller(QObject):
         self.progress_max = job['total']
         self.progress_value = job['completed']
         self.progress_current = ''
+        self._set_scan_stage('')
         canceled = job['cancel'] is not None and job['cancel'].is_set() and job['completed'] < job['total']
         if canceled:
             job['stop'].set()
@@ -1336,11 +1388,13 @@ class Controller(QObject):
         self.progress_detail = detail
         self.busyChanged.emit()
         self.progressChanged.emit()
-        if job['failures']:
+        if job['failures'] and job.get('report_failures', True):
             QMessageBox.warning(
                 None, job['label'],
                 f'{len(job["failures"])} of {len(job["jobs"])} failed. First error:\n{job["failures"][0]}',
             )
+        if job.get('complete') is not None:
+            job['complete']()
 
     @Slot()
     def copyBoxesToFolder(self):

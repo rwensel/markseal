@@ -81,6 +81,14 @@ class RedactionTests(unittest.TestCase):
         self.assertAlmostEqual(review.offset_x, 150)
         self.assertAlmostEqual(review.offset_y, 150)
 
+    def test_recognizer_reports_progress_stages(self):
+        image = Image.new('RGB', (120, 80), 'white')
+        stages = []
+        with patch('redactor.core.subprocess.run', return_value=SimpleNamespace(stdout=b'tsv')), \
+             patch('redactor.core.detect_regions', return_value=[]):
+            recognize_regions(image, 'ocr', (False,), progress=stages.append)
+        self.assertIn('Recognizing text', stages)
+
     def test_confidence_patterns_and_word_boundaries(self):
         tsv = ('level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
                '5\t1\t1\t1\t1\t1\t10\t20\t30\t10\t95\tContact\n'
