@@ -51,7 +51,7 @@ Suggestions are incomplete: OCR may miss small, blurred or skewed text; pattern 
 
 ## Redaction method
 
-Use **Settings → Redaction** to choose pixelation or solid black. The method applies across the folder and is remembered across app restarts. Changing it returns the images to review before export. Solid black removes image detail inside the chosen boxes and is more appropriate for sensitive information. Pixels outside selected rectangles are preserved in the PNG. Camera metadata is omitted from saved copies.
+Use the **METHOD** toggle in the viewer caption to switch between **Pixelate** and **Solid** without opening Settings; the same choice is available under **Settings → Redaction**. The choice is saved immediately and applies to the confirmed preview, the copied image, and the saved PNG. The method applies across the folder and is remembered across app restarts. Changing it returns reviewed folder images to review before export. Solid black removes image detail inside the chosen boxes and is more appropriate for sensitive information. Pixels outside selected rectangles are preserved in the PNG. Camera metadata is omitted from saved copies.
 
 ## Pixelation warning
 

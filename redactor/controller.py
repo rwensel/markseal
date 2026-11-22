@@ -150,16 +150,16 @@ class FolderModel(QAbstractListModel):
         }
 
 
-def _setting_property(name, kind):
+def _setting_property(name, kind, notify):
     def getter(self):
         return self._settings[name]
 
     def setter(self, value):
         if self._settings[name] != value:
             self._settings[name] = value
-            self.settingsChanged.emit()
+            notify.emit()
 
-    return Property(kind, getter, setter, notify=lambda self: self.settingsChanged)
+    return Property(kind, getter, setter, notify=notify)
 
 
 class Controller(QObject):
@@ -484,18 +484,22 @@ class Controller(QObject):
     def categories(self):
         return [name for name in core.PATTERNS if name in self._categories]
 
-    sensitivity = _setting_property('sensitivity', str)
-    confidence = _setting_property('confidence', int)
-    allText = _setting_property('allText', bool)
-    enhancedOcr = _setting_property('enhancedOcr', bool)
-    colorOcr = _setting_property('colorOcr', bool)
-    ocrEngine = _setting_property('ocrEngine', str)
-    customPattern = _setting_property('customPattern', str)
-    redactionMethod = _setting_property('method', str)
-    outputDirectory = _setting_property('outputDirectory', str)
-    filenameTemplate = _setting_property('filenameTemplate', str)
-    includeLog = _setting_property('includeLog', bool)
-    parallelImages = _setting_property('parallelImages', int)
+    sensitivity = _setting_property('sensitivity', str, settingsChanged)
+    confidence = _setting_property('confidence', int, settingsChanged)
+    allText = _setting_property('allText', bool, settingsChanged)
+    enhancedOcr = _setting_property('enhancedOcr', bool, settingsChanged)
+    colorOcr = _setting_property('colorOcr', bool, settingsChanged)
+    ocrEngine = _setting_property('ocrEngine', str, settingsChanged)
+    customPattern = _setting_property('customPattern', str, settingsChanged)
+
+    @Property(str, notify=settingsChanged)
+    def redactionMethod(self):
+        return self._settings['method']
+
+    outputDirectory = _setting_property('outputDirectory', str, settingsChanged)
+    filenameTemplate = _setting_property('filenameTemplate', str, settingsChanged)
+    includeLog = _setting_property('includeLog', bool, settingsChanged)
+    parallelImages = _setting_property('parallelImages', int, settingsChanged)
 
     @Property(int, constant=True)
     def parallelLimit(self):
@@ -1791,6 +1795,40 @@ class Controller(QObject):
         if isinstance(saved.get('include_log'), bool):
             self.include_log = saved['include_log']
             self._settings['includeLog'] = saved['include_log']
+
+    def _preference_document(self, method=None):
+        return {
+            'sensitivity': self._settings['sensitivity'],
+            'confidence': self._settings['confidence'],
+            'all_text': self._settings['allText'],
+            'enhanced_ocr': self._settings['enhancedOcr'],
+            'color_ocr': self._settings['colorOcr'],
+            'ocr_engine': self._settings['ocrEngine'],
+            'custom_pattern': self._settings['customPattern'],
+            'categories': [name for name in core.PATTERNS if name in self._categories],
+            'redaction_method': method or self._settings['method'],
+            'output_directory': self._settings['outputDirectory'],
+            'filename_template': self._settings['filenameTemplate'],
+            'include_log': self._settings['includeLog'],
+            'parallel_images': self._settings['parallelImages'],
+        }
+
+    @Slot(str)
+    def setRedactionMethod(self, method):
+        if self._busy or method not in ('Pixelate', 'Solid black') \
+                or method == self._settings['method']:
+            return
+        self._settings['method'] = method
+        self.default_method = method
+        self.settingsChanged.emit()
+        self._method_changed()
+        if not self.entries:
+            updated = ' Preview updated.' if self.review.confirmed else ''
+            self._set_status(f'Redaction method set to {method}.{updated}')
+        try:
+            core.write_preferences(self.preferences_file, self._preference_document())
+        except OSError as error:
+            self._set_status(self.status_text + f' Settings could not be saved: {error}')
 
     @Slot(str, int, bool, bool, bool, str, str, 'QVariantList', str, str, str, bool, int, result=str)
     def applySettings(self, sensitivity, confidence, all_text, enhanced, color, engine,

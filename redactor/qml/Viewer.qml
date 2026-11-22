@@ -51,8 +51,25 @@ Item {
         }
 
         Text {
+            text: "METHOD"
+            color: Theme.mutedText
+            font.family: Backend.displayFont
+            font.pixelSize: 8
+            font.letterSpacing: 0.8
+        }
+
+        MethodToggle {
+            Layout.preferredHeight: 26
+            method: Backend.redactionMethod
+            enabled: !Backend.busy
+            onSelected: function(method) {
+                Backend.setRedactionMethod(method)
+            }
+        }
+
+        Text {
             text: "SCROLL ZOOM / RIGHT-DRAG PAN"
-            visible: caption.width > 620
+            visible: caption.width > 900
             color: Theme.mutedText
             font.family: Backend.displayFont
             font.pixelSize: 8
