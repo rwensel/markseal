@@ -5,6 +5,7 @@ from PIL import Image
 from offline_redactor import pixelate, detect_regions, Redactor, apply_redactions
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
+from rapidocr_backend import result_to_tsv
 
 class RedactionTests(unittest.TestCase):
     def test_pixelate_preserves_pixels_outside_box(self):
@@ -50,6 +51,7 @@ class RedactionTests(unittest.TestCase):
         app.category_vars = {}
         app.enhanced_ocr = Mock(); app.enhanced_ocr.get.return_value = False
         app.color_ocr = Mock(); app.color_ocr.get.return_value = False
+        app.ocr_engine = Mock(); app.ocr_engine.get.return_value = "Tesseract"
         app.render = Mock(); app.status = Mock()
         result = SimpleNamespace(stdout=b'tsv')
         with patch('offline_redactor.find_tesseract', return_value='ocr'), \
@@ -116,6 +118,18 @@ class RedactionTests(unittest.TestCase):
         entry.add_suggestions(result, incomplete)
         self.assertEqual(entry.selected, {0})
         self.assertEqual(entry.status, 'Partial scan · review needed')
+
+    def test_model_word_boxes_keep_regex_matches_tight(self):
+        def polygon(left, right):
+            return [(left, 12), (right, 12), (right, 27), (left, 27)]
+
+        result = SimpleNamespace(
+            boxes=[polygon(10, 160)], txts=('Status BFE',), scores=(0.98,),
+            word_results=((('Status', .95, polygon(10, 75)), ('BFE', .99, polygon(110, 160))),),
+        )
+        settings = (False, set(), 40, r'\bBFE\b')
+        rows = result_to_tsv(result, (200, 100))
+        self.assertEqual(detect_regions(rows, (200, 100), *settings), [(106, 8, 165, 32)])
 
     def test_detects_sensitive_line_but_not_generic_text(self):
         rows = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t10\t20\t90\t10\t95\tuser@example.com\n5\t1\t1\t1\t2\t1\t10\t50\t50\t10\t95\tDashboard\n'

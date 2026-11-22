@@ -147,6 +147,7 @@ class Redactor:
         self.all_text = tk.BooleanVar(value=False)
         self.enhanced_ocr = tk.BooleanVar(value=False)
         self.color_ocr = tk.BooleanVar(value=False)
+        self.ocr_engine = tk.StringVar(value='Tesseract')
         self.sensitivity = tk.StringVar(value='Focused')
         self.confidence = tk.IntVar(value=50)
         self.method = tk.StringVar(value='Pixelate')
@@ -192,6 +193,7 @@ class Redactor:
         all_text = tk.BooleanVar(window, value=self.all_text.get())
         enhanced = tk.BooleanVar(window, value=self.enhanced_ocr.get())
         color = tk.BooleanVar(window, value=self.color_ocr.get())
+        engine = tk.StringVar(window, value=self.ocr_engine.get())
         method = tk.StringVar(window, value=self.method.get())
         pattern = tk.StringVar(window, value=self.custom_pattern.get())
         categories = {name: tk.BooleanVar(window, value=var.get()) for name, var in self.category_vars.items()}
@@ -202,31 +204,34 @@ class Redactor:
                 for name, variable in categories.items():
                     variable.set(name in preset)
 
-        ttk.Label(detection, text='Sensitivity').grid(row=0, column=0, sticky='w')
+        ttk.Label(detection, text='OCR engine').grid(row=0, column=0, sticky='w', pady=(0, 6))
+        ttk.Combobox(detection, textvariable=engine, values=['Tesseract', 'RapidOCR'],
+                     state='readonly', width=12).grid(row=0, column=1, sticky='w', padx=8, pady=(0, 6))
+        ttk.Label(detection, text='Sensitivity').grid(row=1, column=0, sticky='w')
         presets = ttk.Combobox(detection, textvariable=sensitivity, values=[*PRESETS, 'Custom'],
                                state='readonly', width=12)
-        presets.grid(row=0, column=1, sticky='w', padx=8)
+        presets.grid(row=1, column=1, sticky='w', padx=8)
         presets.bind('<<ComboboxSelected>>', apply_preset)
-        ttk.Label(detection, text='Minimum OCR confidence (0–100)').grid(row=1, column=0, sticky='w', pady=6)
+        ttk.Label(detection, text='Minimum OCR confidence (0–100)').grid(row=2, column=0, sticky='w', pady=6)
         ttk.Spinbox(detection, from_=0, to=100, textvariable=confidence, width=6).grid(
-            row=1, column=1, sticky='w', padx=8)
+            row=2, column=1, sticky='w', padx=8)
         ttk.Checkbutton(detection, text='Enhanced OCR (slower, useful for screen photos)', variable=enhanced).grid(
-            row=2, column=0, columnspan=2, sticky='w')
-        ttk.Checkbutton(detection, text='Color-assisted OCR (slower, helps colored text)', variable=color).grid(
             row=3, column=0, columnspan=2, sticky='w')
-        ttk.Checkbutton(detection, text='Suggest all detected text (bypasses patterns)', variable=all_text).grid(
+        ttk.Checkbutton(detection, text='Color-assisted OCR (slower, helps colored text)', variable=color).grid(
             row=4, column=0, columnspan=2, sticky='w')
+        ttk.Checkbutton(detection, text='Suggest all detected text (bypasses patterns)', variable=all_text).grid(
+            row=5, column=0, columnspan=2, sticky='w')
 
         patterns = ttk.LabelFrame(detection, text='Detection patterns', padding=8)
-        patterns.grid(row=5, column=0, columnspan=2, sticky='ew', pady=(8, 0))
+        patterns.grid(row=6, column=0, columnspan=2, sticky='ew', pady=(8, 0))
         for index, (name, variable) in enumerate(categories.items()):
             ttk.Checkbutton(patterns, text=name, variable=variable,
                             command=lambda: sensitivity.set('Custom')).grid(
                 row=index//2, column=index%2, sticky='w', padx=(0, 12))
-        ttk.Label(detection, text='Custom regular expression').grid(row=6, column=0, sticky='w', pady=(8, 2))
-        ttk.Entry(detection, textvariable=pattern).grid(row=7, column=0, columnspan=2, sticky='ew')
+        ttk.Label(detection, text='Custom regular expression').grid(row=7, column=0, sticky='w', pady=(8, 2))
+        ttk.Entry(detection, textvariable=pattern).grid(row=8, column=0, columnspan=2, sticky='ew')
         ttk.Label(detection, text='Detection changes apply on the next scan.').grid(
-            row=8, column=0, columnspan=2, sticky='w', pady=(6, 0))
+            row=9, column=0, columnspan=2, sticky='w', pady=(6, 0))
 
         ttk.Label(redaction, text='Redaction method').grid(row=0, column=0, sticky='w')
         ttk.Combobox(redaction, textvariable=method, values=['Pixelate', 'Solid black'],
@@ -250,6 +255,7 @@ class Redactor:
                     'all_text': all_text.get(),
                     'enhanced_ocr': enhanced.get(),
                     'color_ocr': color.get(),
+                    'ocr_engine': engine.get(),
                     'custom_pattern': expression,
                     'categories': [name for name, variable in categories.items() if variable.get()],
                     'redaction_method': method.get() if method_changed else self.default_method,
@@ -267,6 +273,7 @@ class Redactor:
             self.all_text.set(all_text.get())
             self.enhanced_ocr.set(enhanced.get())
             self.color_ocr.set(color.get())
+            self.ocr_engine.set(engine.get())
             self.custom_pattern.set(expression)
             for name, variable in categories.items():
                 self.category_vars[name].set(variable.get())
@@ -308,6 +315,9 @@ class Redactor:
                               ('color_ocr', self.color_ocr)):
             if isinstance(saved.get(key), bool):
                 variable.set(saved[key])
+        engine = saved.get('ocr_engine')
+        if engine in ('Tesseract', 'RapidOCR'):
+            self.ocr_engine.set(engine)
         expression = saved.get('custom_pattern')
         if isinstance(expression, str):
             try:
@@ -487,11 +497,22 @@ class Redactor:
             self.boxes.append((x1,y1,x2,y2)); self.selected.add(len(self.boxes)-1); self.confirmed = False
         self.status.config(text=f'{self.path.name}: {len(self.selected)} selected of {len(self.boxes)}. Confirm to apply.')
         self.render()
-    def find(self, *, area=None):
-        if self.image is None: return
+    def scan_backend(self):
+        if self.ocr_engine.get() == 'RapidOCR':
+            from rapidocr_backend import model_files
+            model_files()
+            return None
         executable = find_tesseract()
         if not executable:
-            messagebox.showinfo('Local OCR needed', 'Install Tesseract OCR locally and add it to PATH, then try again. No images are uploaded. See README.md.')
+            raise OSError('Restore Tesseract in tools/tesseract or add it to PATH.')
+        return executable
+
+    def find(self, *, area=None):
+        if self.image is None: return
+        try:
+            executable = self.scan_backend()
+        except OSError as error:
+            messagebox.showerror('OCR unavailable', str(error))
             return
         try:
             confidence = self.confidence.get()
@@ -724,6 +745,11 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
 
     def run(source, extra_options=(), timeout=120):
         check_cancel()
+        if executable is None:
+            from rapidocr_backend import recognize_words
+            tsv = recognize_words(source)
+            check_cancel()
+            return detect_regions(tsv, source.size, *settings)
         data = io.BytesIO()
         source.save(data, format='PNG')
         command = [executable, 'stdin', 'stdout', *extra_options, 'tsv']
@@ -1181,9 +1207,10 @@ class FolderRedactor(Redactor):
         if not pending:
             messagebox.showinfo('Folder scan', 'Every image has been scanned or manually reviewed. Use Find likely identifiers to rescan an image.')
             return
-        executable = find_tesseract()
-        if not executable:
-            messagebox.showerror('Local OCR needed', 'Restore Tesseract in tools/tesseract or add it to PATH.')
+        try:
+            executable = self.scan_backend()
+        except OSError as error:
+            messagebox.showerror('OCR unavailable', str(error))
             return
         try:
             confidence = self.confidence.get()
