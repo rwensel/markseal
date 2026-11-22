@@ -17,6 +17,7 @@ from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 from datetime import datetime
 from PIL import Image, ImageTk, ImageDraw, ImageOps, ImageFilter
+from performance_log import PerformanceRun, log_directory, stage, timed
 
 # Very coarse blocks remove fine detail, but mosaic redaction can remain reversible.
 def pixelate(image, boxes, block_size=32):
@@ -29,7 +30,11 @@ def pixelate(image, boxes, block_size=32):
 
 PATTERNS = {
     'Emails': r"[\w.+-]+@[\w.-]+\.[a-z]{2,}",
-    'URLs': r"(?:https?://|www\.)\S+|(?<![\w@.-])[a-z0-9-]+\.(?:com|org|net|io|local|internal)\b|\blocalhost(?::\d+)?(?:/\S*)?",
+    'URLs': (
+        r"(?:https?://|www\.|jdbc:[a-z][a-z0-9_-]*:)\S+"
+        r"|(?<![\w@.-])(?:[a-z0-9-]+\.)+(?:com|org|net|io|local|internal)\b"
+        r"|\blocalhost(?::\d+)?(?:/\S*)?"
+    ),
     'IP addresses': r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
     'Ticket IDs': r"\b[A-Z][A-Z0-9]{1,9}-\d+\b",
     'Paths': r"(?:[a-z]:\\|/home/|/users/|\\\\)\S+",
@@ -44,6 +49,15 @@ PATTERNS = {
     'Infrastructure': (
         r"(?<![\w./-])(?:[\w.-]+/)+[\w.-]+\.(?:ya?ml|tf(?:vars)?|kubeconfig|crt|pem|key|p12|pfx)\b"
         r"|(?<![\w.-])/(?:etc|run/secrets|var/run/secrets|vault|secrets|opt)/[\w./-]+"
+        r"|\b[a-z][a-z0-9]{1,11}[-_.](?:prod(?:uction)?|stage|staging|dev|test|uat|qa|sandbox)"
+        r"[-_.][a-z0-9][a-z0-9_.-]*"
+        r"|\b(?-i:[A-Z]{2,6})[_-][a-z][a-z0-9]*(?:[_-][a-z0-9]+){2,}\b"
+        r"|\b(?:dc\d{1,4}[a-z]{2,6}(?:_[a-z0-9]+)*"
+        r"|[a-z]{1,6}\d{1,4}[-_][a-z]{2,8}(?:prod|stage|staging|dev|qa|uat|test))\b"
+        r"|\binternal-[a-z0-9-]{8,}(?:\.[a-z0-9-]+)*\b"
+        r"|\bdata\.(?-i:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b"
+        r"|\b[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*){3,}\.(?:cron|enabled|endpoint|url|host|schema|quorum)\b"
+        r"|\bJAVA_TOOL_OPTIONS\b|(?<!\S)-XX:[^\s]+"
         r"|\b(?:VAULT|KUBE(?:RNETES)?|KAFKA|TLS|AWS|AZURE|GCP|DB|DATABASE|REDIS)"
         r"(?:\s*[_-]\s*[a-z0-9]+)+\b"
         r"|\b[a-z0-9_-]+(?:\.[a-z0-9_-]+)*\.(?:kafka|vault|kubernetes|tls|database)"
@@ -61,6 +75,7 @@ PRESETS = {
     'Broad': set(PATTERNS),
 }
 
+@timed('match_patterns')
 def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0, custom_pattern=''):
     categories = set(PATTERNS) if categories is None else categories
     expressions = [re.compile(PATTERNS[name], re.IGNORECASE) for name in PATTERNS if name in categories]
@@ -74,8 +89,8 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
             left, top, width, height = (int(row[k]) for k in ('left','top','width','height'))
             key = tuple(row[k] for k in ('page_num','block_num','par_num','line_num'))
         except (ValueError, KeyError): continue
-        if confidence < min_confidence or width <= 0 or height <= 0: continue
-        lines.setdefault(key, []).append((word, left, top, left+width, top+height))
+        if width <= 0 or height <= 0: continue
+        lines.setdefault(key, []).append((word, left, top, left+width, top+height, confidence))
     boxes = []
     for words in lines.values():
         text = ' '.join(word[0] for word in words)
@@ -86,14 +101,15 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
             for expression in expressions:
                 spans.extend((m.start(), m.end()) for m in expression.finditer(text) if m.end() > m.start())
         offset = 0
-        for word, x1, y1, x2, y2 in words:
+        for word, x1, y1, x2, y2, confidence in words:
             start, end = offset, offset + len(word)
-            if any(start < right and end > left for left, right in spans):
+            if confidence >= min_confidence and any(start < right and end > left for left, right in spans):
                 box = (max(0,x1-4), max(0,y1-4), min(size[0],x2+4), min(size[1],y2+4))
                 if box not in boxes: boxes.append(box)
             offset = end + 1
     return boxes
 
+@timed('render_redactions')
 def apply_redactions(image, boxes, method='Pixelate'):
     if method == 'Pixelate': return pixelate(image, boxes)
     out = image.copy(); draw = ImageDraw.Draw(out)
@@ -239,6 +255,12 @@ class Redactor:
         ttk.Label(redaction, text='Solid black fully covers the pixels within the selected boxes.',
                   wraplength=350).grid(row=1, column=0, columnspan=2, sticky='w', pady=(8, 0))
         prepare_output = self.build_output_settings(notebook)
+        diagnostics = ttk.Frame(notebook, padding=12)
+        notebook.add(diagnostics, text='Diagnostics')
+        ttk.Label(diagnostics, text='Local performance logs include job progress and per-image timings.',
+                  wraplength=370).pack(anchor='w', pady=(0, 8))
+        ttk.Button(diagnostics, text='Open performance logs folder',
+                   command=self.open_performance_logs).pack(anchor='w')
 
         def apply():
             try:
@@ -290,6 +312,14 @@ class Redactor:
         ttk.Button(footer, text='Cancel', command=window.destroy).pack(side='right', padx=(0, 6))
         window.bind('<Escape>', lambda event: window.destroy())
         window.protocol('WM_DELETE_WINDOW', apply)
+
+    def open_performance_logs(self):
+        directory = log_directory()
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            os.startfile(directory)
+        except (AttributeError, OSError):
+            messagebox.showinfo('Performance logs', str(directory))
 
     def load_preferences(self):
         try:
@@ -522,9 +552,19 @@ class Redactor:
             categories = {name for name, variable in self.category_vars.items() if variable.get()}
             settings = self.all_text.get(), categories, confidence, custom
             incomplete = []
-            found = recognize_regions(self.image, executable, settings, self.enhanced_ocr.get(),
-                                      color_assisted=self.color_ocr.get(), incomplete=incomplete, area=area)
-            added = [box for box in found if box not in self.boxes]
+            trace = PerformanceRun('Scanning area' if area is not None else 'Scanning image', 1, {
+                'engine': self.ocr_engine.get(), 'confidence': confidence, 'enhanced': self.enhanced_ocr.get(),
+                'color_assisted': self.color_ocr.get(), 'sensitivity': self.sensitivity.get(),
+                'builtin_category_count': len(categories), 'custom_pattern_enabled': bool(custom),
+            })
+            try:
+                with trace.image(0) as metrics:
+                    found = recognize_regions(self.image, executable, settings, self.enhanced_ocr.get(),
+                                              color_assisted=self.color_ocr.get(), incomplete=incomplete, area=area)
+                    metrics.update(suggestions=len(found), incomplete_passes=len(incomplete))
+            finally:
+                trace.finish()
+            added = new_ocr_boxes(found, self.boxes)
             first_new = len(self.boxes)
             self.boxes.extend(added)
             self.selected.update(range(first_new, len(self.boxes)))
@@ -562,14 +602,17 @@ class Redactor:
         if not output: return
         if Path(output).resolve() == self.path.resolve():
             messagebox.showerror('Choose a different file', 'The original image cannot be overwritten.'); return
+        trace = PerformanceRun('Saving image', 1, {'method': self.method.get(), 'coordinate_logs': True})
         try:
-            out = apply_redactions(self.image, self.selected_boxes(), self.method.get())
-            out.info.clear()  # Do not copy camera metadata into the output.
-            out.save(output, format='PNG')
-            log = {'source_filename': self.path.name, 'output_filename': Path(output).name, 'image_dimensions': list(self.image.size), 'redaction_rectangles_xyxy': self.selected_boxes(), 'created_local_time': datetime.now().isoformat(timespec='seconds'), 'method': self.method.get(), 'note': 'Automated suggestions can miss identifiers; manual review required. Pixelation may not fully conceal sensitive content.'}
-            Path(output).with_suffix('.redactions.json').write_text(json.dumps(log, indent=2), encoding='utf-8')
+            with trace.image(0):
+                out = apply_redactions(self.image, self.selected_boxes(), self.method.get())
+                out.info.clear()
+                log = {'source_filename': self.path.name, 'output_filename': Path(output).name, 'image_dimensions': list(self.image.size), 'redaction_rectangles_xyxy': self.selected_boxes(), 'created_local_time': datetime.now().isoformat(timespec='seconds'), 'method': self.method.get(), 'note': 'Automated suggestions can miss identifiers; manual review required. Pixelation may not fully conceal sensitive content.'}
+                save_export(out, Path(output), log, overwrite=True)
             messagebox.showinfo('Saved', 'Saved the redacted PNG and coordinate log. Review before sharing; pixelated text can sometimes be recovered.')
         except Exception as e: messagebox.showerror('Save failed', str(e))
+        finally:
+            trace.finish()
 
 
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff'}
@@ -621,16 +664,13 @@ class FolderImage:
         return changed
 
     def add_suggestions(self, found, incomplete=()):
-        known = set(self.boxes)
-        for box in found:
-            if box not in known:
-                self.selected.add(len(self.boxes))
-                self.boxes.append(box)
-                known.add(box)
+        added = new_ocr_boxes(found, self.boxes)
+        self.add_shared_boxes(added)
         self.scanned = True
         self.incomplete_ocr = tuple(incomplete)
         self.reviewed = self.saved = False
         self.error = ''
+        return len(added)
 
 
 def file_stamp(path):
@@ -638,6 +678,7 @@ def file_stamp(path):
     return stat.st_size, stat.st_mtime_ns
 
 
+@timed('load_image')
 def read_folder_image(path, expected=None):
     stamp = file_stamp(path)
     if expected is not None and stamp != expected:
@@ -659,6 +700,60 @@ def output_path(directory, template, source, index):
     return directory / name
 
 
+def stage_export(target, write):
+    temporary = None
+    try:
+        with NamedTemporaryFile(dir=target.parent, suffix='.redactor-tmp', delete=False) as stream:
+            temporary = Path(stream.name)
+            write(stream)
+        return temporary
+    except BaseException:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+        raise
+
+
+def publish_export(temporary, target, overwrite=False):
+    if overwrite:
+        temporary.replace(target)
+    elif os.name == 'nt':
+        temporary.rename(target)  # On Windows rename fails if target exists.
+    else:
+        os.link(temporary, target)
+
+
+PNG_COMPRESSION = 3
+
+
+def save_export(image, target, log, *, overwrite=False):
+    temporary_files = []
+    published = []
+    try:
+        with stage('encode_png', width=image.width, height=image.height, compression_level=PNG_COMPRESSION):
+            png = stage_export(target, lambda stream: image.save(
+                stream, format='PNG', compress_level=PNG_COMPRESSION))
+            temporary_files.append(png)
+        log_target = target.with_suffix('.redactions.json')
+        if log is not None:
+            with stage('encode_coordinate_log'):
+                sidecar = stage_export(log_target, lambda stream: stream.write(
+                    json.dumps(log, indent=2).encode('utf-8')))
+                temporary_files.append(sidecar)
+        with stage('publish_export'):
+            if log is not None:
+                publish_export(sidecar, log_target, overwrite)
+                published.append(log_target)
+            publish_export(png, target, overwrite)
+    except Exception:
+        if not overwrite:
+            for path in published:
+                path.unlink(missing_ok=True)
+        raise
+    finally:
+        for path in temporary_files:
+            path.unlink(missing_ok=True)
+
+
 def write_folder_copy(entry, target, include_log):
     image, _ = read_folder_image(entry.path, entry.stamp)
     boxes = [box for index, box in enumerate(entry.boxes) if index in entry.selected]
@@ -673,19 +768,7 @@ def write_folder_copy(entry, target, include_log):
         'method': entry.method,
         'created_local_time': datetime.now().isoformat(timespec='seconds'),
     }
-    created = []
-    try:
-        with target.open('xb') as stream:
-            created.append(target)
-            copy.save(stream, format='PNG')
-        if include_log:
-            with log_path.open('x', encoding='utf-8') as stream:
-                created.append(log_path)
-                json.dump(log, stream, indent=2)
-    except Exception:
-        for path in created:
-            path.unlink(missing_ok=True)
-        raise
+    save_export(copy, target, log if include_log else None)
 
 
 class ScanCancelled(Exception):
@@ -731,6 +814,17 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
         boxes = recognize_regions(enlarged, executable, settings, enhanced, cancel,
                                   color_assisted=color_assisted, incomplete=incomplete,
                                   area_layout='7' if crop.width >= 6*crop.height else '6')
+        all_text, _, confidence, pattern = settings
+        if (not boxes and executable is None and not all_text and pattern
+                and crop.height <= 180 and crop.width <= min(600, 6*crop.height)):
+            if cancel is not None and cancel.is_set():
+                raise ScanCancelled
+            from rapidocr_backend import recognize_single_label
+            text, score = recognize_single_label(crop)
+            if cancel is not None and cancel.is_set():
+                raise ScanCancelled
+            if text and score >= confidence and re.fullmatch(pattern, text, re.IGNORECASE):
+                return [area]
         sx, sy = crop.width/enlarged.width, crop.height/enlarged.height
         return [(left+math.floor(x1*sx), top+math.floor(y1*sy),
                  min(right, left+math.ceil(x2*sx)), min(bottom, top+math.ceil(y2*sy)))
@@ -747,23 +841,30 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
         check_cancel()
         if executable is None:
             from rapidocr_backend import recognize_words
-            tsv = recognize_words(source)
+            with stage('rapidocr_inference', width=source.width, height=source.height):
+                tsv = recognize_words(source)
             check_cancel()
             return detect_regions(tsv, source.size, *settings)
         data = io.BytesIO()
-        source.save(data, format='PNG')
+        with stage('ocr_input_encoding', width=source.width, height=source.height):
+            source.save(data, format='PNG')
         command = [executable, 'stdin', 'stdout', *extra_options, 'tsv']
         flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
         if cancel is None:
-            result = subprocess.run(command, input=data.getvalue(), capture_output=True,
-                                    timeout=timeout, check=True, creationflags=flags, env=environment)
+            with stage('tesseract_inference'):
+                result = subprocess.run(command, input=data.getvalue(), capture_output=True,
+                                        timeout=timeout, check=True, creationflags=flags, env=environment)
             stdout = result.stdout
         else:
-            stdout = cancellable_ocr(command, data.getvalue(), flags, cancel, timeout=timeout, env=environment)
+            with stage('tesseract_inference'):
+                stdout = cancellable_ocr(command, data.getvalue(), flags, cancel, timeout=timeout, env=environment)
         return detect_regions(stdout.decode('utf-8', errors='replace'), source.size, *settings)
 
     try:
-        boxes = run(image, ('--psm', area_layout) if area_layout else ())
+        with stage('standard_ocr_pass') as timing:
+            boxes = new_ocr_boxes(run(image, ('--psm', area_layout) if area_layout else ()))
+            if timing is not None:
+                timing['new_suggestions'] = len(boxes)
     except subprocess.TimeoutExpired as error:
         raise TimeoutError('Standard OCR timed out. Try a smaller photo or mark redactions manually.') from error
 
@@ -773,52 +874,100 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
     check_cancel()
     working = image.copy()
     working.thumbnail((2400, 2400), Image.Resampling.LANCZOS)
-    scale_x = image.width / working.width
-    scale_y = image.height / working.height
     enhancement_deadline = monotonic() + 35
 
     def note_incomplete(reason):
         if incomplete is not None:
             incomplete.append(reason)
 
-    def add_pass(source, name):
+    def add_pass(source, name, bounds=None):
         check_cancel()
         remaining = enhancement_deadline - monotonic()
         if remaining <= 0:
             note_incomplete('remaining enhancement passes skipped')
             return False
         try:
-            found = run(source, ('--psm', area_layout or '11'), timeout=min(15, remaining))
+            with stage('additional_ocr_pass', pass_name=name) as timing:
+                found = run(source, ('--psm', area_layout or '11'), timeout=min(15, remaining))
         except subprocess.TimeoutExpired:
             note_incomplete(f'{name} timed out')
             return True
         except subprocess.CalledProcessError:
             note_incomplete(f'{name} failed')
             return True
+        previous_count = len(boxes)
+        left, top, right, bottom = bounds or (0, 0, image.width, image.height)
+        scale_x = (right-left) / source.width
+        scale_y = (bottom-top) / source.height
         for x1, y1, x2, y2 in found:
-            candidate = (math.floor(x1*scale_x), math.floor(y1*scale_y),
-                         min(image.width, math.ceil(x2*scale_x)), min(image.height, math.ceil(y2*scale_y)))
+            candidate = (left+math.floor(x1*scale_x), top+math.floor(y1*scale_y),
+                         min(right, left+math.ceil(x2*scale_x)), min(bottom, top+math.ceil(y2*scale_y)))
             if not any(same_region(candidate, existing) for existing in boxes):
                 boxes.append(candidate)
+        if timing is not None:
+            timing['new_suggestions'] = len(boxes) - previous_count
         return True
 
+    if color_assisted:
+        check_cancel()
+        from ocr_preprocess import strike_reduced_variant
+        with stage('strikethrough_preprocess'):
+            strike_reduced = strike_reduced_variant(working)
+        if strike_reduced is not None and not add_pass(strike_reduced, 'strikethrough recovery'):
+            return boxes
+
     if enhanced:
-        contrast = ImageOps.autocontrast(ImageOps.grayscale(working).filter(ImageFilter.MedianFilter(3)), cutoff=1)
+        with stage('grayscale_preprocess'):
+            contrast = ImageOps.autocontrast(ImageOps.grayscale(working).filter(ImageFilter.MedianFilter(3)), cutoff=1)
         if not add_pass(contrast, 'enhanced OCR'):
             return boxes
+        if executable is None and area_layout is None:
+            from ocr_preprocess import small_text_tiles
+            for index, (bounds, tile) in enumerate(small_text_tiles(image), 1):
+                if not add_pass(tile, f'small-text section {index}', bounds):
+                    return boxes
     if color_assisted:
         check_cancel()
         from ocr_preprocess import color_ocr_variants
-        for index, variant in enumerate(color_ocr_variants(working), 1):
+        with stage('color_preprocess'):
+            variants = list(color_ocr_variants(working))
+        for index, variant in enumerate(variants, 1):
             if not add_pass(variant, f'color pass {index}'):
                 break
     return boxes
 
 
 def same_region(first, second):
+    if first == second:
+        return True
+    widths = (first[2]-first[0], second[2]-second[0])
+    heights = (first[3]-first[1], second[3]-second[1])
+    areas = (widths[0]*heights[0], widths[1]*heights[1])
     overlap = max(0, min(first[2], second[2]) - max(first[0], second[0])) * max(
         0, min(first[3], second[3]) - max(first[1], second[1]))
-    return all(overlap >= 0.75 * (box[2] - box[0]) * (box[3] - box[1]) for box in (first, second))
+    if overlap >= 0.75 * max(areas):
+        return True
+
+    # Different passes can put larger padding around the very same word.
+    # Require close centers and comparable dimensions so a word inside a much
+    # wider line, or a neighboring label whose edges touch, is still distinct.
+    center_dx = abs(first[0]+first[2]-second[0]-second[2]) / 2
+    center_dy = abs(first[1]+first[3]-second[1]-second[3]) / 2
+    return (overlap >= 0.9 * min(areas)
+            and min(widths) >= 0.45 * max(widths)
+            and min(heights) >= 0.45 * max(heights)
+            and center_dx <= 0.2 * max(widths)
+            and center_dy <= 0.2 * max(heights))
+
+
+def new_ocr_boxes(candidates, existing=()):
+    kept = list(existing)
+    added = []
+    for box in candidates:
+        if not any(same_region(box, previous) for previous in kept):
+            added.append(box)
+            kept.append(box)
+    return added
 
 
 def scan_folder_image(path, expected, executable, settings, enhanced=False, cancel=None, *, color_assisted=False, area=None):
@@ -851,6 +1000,8 @@ class FolderRedactor(Redactor):
         actions.pack(fill='x', pady=(0, 5))
         self.scan_button = ttk.Button(actions, text='Scan all', command=lambda: self.start_scan(self.entries, follow=True))
         self.scan_button.pack(side='left')
+        self.scan_selected_button = ttk.Button(actions, text='Scan selected', command=self.scan_selected)
+        self.scan_selected_button.pack(side='left', padx=(6, 0))
         self.rescan_button = ttk.Button(self.sidebar, text='Rescan all (keep boxes)', command=self.rescan_all)
         self.rescan_button.pack(fill='x', pady=(0, 5))
         self.copy_boxes_button = ttk.Button(
@@ -873,7 +1024,7 @@ class FolderRedactor(Redactor):
         self.progress_detail.pack(fill='x')
         self.folder_counts = ttk.Label(self.sidebar, anchor='w', wraplength=300)
         self.folder_counts.pack(fill='x', pady=(3, 5))
-        self.files = ttk.Treeview(self.sidebar, columns=('status',), selectmode='browse')
+        self.files = ttk.Treeview(self.sidebar, columns=('status',), selectmode='extended')
         self.files.heading('#0', text='Image')
         self.files.heading('status', text='Status')
         self.files.column('#0', width=170, minwidth=100)
@@ -944,6 +1095,7 @@ class FolderRedactor(Redactor):
         for index, entry in enumerate(self.entries):
             self.files.insert('', 'end', iid=str(index), text=entry.path.name, values=(entry.status,))
         self.files.selection_set('0')
+        self.files.focus('0')
         self.select_image()
         self.refresh_files()
 
@@ -961,7 +1113,11 @@ class FolderRedactor(Redactor):
         selection = self.files.selection()
         if not selection or not self.entries:
             return
-        index = int(selection[0])
+        focus = self.files.focus()
+        row = focus if focus in selection else str(self.active)
+        self.show_folder_image(int(row if row in selection else selection[0]))
+
+    def show_folder_image(self, index):
         if self.active == index:
             return
         self.cancel_anchor_capture()
@@ -1194,6 +1350,16 @@ class FolderRedactor(Redactor):
         self.run_jobs('Copying boxes', [(entry.path, entry.stamp) for entry in targets],
                       operation, accept, finish)
 
+    def scan_selected(self):
+        if self.busy:
+            return
+        selected = sorted(int(row) for row in self.files.selection())
+        if not selected:
+            messagebox.showinfo('Scan selected', 'Select one or more images in the folder list first.')
+            return
+        entries = [self.entries[index] for index in selected]
+        self.start_scan(entries, rescan=True, follow=True)
+
     def rescan_all(self):
         if not self.busy and self.entries and messagebox.askyesno(
                 'Rescan all images?', 'Keep existing boxes and add new suggestions. All rescanned images will need review again.'):
@@ -1231,10 +1397,9 @@ class FolderRedactor(Redactor):
 
         def show_image(index):
             row = rows[pending[index].path]
-            if self.files.selection() != (row,):
-                self.files.selection_set(row)
+            self.files.focus(row)
             self.files.see(row)
-            self.select_image()
+            self.show_folder_image(int(row))
 
         def operation(job):
             path, stamp = job
@@ -1260,17 +1425,18 @@ class FolderRedactor(Redactor):
                 show_image(index)
             entry.stamp = stamp
             if area is None:
-                entry.add_suggestions(found, incomplete)
+                count = entry.add_suggestions(found, incomplete)
                 changed = True
             else:
-                changed = entry.add_shared_boxes([box for box in found if box not in entry.boxes])
+                added = new_ocr_boxes(found, entry.boxes)
+                count = len(added)
+                changed = entry.add_shared_boxes(added)
             if self.active is not None and entry is self.entries[self.active] and self.image is not None:
                 if changed:
                     self.confirmed = False
                     self.render()
-                count = len(set(found))
                 detail = f' Partial scan: {", ".join(incomplete)}.' if incomplete else ''
-                self.status.config(text=f'{entry.path.name} · {count} OCR suggestions.{detail} Review before confirming.')
+                self.status.config(text=f'{entry.path.name} · {count} new OCR suggestions.{detail} Review before confirming.')
 
         def finish():
             if area is not None:
@@ -1285,7 +1451,12 @@ class FolderRedactor(Redactor):
             processed.append(pending[index])
 
         self.run_jobs('Scanning area' if area is not None else 'Scanning', jobs, operation, track_result, finish, cancel=cancel,
-                      show_image=show_image if follow else None)
+                      show_image=show_image if follow else None, metrics_settings={
+                          'engine': self.ocr_engine.get(), 'confidence': confidence, 'enhanced': enhanced,
+                          'color_assisted': color_assisted, 'sensitivity': self.sensitivity.get(),
+                          'builtin_category_count': len(categories), 'custom_pattern_enabled': bool(custom),
+                          'all_text': self.all_text.get(),
+                      })
 
     def cancel_scan(self):
         if self.scan_cancel is not None:
@@ -1293,7 +1464,7 @@ class FolderRedactor(Redactor):
             self.cancel_scan_button.state(['disabled'])
             self.progress.config(text='Canceling scan…')
 
-    def run_jobs(self, label, jobs, operation, accept, finish=None, *, cancel=None, show_image=None):
+    def run_jobs(self, label, jobs, operation, accept, finish=None, *, cancel=None, show_image=None, metrics_settings=None):
         if not jobs or self.busy:
             return
         self.cancel_anchor_capture()
@@ -1303,12 +1474,14 @@ class FolderRedactor(Redactor):
             self.cancel_scan_button.state(['!disabled'])
         self.match_boxes_button.state(['disabled'])
         self.scan_button.state(['disabled'])
+        self.scan_selected_button.state(['disabled'])
         self.rescan_button.state(['disabled'])
         self.copy_boxes_button.state(['disabled'])
         results = Queue()
         failures = []
         completed = 0
         total = len(jobs)
+        trace = PerformanceRun(label, total, metrics_settings)
         advance = Event() if show_image is not None else None
         self.progress_bar.configure(value=0, maximum=total)
 
@@ -1338,12 +1511,17 @@ class FolderRedactor(Redactor):
                     if cancel is not None and cancel.is_set():
                         break
                     try:
-                        results.put((index, operation(job), None))
+                        with trace.image(index) as metrics:
+                            result = operation(job)
+                            if cancel is not None and isinstance(result, tuple) and len(result) == 3:
+                                metrics.update(suggestions=len(result[1]), incomplete_passes=len(result[2]))
+                        results.put((index, result, None))
                     except ScanCancelled:
                         break
                     except Exception as error:
                         results.put((index, None, str(error)))
             finally:
+                trace.finish(stopped=cancel is not None and cancel.is_set())
                 results.put(None)
 
         def poll():
@@ -1381,6 +1559,7 @@ class FolderRedactor(Redactor):
                 self.cancel_scan_button.state(['disabled'])
                 self.match_boxes_button.state(['!disabled'])
                 self.scan_button.state(['!disabled'])
+                self.scan_selected_button.state(['!disabled'])
                 self.rescan_button.state(['!disabled'])
                 self.copy_boxes_button.state(['!disabled'])
                 self.refresh_files()
@@ -1393,6 +1572,8 @@ class FolderRedactor(Redactor):
                     detail += f' · {total-completed} remaining'
                 if failures:
                     detail += f' · {len(failures)} failed'
+                if not trace.available:
+                    detail += ' · performance log unavailable'
                 self.progress_detail.config(text=detail)
                 if failures:
                     messagebox.showwarning(label, f'{len(failures)} of {len(jobs)} failed. First error:\n{failures[0]}')
@@ -1476,18 +1657,32 @@ class FolderRedactor(Redactor):
                 return
             self.export_entries([(self.active, entry)], individual=True)
 
+    def confirm_selection(self):
+        if self.busy:
+            return
+        selected = self.files.selection() if self.entries else ()
+        if len(selected) > 1:
+            self.confirm_entries([self.entries[int(row)] for row in selected], 'Confirm selected images')
+        else:
+            super().confirm_selection()
+
     def confirm_all(self):
-        if self.busy or not self.entries:
-            return
+        if not self.busy and self.entries:
+            self.confirm_entries(self.entries, 'Confirm all')
+
+    def confirm_entries(self, entries, title):
         self.store_active()
-        pending = [entry for entry in self.entries if entry.selected and not entry.error and not entry.incomplete_ocr and not entry.reviewed]
+        pending = [entry for entry in entries if entry.selected and not entry.error and not entry.reviewed]
         if not pending:
-            messagebox.showinfo('Confirm all', 'No images with selected boxes are awaiting confirmation.')
+            messagebox.showinfo(title, 'No eligible images are awaiting confirmation. '
+                                'Check whether they are already reviewed, have no selected boxes, or have a scan error.')
             return
-        if not messagebox.askyesno(
-                'Confirm all?',
-                f'Apply {self.method.get()} to the selected boxes on {len(pending)} image(s)? '
-                'Images without selected boxes, with partial scans, or with errors will be skipped.'):
+        partial_count = sum(bool(entry.incomplete_ocr) for entry in pending)
+        prompt = f'Apply {self.method.get()} to the selected boxes on {len(pending)} image(s)?'
+        if partial_count:
+            prompt += (f'\n\n{partial_count} image(s) have partial scans. '
+                       'Confirm only if you have checked those images for missed sensitive text.')
+        if not messagebox.askyesno(title, prompt):
             return
         for entry in pending:
             entry.reviewed = True
@@ -1562,7 +1757,9 @@ class FolderRedactor(Redactor):
                 entry.error = ''
                 self.status.config(text=f'Saved {target.name} to {target.parent}')
 
-        self.run_jobs('Saving', snapshots, operation, accept)
+        self.run_jobs('Saving', snapshots, operation, accept, metrics_settings={
+            'method': self.method.get(), 'coordinate_logs': include_log,
+        })
 
 
 if __name__ == '__main__':
