@@ -66,6 +66,15 @@ Item {
             font.pixelSize: 10
             font.letterSpacing: 0.6
         }
+
+        ConcourseButton {
+            Layout.preferredHeight: 26
+            text: "COPY IMAGE"
+            compact: true
+            visible: Backend.confirmed
+            enabled: !Backend.busy
+            onClicked: Backend.copyRedacted()
+        }
     }
 
     Item {

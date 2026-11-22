@@ -130,6 +130,11 @@ Window {
     }
 
     Shortcut {
+        sequence: "Ctrl+C"
+        onActivated: Backend.copyRedacted()
+    }
+
+    Shortcut {
         sequence: "Ctrl+F"
         onActivated: Backend.find()
     }

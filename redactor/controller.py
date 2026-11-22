@@ -247,6 +247,14 @@ class Controller(QObject):
         self.status_text = text
         self.statusChanged.emit()
 
+    def _pil_to_qimage(self, image):
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        raw = image.tobytes('raw', 'RGB')
+        return QImage(
+            raw, image.width, image.height, image.width * 3, QImage.Format.Format_RGB888
+        ).copy()
+
     def _refresh_display(self):
         image = self.review.image
         if image is not None and self.review.confirmed:
@@ -254,12 +262,7 @@ class Controller(QObject):
         if image is None:
             self._display_qimage = QImage()
         else:
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-            raw = image.tobytes('raw', 'RGB')
-            self._display_qimage = QImage(
-                raw, image.width, image.height, image.width * 3, QImage.Format.Format_RGB888
-            ).copy()
+            self._display_qimage = self._pil_to_qimage(image)
         self.image_revision += 1
         self.imageRevisionChanged.emit()
 
@@ -1562,6 +1565,27 @@ class Controller(QObject):
             self._info('Save reviewed images', 'Confirm the selection on each image you want to save.')
             return
         self._export_entries(pending)
+
+    @Slot()
+    def copyRedacted(self):
+        if self.review.image is None:
+            return
+        if not self.review.confirmed:
+            self._set_status('Confirm selection to copy the redacted image.')
+            return
+        if not self.review.selected and not self._ask(
+                'No redactions', 'No areas are selected. Copy the unredacted image?'):
+            return
+        if self._display_qimage.isNull():
+            self._error('Copy failed', 'The preview is not available.')
+            return
+        QGuiApplication.clipboard().setImage(self._display_qimage.copy())
+        if self.review.selected:
+            self._set_status(
+                f'Copied the redacted image with {len(self.review.selected)} area(s) to the clipboard.'
+            )
+        else:
+            self._set_status('Copied the unredacted image to the clipboard.')
 
     @Slot()
     def save(self):

@@ -6,9 +6,11 @@ Open an image and use Find likely identifiers to draw suggested boxes. Scanning 
 
 Use the mouse wheel over the image to zoom in or out around the pointer. Right-click and drag to move around while zoomed in. Zoom does not change the saved image. The bottom signal board always shows the selected, excluded, and total box counts plus whether the preview is applied or still a draft.
 
-**Keyboard:** Ctrl+O opens an image, Ctrl+Shift+O opens a folder, Ctrl+F scans the current image, Ctrl+Z undoes the last box, Ctrl+S saves, Ctrl+V pastes an image, and Esc cancels an area or anchor drag. Tab reaches the toolbar buttons.
+**Keyboard:** Ctrl+O opens an image, Ctrl+Shift+O opens a folder, Ctrl+F scans the current image, Ctrl+Z undoes the last box, Ctrl+S saves, Ctrl+V pastes an image, Ctrl+C copies the confirmed image, and Esc cancels an area or anchor drag. Tab reaches the toolbar buttons.
 
 Use **PASTE** or Ctrl+V to open an image from the clipboard; a copied image or copied image file works. Drop an image anywhere on the window to open it, or drop a folder to open it in folder mode. The window shows an amber drop target while you drag.
+
+Once you confirm the selection, a **COPY IMAGE** action appears in the viewer caption. It copies the applied, redacted preview to the system clipboard; paste it into any application or sharing service you use.
 
 ## Work through a folder
 
@@ -62,9 +64,13 @@ Pixelation changes only marked rectangles, using coarse blocks, but it can leave
 - Run `.venv\Scripts\python.exe performance_log.py` to summarize the most recent trace, or pass a trace path to inspect a specific run. It reports mean and 95th-percentile timings and, for new OCR runs, how many new suggestions each pass contributed after deduplication within the image scan. Pass timings include their nested OCR and matching stages, so those numbers should not be added together.
 - PNGs use lossless compression level 3 to reduce save time. They are encoded to temporary files in the output folder before publishing. Interrupted encoding can leave a temporary file, but it does not publish a partial PNG.
 
+## Sharing
+
+**Copy image** puts the confirmed, redacted preview on the local clipboard so you can paste it into chat, a ticket, documentation, or a sharing service you already use. **Save redacted copy** writes a PNG and coordinate log. The application itself makes no network calls and has no direct upload integrations; sharing always happens through your own clipboard or file workflow.
+
 ## Desktop interface
 
-`launch.bat` starts the cross-platform PySide6 + Qt Quick app. The interface is a dark review board: the screenshot sits in a recessed card, amber marks selected boxes and the primary action, red marks excluded boxes, and a bottom signal board keeps the selected, excluded, and total counts visible. Settings open in a separate window with Detection, Redaction, Folder output, and Diagnostics tabs. Apply or close that window with its X to save preferences; Cancel or Escape discards edits. Files can be opened, pasted, or dragged onto the window. The original Tkinter interface is retained only as design history in `DESIGN.incumbent.md`.
+`launch.bat` starts the cross-platform PySide6 + Qt Quick app. The interface is a dark review board: the screenshot sits in a recessed card, amber marks selected boxes and the primary action, red marks excluded boxes, and a bottom signal board keeps the selected, excluded, and total counts visible. Settings open in a separate window with Detection, Redaction, Folder output, and Diagnostics tabs. Apply or close that window with its X to save preferences; Cancel or Escape discards edits. Files can be opened, pasted, or dragged onto the window; a confirmed image can be copied to the clipboard from the viewer caption. The original Tkinter interface is retained only as design history in `DESIGN.incumbent.md`.
 
 For custom short codes that can occur inside underscore-separated names, use alphanumeric boundaries such as `(?<![A-Za-z0-9])(?:abc|xyz)(?![A-Za-z0-9])`. The ordinary regex word boundary `\b` treats underscores as part of a word. The Infrastructure category also matches environment-qualified names such as `ABC_PROD_MOBILE`, and bare merge-request numbers such as `!42` are left alone unless a custom rule explicitly matches them.
 
