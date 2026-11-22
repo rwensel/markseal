@@ -3,14 +3,16 @@ import subprocess
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from offline_redactor import PRESETS, FolderImage, recognize_regions, new_ocr_boxes
 from PIL import Image
-from offline_redactor import pixelate, detect_regions, Redactor, apply_redactions
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from types import SimpleNamespace
 from rapidocr_backend import result_to_tsv
-from offline_redactor import save_export
 from performance_log import PerformanceRun, stage
+from redactor.core import (
+    PRESETS, FolderImage, apply_redactions, detect_regions, new_ocr_boxes,
+    pixelate, recognize_regions, save_export,
+)
+from redactor.review import Review
 
 class RedactionTests(unittest.TestCase):
     def test_pixelate_preserves_pixels_outside_box(self):
@@ -29,57 +31,54 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(out.getpixel((20, 20)), (255, 255, 255))
 
     def test_select_confirm_and_change_selection(self):
-        app = Redactor.__new__(Redactor)
-        app.image = Image.new('RGB', (200, 200)); app.scale = 0.5
-        app.offset_x = 0; app.offset_y = 0
-        app.boxes = [(10, 10, 60, 60), (80, 80, 110, 110)]
-        app.selected = set(); app.confirmed = False
-        app.path = SimpleNamespace(name='test.png')
-        app.status = Mock(); app.render = Mock()
-        app.start = (15, 15); app.up(SimpleNamespace(x=15, y=15))
-        self.assertEqual(app.selected, {0})
-        self.assertEqual(app.selected_boxes(), [(10, 10, 60, 60)])
-        app.confirm_selection(); self.assertTrue(app.confirmed)
-        app.start = (15, 15); app.up(SimpleNamespace(x=15, y=15))
-        self.assertEqual(app.selected, set()); self.assertFalse(app.confirmed)
-        app.start = (60, 60); app.up(SimpleNamespace(x=80, y=80))
-        self.assertEqual(app.boxes[-1], (120, 120, 161, 161))
-        self.assertIn(2, app.selected)
+        review = Review()
+        review.load(Image.new('RGB', (200, 200)), Path('test.png'))
+        review.set_view_size(100, 100)
+        review.boxes = [(10, 10, 60, 60), (80, 80, 110, 110)]
+        review.selected = set()
+        review.confirmed = False
+        review.press(15, 15)
+        review.release(15, 15)
+        self.assertEqual(review.selected, {0})
+        self.assertEqual(review.selected_boxes(), [(10, 10, 60, 60)])
+        review.confirmed = True
+        review.press(15, 15)
+        review.release(15, 15)
+        self.assertEqual(review.selected, set())
+        self.assertFalse(review.confirmed)
+        review.press(60, 60)
+        review.release(80, 80)
+        self.assertEqual(review.boxes[-1], (120, 120, 161, 161))
+        self.assertIn(2, review.selected)
 
     def test_new_suggestions_start_selected_without_reselecting_existing(self):
-        app = Redactor.__new__(Redactor)
-        app.image = Image.new('RGB', (200, 200)); app.boxes = [(1, 1, 10, 10)]
-        app.selected = set(); app.confirmed = True
-        app.all_text = Mock(); app.all_text.get.return_value = False
-        app.confidence = Mock(); app.confidence.get.return_value = 50
-        app.custom_pattern = Mock(); app.custom_pattern.get.return_value = ''
-        app.category_vars = {}
-        app.enhanced_ocr = Mock(); app.enhanced_ocr.get.return_value = False
-        app.color_ocr = Mock(); app.color_ocr.get.return_value = False
-        app.ocr_engine = Mock(); app.ocr_engine.get.return_value = "Tesseract"
-        app.sensitivity = Mock(); app.sensitivity.get.return_value = "Focused"
-        app.render = Mock(); app.status = Mock()
-        result = SimpleNamespace(stdout=b'tsv')
-        with patch('offline_redactor.find_tesseract', return_value='ocr'), \
-             patch('offline_redactor.subprocess.run', return_value=result), \
-             patch('offline_redactor.detect_regions', return_value=[(1, 1, 10, 10), (20, 20, 40, 40)]), \
-             patch('offline_redactor.messagebox.showinfo'), \
-             patch('offline_redactor.PerformanceRun'):
-            app.find()
-        self.assertEqual(app.selected, {1})
-        self.assertFalse(app.confirmed)
+        review = Review()
+        review.image = Image.new('RGB', (200, 200))
+        review.boxes = [(1, 1, 10, 10)]
+        review.selected = set()
+        review.confirmed = True
+        added = review.add_suggestions([(1, 1, 10, 10), (20, 20, 40, 40)])
+        self.assertEqual(added, 1)
+        self.assertEqual(review.selected, {1})
+        self.assertFalse(review.confirmed)
 
     def test_zoom_keeps_pointer_location_and_selection_coordinates(self):
-        app = Redactor.__new__(Redactor)
-        app.image = Image.new('RGB', (1000, 1000))
-        app.canvas = Mock(); app.canvas.winfo_width.return_value = 500; app.canvas.winfo_height.return_value = 500
-        app.zoom = 1.0; app.scale = 0.5; app.offset_x = 0; app.offset_y = 0
-        app.pan_start = None
-        app.render = Mock()
-        app.mouse_zoom(SimpleNamespace(x=250, y=250, delta=120, num=None))
-        self.assertAlmostEqual((250-app.offset_x) / app.scale, 500)
-        self.assertAlmostEqual((250-app.offset_y) / app.scale, 500)
-        self.assertGreater(app.scale, 0.5)
+        review = Review()
+        review.load(Image.new('RGB', (1000, 1000)), Path('test.png'))
+        review.set_view_size(500, 500)
+        self.assertAlmostEqual(review.scale, 0.5)
+        self.assertTrue(review.zoom_at(250, 250, 1))
+        self.assertAlmostEqual((250-review.offset_x) / review.scale, 500)
+        self.assertAlmostEqual((250-review.offset_y) / review.scale, 500)
+        self.assertGreater(review.scale, 0.5)
+
+    def test_small_image_is_centered_in_the_view(self):
+        review = Review()
+        review.load(Image.new('RGB', (200, 100)), Path('small.png'))
+        review.set_view_size(500, 400)
+        self.assertEqual(review.scale, 1.0)
+        self.assertAlmostEqual(review.offset_x, 150)
+        self.assertAlmostEqual(review.offset_y, 150)
 
     def test_confidence_patterns_and_word_boundaries(self):
         tsv = ('level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
@@ -90,6 +89,33 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(detect_regions(tsv, (300,100), categories={'URLs'}, min_confidence=50), [])
         self.assertEqual(len(detect_regions(tsv, (300,100), all_text=True, min_confidence=50)), 2)
         self.assertEqual(detect_regions(tsv, (300,100), categories=set(), custom_pattern='Contact', min_confidence=50), [(6,16,44,34)])
+
+    def test_credential_values_cover_password_and_bearer_without_the_label_or_status(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        rows = [
+            (1, 20, 20, 80, 24, 'Password'),
+            (2, 240, 21, 165, 23, 'DemoOnly_Pass-91!q'),
+            (3, 750, 23, 90, 25, 'Local testing'),
+            (4, 20, 65, 106, 24, 'Bearer token'),
+            (5, 240, 66, 58, 23, 'Bearer'),
+            (5, 306, 66, 165, 24, 'fixture.VeryLongSyntheticToken'),
+            (6, 750, 67, 83, 23, 'Read only'),
+            (7, 20, 110, 80, 24, 'Password'),
+            (8, 750, 110, 90, 24, 'Local testing'),
+        ]
+        tsv = header + ''.join(f'1\t1\t1\t{line}\t{x}\t{y}\t{w}\t{h}\t95\t{text}\n'
+                               for line,x,y,w,h,text in rows)
+        self.assertCountEqual(detect_regions(tsv, (1000, 160), categories={'Secrets'}),
+                              [(236, 17, 409, 48), (236, 62, 475, 94)])
+        self.assertEqual(detect_regions(tsv, (1000, 160), categories=set()), [])
+
+    def test_inline_secret_assignment_spans_the_value_only(self):
+        tsv = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+               '1\t1\t1\t1\t10\t10\t80\t20\t95\tPassword:\n'
+               '1\t1\t1\t1\t95\t10\t53\t20\t95\t"""alpha"\n'
+               '1\t1\t1\t1\t155\t10\t46\t20\t95\tbeta"\n')
+        self.assertCountEqual(detect_regions(tsv, (320, 100), categories={'Secrets'}),
+                              [(91, 6, 205, 34)])
 
     def test_focused_detects_infrastructure_and_credentials(self):
         lines = [
@@ -114,9 +140,9 @@ class RedactionTests(unittest.TestCase):
         incomplete = []
         box = (10, 10, 70, 35)
         standard = SimpleNamespace(stdout=b'tsv')
-        with patch('offline_redactor.subprocess.run', side_effect=[
+        with patch('redactor.core.subprocess.run', side_effect=[
             standard, subprocess.TimeoutExpired('ocr', 15),
-        ]) as run, patch('offline_redactor.detect_regions', return_value=[box]):
+        ]) as run, patch('redactor.core.detect_regions', return_value=[box]):
             result = recognize_regions(image, 'ocr', (False,), enhanced=True, incomplete=incomplete)
         self.assertEqual(result, [box])
         self.assertEqual(incomplete, ['enhanced OCR timed out'])

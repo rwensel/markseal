@@ -1,10 +1,8 @@
 # Offline Screenshot Redactor — Modernization Plan & Handoff
 
-<!-- Generated 2026-11-22. Hand this file to the implementation agent. -->
-
 ## Status
 
-Planning and design direction are complete and confirmed. This file is the implementation contract.
+Implemented as a PySide6 6.9 + Qt Quick (QML) app. The shell, viewer, folder sidebar, settings window, and signal board live in `redactor/qml/`; domain logic is in `redactor/core.py`, shared review state in `redactor/review.py`, and the QML bridge in `redactor/controller.py`. `offline_redactor.py` remains the launcher. Behavior is unchanged; the Tkinter interface is retired.
 
 ## One-line summary
 
@@ -54,7 +52,7 @@ No image; image open; scan running; partial scan; boxes selected / excluded / dr
 ## Constraints and open decisions
 
 - PySide6 + Qt Quick (QML) binding; cross-platform (Windows/macOS/Linux); offline only.
-- Open for the build (resolve at implementation, do not invent now): exact display/body font faces, flip-tile transition timing, and the final token pass (values in DESIGN.md are directional).
+- Resolved at build: Bahnschrift Condensed is the display face on Windows (Avenir Next Condensed and Roboto Condensed are the macOS/Linux fallbacks) with Inter/Segoe UI for body; the flip transition is 110ms out and 150ms in; the final tokens and component inventory are in DESIGN.md.
 
 ## Direction contract
 
@@ -73,13 +71,15 @@ No image; image open; scan running; partial scan; boxes selected / excluded / dr
 ## Files and references
 
 - `PRODUCT.md` — durable product truth (users, purpose, constraints, commitments). Read first.
-- `DESIGN.md` — the target visual system (seed; final tokens extracted after the build).
-- `DESIGN.incumbent.md` — the incumbent Tkinter system (anti-reference; what is being replaced).
+- `DESIGN.md` — the implemented visual system: final tokens, components, and rules.
+- `DESIGN.incumbent.md` — the retired Tkinter system (design history only).
 - `world-picker.html` — temporary visual comparison (14 candidate mockups; Split-flap Concourse is the chosen one).
-- `offline_redactor.py`, `rapidocr_backend.py`, `ocr_preprocess.py`, `visual_anchor.py`, `performance_log.py`, `audit_exports.py` — current implementation; behavior to preserve.
+- `offline_redactor.py` — launcher; re-exports the public core names used by `audit_exports.py`.
+- `redactor/core.py`, `redactor/review.py`, `redactor/controller.py`, `redactor/app.py`, `redactor/qml/` — the PySide6/Qt Quick implementation; behavior to preserve.
+- `rapidocr_backend.py`, `ocr_preprocess.py`, `visual_anchor.py`, `performance_log.py`, `audit_exports.py` — support modules; behavior to preserve.
 - `README.md` — full user-facing behavior.
 - `test_offline_redactor.py` — regression tests.
-- `.impeccable/design.json` — incumbent sidecar; regenerate at build.
+- `.impeccable/design.json` — local design sidecar; not shipped.
 
 ## What the implementation must preserve (from PRODUCT.md)
 
@@ -88,3 +88,11 @@ No image; image open; scan running; partial scan; boxes selected / excluded / dr
 - Never overwrite originals; export PNG copies plus an optional JSON coordinate log.
 - Detection: Tesseract + optional RapidOCR; pattern categories (emails, URLs, IPs, tickets, paths, hashes, secrets, infrastructure); presets Focused/Balanced/Broad plus a custom regex.
 - Redaction methods: pixelation (coarse mosaic) and solid black.
+
+## Implementation notes
+
+- `offline_redactor.py` is a thin launcher and keeps re-exporting the public core names used by `audit_exports.py`.
+- Single-image scanning remains synchronous, matching the incumbent; folder scans, box copying, visual-anchor matching, and exports run through the controller's background worker with a determinate progress board and cancel support.
+- File and message dialogs are native (`QFileDialog`, `QMessageBox`) so overwrite, discard, and partial-scan prompts stay behaviorally identical.
+- The interface ships no raster assets: the brand mark, flip tiles, shadows, and icons are drawn in QML, so there are no image provenance records to carry.
+- Verified with `python -m unittest -v`, a real-window walkthrough of image review and folder export, an offscreen QML load with no warnings, a local Tesseract scan, and an `audit_exports.py` pass over an exported PNG.
