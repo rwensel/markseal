@@ -236,6 +236,10 @@ def write_preferences(path, preferences):
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff'}
 
 
+def batch_worker_count(requested, job_count, limit):
+    return max(1, min(int(requested), max(1, int(job_count)), max(1, int(limit))))
+
+
 @dataclass
 class FolderImage:
     path: Path

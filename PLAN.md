@@ -94,5 +94,6 @@ No image; image open; scan running; partial scan; boxes selected / excluded / dr
 - `offline_redactor.py` is a thin launcher and keeps re-exporting the public core names used by `audit_exports.py`.
 - Single-image scanning remains synchronous, matching the incumbent; folder scans, box copying, visual-anchor matching, and exports run through the controller's background worker with a determinate progress board and cancel support.
 - File and message dialogs are native (`QFileDialog`, `QMessageBox`) so overwrite, discard, and partial-scan prompts stay behaviorally identical.
+- Follow-up capabilities: configurable parallel image jobs (default one, bounded by processor count, RapidOCR scans serialized), per-image queued/running progress in the folder list, clipboard image paste, and image/folder drag-and-drop.
 - The interface ships no raster assets: the brand mark, flip tiles, shadows, and icons are drawn in QML, so there are no image provenance records to carry.
 - Verified with `python -m unittest -v`, a real-window walkthrough of image review and folder export, an offscreen QML load with no warnings, a local Tesseract scan, and an `audit_exports.py` pass over an exported PNG.

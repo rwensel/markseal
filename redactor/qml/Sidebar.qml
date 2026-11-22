@@ -312,7 +312,7 @@ Item {
             delegate: Rectangle {
                 id: row
                 width: fileList.width
-                height: 44
+                height: 48
                 radius: 6
                 color: model.active ? "#25292E"
                        : model.selected ? "#1D2024"
@@ -325,7 +325,7 @@ Item {
                     anchors.leftMargin: 5
                     anchors.verticalCenter: parent.verticalCenter
                     width: 3
-                    height: parent.height - 14
+                    height: parent.height - 16
                     radius: 1.5
                     color: Theme.amber
                     visible: model.active
@@ -337,6 +337,7 @@ Item {
                     anchors.right: parent.right
                     anchors.rightMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: -2
                     spacing: 1
 
                     Text {
@@ -350,9 +351,12 @@ Item {
 
                     Text {
                         width: parent.width
-                        text: model.status
+                        text: model.jobState === "running"
+                              ? Backend.busyLabel.toUpperCase() + "..."
+                              : model.jobState === "queued" ? "QUEUED" : model.status
                         elide: Text.ElideRight
-                        color: model.hasError || model.partial ? Theme.red
+                        color: model.jobState !== "" ? Theme.amber
+                               : model.hasError || model.partial ? Theme.red
                                : model.saved ? Theme.steelLight
                                : model.reviewed ? Theme.amber
                                : model.scanned ? Theme.white
@@ -360,6 +364,39 @@ Item {
                         font.family: Backend.displayFont
                         font.pixelSize: 9
                         font.letterSpacing: 0.5
+                    }
+                }
+
+                Rectangle {
+                    id: activity
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 10
+                    anchors.bottomMargin: 5
+                    height: 2
+                    radius: 1
+                    color: "#1AFFB000"
+                    visible: model.jobState !== ""
+
+                    Rectangle {
+                        width: 54
+                        height: 2
+                        radius: 1
+                        color: Theme.amber
+                        opacity: model.jobState === "queued" ? 0.35 : 1
+
+                        SequentialAnimation on x {
+                            running: model.jobState === "running"
+                            loops: Animation.Infinite
+                            NumberAnimation {
+                                from: -54
+                                to: activity.width - 54
+                                duration: 900
+                                easing.type: Easing.InOutQuad
+                            }
+                        }
                     }
                 }
 

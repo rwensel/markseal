@@ -33,6 +33,7 @@ Window {
     property string outputValue: ""
     property string templateValue: ""
     property bool includeLogValue: true
+    property int parallelValue: 1
 
     function openSettings() {
         selectedCategories = Backend.categories.slice(0)
@@ -47,6 +48,7 @@ Window {
         outputValue = Backend.outputDirectory
         templateValue = Backend.filenameTemplate
         includeLogValue = Backend.includeLog
+        parallelValue = Backend.parallelImages
         tab = "detection"
         errorText = ""
         engineCombo.currentIndex = Math.max(0, engineCombo.find(engineValue))
@@ -56,6 +58,7 @@ Window {
         outputField.text = outputValue
         templateField.text = templateValue
         confidenceSpin.value = confidenceValue
+        parallelSpin.value = parallelValue
         visible = true
         raise()
     }
@@ -65,10 +68,14 @@ Window {
         if (!isNaN(typedConfidence)) {
             confidenceValue = Math.max(0, Math.min(100, typedConfidence))
         }
+        var typedParallel = parseInt(parallelSpin.contentItem.text)
+        if (!isNaN(typedParallel)) {
+            parallelValue = Math.max(1, Math.min(Backend.parallelLimit, typedParallel))
+        }
         var error = Backend.applySettings(
             sensitivityValue, confidenceValue, allTextValue, enhancedValue, colorValue,
             engineValue, patternValue, selectedCategories, methodValue,
-            outputValue, templateValue, includeLogValue
+            outputValue, templateValue, includeLogValue, parallelValue
         )
         if (error.length > 0) {
             errorText = error
@@ -245,69 +252,28 @@ Window {
 
                             FieldLabel { text: "MIN OCR CONFIDENCE (0-100)" }
 
-                            SpinBox {
+                            ConcourseSpinBox {
                                 id: confidenceSpin
                                 Layout.preferredWidth: 130
-                                implicitHeight: 34
                                 from: 0
                                 to: 100
-                                editable: true
                                 onValueModified: settings.confidenceValue = value
+                            }
 
-                                contentItem: TextInput {
-                                    text: confidenceSpin.textFromValue(confidenceSpin.value, confidenceSpin.locale)
-                                    font.family: Backend.bodyFont
-                                    font.pixelSize: 12
-                                    color: Theme.white
-                                    selectionColor: Theme.amber
-                                    selectedTextColor: Theme.ink
-                                    horizontalAlignment: Qt.AlignLeft
-                                    leftPadding: 10
-                                    rightPadding: 28
-                                    verticalAlignment: TextInput.AlignVCenter
-                                    readOnly: !confidenceSpin.editable
-                                    validator: confidenceSpin.validator
-                                    inputMethodHints: Qt.ImhDigitsOnly
-                                }
+                            FieldLabel { text: "PARALLEL IMAGE JOBS (1-" + Backend.parallelLimit + ")" }
 
-                                up.indicator: Rectangle {
-                                    x: confidenceSpin.width - 26
-                                    y: 1
-                                    width: 25
-                                    height: (confidenceSpin.height - 3) / 2
-                                    color: "transparent"
+                            ConcourseSpinBox {
+                                id: parallelSpin
+                                Layout.preferredWidth: 130
+                                from: 1
+                                to: Backend.parallelLimit
+                                onValueModified: settings.parallelValue = value
+                            }
 
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "+"
-                                        color: Theme.steelLight
-                                        font.family: Backend.displayFont
-                                        font.pixelSize: 12
-                                    }
-                                }
-
-                                down.indicator: Rectangle {
-                                    x: confidenceSpin.width - 26
-                                    y: (confidenceSpin.height + 1) / 2
-                                    width: 25
-                                    height: (confidenceSpin.height - 3) / 2
-                                    color: "transparent"
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "-"
-                                        color: Theme.steelLight
-                                        font.family: Backend.displayFont
-                                        font.pixelSize: 12
-                                    }
-                                }
-
-                                background: Rectangle {
-                                    radius: 6
-                                    color: "#0F1114"
-                                    border.width: 1
-                                    border.color: confidenceSpin.activeFocus ? Theme.amber : "#2A2D31"
-                                }
+                            HintText {
+                                Layout.fillWidth: true
+                                text: "Higher values process multiple images at once in folder scans, copying, matching, and export. "
+                                      + "Local OCR can use significant CPU and memory. RapidOCR scans stay serialized."
                             }
 
                             ToggleRow {

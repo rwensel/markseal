@@ -6,6 +6,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
+from threading import RLock
 from time import perf_counter
 from uuid import uuid4
 
@@ -62,6 +63,7 @@ class PerformanceRun:
         self.failed = 0
         self.canceled = 0
         self.available = True
+        self._lock = RLock()
         self.write({'event': 'start', 'utc': timestamp(), 'operation': operation,
                     'planned_images': total, 'settings': settings or {}})
 
@@ -69,9 +71,10 @@ class PerformanceRun:
         if not self.available:
             return
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            with self.path.open('a', encoding='utf-8') as file:
-                file.write(json.dumps(entry) + '\n')
+            with self._lock:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                with self.path.open('a', encoding='utf-8') as file:
+                    file.write(json.dumps(entry) + '\n')
         except OSError:
             self.available = False
 
@@ -80,32 +83,37 @@ class PerformanceRun:
         start = now_ms()
         stages = []
         token = _current.set((start, stages))
-        item = {'event': 'image', 'image_index': index+1, 'gap_ms': round(start-self.previous_end, 2),
+        with self._lock:
+            gap = start - self.previous_end
+        item = {'event': 'image', 'image_index': index+1, 'gap_ms': round(gap, 2),
                 'outcome': 'ok', 'stages': stages}
         try:
             yield item
         except Exception as error:
             item['error_type'] = type(error).__name__
-            if item['error_type'] == 'ScanCancelled':
-                self.canceled += 1
-                item['outcome'] = 'canceled'
-            else:
-                self.failed += 1
-                item['outcome'] = 'failed'
+            with self._lock:
+                if item['error_type'] == 'ScanCancelled':
+                    self.canceled += 1
+                    item['outcome'] = 'canceled'
+                else:
+                    self.failed += 1
+                    item['outcome'] = 'failed'
             raise
         finally:
             _current.reset(token)
-            self.previous_end = now_ms()
-            elapsed = round(self.previous_end-start, 2)
-            self.durations.append(elapsed)
-            item['elapsed_ms'] = elapsed
-            self.write(item)
+            with self._lock:
+                self.previous_end = now_ms()
+                elapsed = round(self.previous_end-start, 2)
+                self.durations.append(elapsed)
+                item['elapsed_ms'] = elapsed
+                self.write(item)
 
     def finish(self, stopped=False):
-        self.write({'event': 'finish', 'utc': timestamp(), 'wall_ms': round(now_ms()-self.started, 2),
-                    'attempted': len(self.durations), 'failed': self.failed,
-                    'canceled_images': self.canceled, 'stopped': stopped,
-                    'average_image_ms': round(sum(self.durations)/len(self.durations), 2) if self.durations else None})
+        with self._lock:
+            self.write({'event': 'finish', 'utc': timestamp(), 'wall_ms': round(now_ms()-self.started, 2),
+                        'attempted': len(self.durations), 'failed': self.failed,
+                        'canceled_images': self.canceled, 'stopped': stopped,
+                        'average_image_ms': round(sum(self.durations)/len(self.durations), 2) if self.durations else None})
 
 
 

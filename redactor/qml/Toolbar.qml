@@ -125,6 +125,13 @@ Item {
         }
 
         ConcourseButton {
+            text: "PASTE"
+            compact: true
+            enabled: !Backend.busy
+            onClicked: Backend.pasteImage()
+        }
+
+        ConcourseButton {
             text: "SCAN"
             compact: true
             enabled: Backend.hasImage && !Backend.busy

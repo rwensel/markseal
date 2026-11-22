@@ -62,6 +62,51 @@ Window {
         parentWindow: root
     }
 
+    DropArea {
+        anchors.fill: parent
+
+        Rectangle {
+            anchors.fill: parent
+            visible: parent.containsDrag
+            color: "#D90B0B0D"
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 14
+                radius: Theme.radiusShell
+                color: "transparent"
+                border.width: 2
+                border.color: Theme.amber
+            }
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 8
+
+                Text {
+                    text: "DROP TO OPEN"
+                    color: Theme.white
+                    font.family: Backend.displayFont
+                    font.pixelSize: 30
+                    font.letterSpacing: 3
+                    font.weight: Font.DemiBold
+                }
+
+                Text {
+                    text: "PNG / JPEG / BMP / TIFF / FOLDER"
+                    color: Theme.steelLight
+                    font.family: Backend.displayFont
+                    font.pixelSize: 9
+                    font.letterSpacing: 1.2
+                }
+            }
+        }
+
+        onDropped: function(drop) {
+            Backend.openDropped(drop.urls)
+        }
+    }
+
     Connections {
         target: Backend
         function onSettingsRequested() {
@@ -77,6 +122,11 @@ Window {
     Shortcut {
         sequence: "Ctrl+Shift+O"
         onActivated: Backend.openFolder()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+V"
+        onActivated: Backend.pasteImage()
     }
 
     Shortcut {

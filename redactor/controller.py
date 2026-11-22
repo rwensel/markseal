@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
@@ -11,9 +12,10 @@ from threading import Event, Thread
 
 from PIL import Image
 from PySide6.QtCore import (
-    Property, QAbstractListModel, QModelIndex, QObject, Qt, QTimer, QUrl, Signal, Slot,
+    Property, QAbstractListModel, QBuffer, QIODevice, QModelIndex, QObject, Qt, QTimer, QUrl,
+    Signal, Slot,
 )
-from PySide6.QtGui import QDesktopServices, QFontDatabase, QImage
+from PySide6.QtGui import QDesktopServices, QFontDatabase, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
@@ -60,19 +62,44 @@ class FolderModel(QAbstractListModel):
     ErrorRole = NameRole + 6
     ScannedRole = NameRole + 7
     PartialRole = NameRole + 8
+    JobStateRole = NameRole + 9
 
     def __init__(self):
         super().__init__()
         self.entries = []
         self.active = None
         self.selection = set()
+        self.job_states = {}
 
     def set_entries(self, entries):
         self.beginResetModel()
         self.entries = entries
         self.active = 0 if entries else None
         self.selection = {0} if entries else set()
+        self.job_states = {}
         self.endResetModel()
+
+    def set_job_states(self, states):
+        if not self.entries:
+            return
+        self.job_states = {row: state for row, state in states.items() if state}
+        self.refresh()
+
+    def set_job_state(self, row, state):
+        if row is None:
+            return
+        if state:
+            self.job_states[row] = state
+        else:
+            self.job_states.pop(row, None)
+        if 0 <= row < len(self.entries):
+            self.dataChanged.emit(self.index(row), self.index(row))
+
+    def clear_job_states(self):
+        if not self.job_states:
+            return
+        self.job_states = {}
+        self.refresh()
 
     def set_active(self, index):
         self.active = index
@@ -105,6 +132,7 @@ class FolderModel(QAbstractListModel):
             self.ErrorRole: bool(entry.error),
             self.ScannedRole: entry.scanned,
             self.PartialRole: bool(entry.incomplete_ocr),
+            self.JobStateRole: self.job_states.get(row, ''),
         }
         return values.get(role)
 
@@ -119,6 +147,7 @@ class FolderModel(QAbstractListModel):
             self.ErrorRole: b'hasError',
             self.ScannedRole: b'scanned',
             self.PartialRole: b'partial',
+            self.JobStateRole: b'jobState',
         }
 
 
@@ -159,6 +188,8 @@ class Controller(QObject):
         self.output_directory = None
         self.output_directory_override = None
         self.preferences_file = Path(preferences_file) if preferences_file else core.preferences_path()
+        self.parallel_limit = max(1, min(16, os.cpu_count() or 4))
+        self._pasted_image = False
         self.filename_template = '{stem}_redacted'
         self.include_log = True
         self.default_method = 'Pixelate'
@@ -191,6 +222,7 @@ class Controller(QObject):
             'outputDirectory': '',
             'filenameTemplate': '{stem}_redacted',
             'includeLog': True,
+            'parallelImages': 1,
         }
         self._categories = set(core.PRESETS['Focused'])
         self.display_font = _pick_font(
@@ -243,7 +275,8 @@ class Controller(QObject):
         return (f'{name}: {len(self.review.selected)} selected of '
                 f'{len(self.review.boxes)}. Confirm to apply.')
 
-    def _load_image(self, image, path):
+    def _load_image(self, image, path, pasted=False):
+        self._pasted_image = pasted
         self.review.load(image, path)
         self._refresh_display()
         self.imageChanged.emit()
@@ -260,6 +293,8 @@ class Controller(QObject):
 
     @Property(str, notify=imageChanged)
     def imageName(self):
+        if self._pasted_image:
+            return 'Pasted image'
         return self.review.path.name if self.review.path else ''
 
     @Property(str, notify=imageChanged)
@@ -447,6 +482,11 @@ class Controller(QObject):
     outputDirectory = _setting_property('outputDirectory', str)
     filenameTemplate = _setting_property('filenameTemplate', str)
     includeLog = _setting_property('includeLog', bool)
+    parallelImages = _setting_property('parallelImages', int)
+
+    @Property(int, constant=True)
+    def parallelLimit(self):
+        return self.parallel_limit
 
     def _choose_image(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -489,15 +529,27 @@ class Controller(QObject):
         self._folder_model.set_entries([])
         self.folderChanged.emit()
 
-    @Slot()
-    def openImage(self):
+    def _prepare_image_open(self):
         if self._busy:
-            return
+            return False
         if not self._can_leave():
-            return
+            return False
         if not self.entries and self.review.boxes:
             if not self._ask('Open another image', 'Discard the current unsaved markings?'):
-                return
+                return False
+        return True
+
+    def _present_image(self, image, path, pasted=False):
+        self._cancel_capture()
+        if self.entries:
+            self._clear_folder()
+        self._load_image(image, path, pasted=pasted)
+        self._set_status(f'{self.imageName}: find suggestions or drag to add a box, then confirm.')
+
+    @Slot()
+    def openImage(self):
+        if not self._prepare_image_open():
+            return
         chosen = self._choose_image()
         if chosen is None:
             return
@@ -507,18 +559,19 @@ class Controller(QObject):
         except Exception as error:
             self._error('Cannot open image', str(error))
             return
-        self._cancel_capture()
-        if self.entries:
-            self._clear_folder()
-        self._load_image(image, chosen)
-        self._set_status(f'{chosen.name}: find suggestions or drag to add a box, then confirm.')
+        self._present_image(image, chosen)
 
     @Slot()
     def openFolder(self):
         if self._busy:
             return
         chosen = self._choose_folder('Open image folder')
-        if chosen is None or not self._can_leave():
+        if chosen is None:
+            return
+        self._open_folder_path(chosen)
+
+    def _open_folder_path(self, chosen):
+        if self._busy or not self._can_leave():
             return
         try:
             paths = sorted(
@@ -553,6 +606,73 @@ class Controller(QObject):
         self.progressChanged.emit()
         self._show_folder_image(0)
 
+    @Slot('QVariantList')
+    def openDropped(self, urls):
+        if self._busy:
+            return
+        paths = []
+        for value in urls or []:
+            url = value if isinstance(value, QUrl) else QUrl(str(value))
+            if url.isLocalFile():
+                paths.append(Path(url.toLocalFile()))
+        images = [path for path in paths
+                  if path.is_file() and path.suffix.lower() in core.IMAGE_SUFFIXES]
+        if images:
+            if not self._prepare_image_open():
+                return
+            try:
+                with Image.open(images[0]) as source:
+                    image = source.convert('RGB')
+            except Exception as error:
+                self._error('Cannot open image', str(error))
+                return
+            self._present_image(image, images[0])
+            return
+        folders = [path for path in paths if path.is_dir()]
+        if folders:
+            self._open_folder_path(folders[0])
+            return
+        self._info('Drop an image', 'Drop a PNG, JPEG, BMP, TIFF image, or an image folder.')
+
+    def _clipboard_image(self):
+        clipboard = QGuiApplication.clipboard()
+        data = clipboard.mimeData()
+        if data.hasUrls():
+            for url in data.urls():
+                if url.isLocalFile():
+                    path = Path(url.toLocalFile())
+                    if path.is_file() and path.suffix.lower() in core.IMAGE_SUFFIXES:
+                        with Image.open(path) as source:
+                            return source.convert('RGB'), path, False
+        if data.hasImage():
+            image = clipboard.image()
+            if not image.isNull():
+                buffer = QBuffer()
+                buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+                image.save(buffer, 'PNG')
+                raw = bytes(buffer.data())
+                buffer.close()
+                with Image.open(io.BytesIO(raw)) as source:
+                    return source.convert('RGB'), Path('pasted-image.png'), True
+        return None
+
+    @Slot()
+    def pasteImage(self):
+        if self._busy:
+            return
+        try:
+            loaded = self._clipboard_image()
+        except Exception as error:
+            self._error('Cannot paste image', str(error))
+            return
+        if loaded is None:
+            self._info('Paste image', 'The clipboard does not contain an image.')
+            return
+        if not self._prepare_image_open():
+            return
+        image, path, pasted = loaded
+        self._present_image(image, path, pasted=pasted)
+
     def _store_active(self):
         if self.active is None or self.review.image is None:
             return
@@ -572,6 +692,7 @@ class Controller(QObject):
         self._store_active()
         self.active = index
         entry = self.entries[index]
+        self._pasted_image = False
         self.review.path = entry.path
         self.review.boxes = entry.boxes
         self.review.selected = entry.selected
@@ -969,8 +1090,6 @@ class Controller(QObject):
                 entry.error = 'Source changed'
                 return
             area_completed = area is not None
-            if follow:
-                show_image(index)
             entry.stamp = stamp
             if area is None:
                 count = entry.add_suggestions(found, incomplete)
@@ -1008,7 +1127,8 @@ class Controller(QObject):
             [(entry.path, entry.stamp) for entry in pending],
             operation, track_result, finish,
             cancel=cancel, show_image=show_image if follow else None,
-            metrics_settings=self._scan_metrics(),
+            metrics_settings=self._scan_metrics(), rows=self._folder_rows(),
+            workers=1 if self._settings['ocrEngine'] == 'RapidOCR' else None,
         )
 
     @Slot()
@@ -1024,17 +1144,28 @@ class Controller(QObject):
             return target.path.name
         return Path(target).name
 
-    def _show_progress(self, label, completed, total, jobs):
+    def _show_progress(self, label, completed, total, jobs, workers=1):
         percent = completed * 100 // total
+        note = f' · {workers} parallel' if workers > 1 else ''
         self.progress_max = total
         self.progress_value = completed
-        self.progress_text = f'{label} · {completed}/{total} processed ({percent}%)'
-        if completed < len(jobs):
+        self.progress_text = f'{label} · {completed}/{total} processed ({percent}%){note}'
+        if workers > 1:
+            self.progress_current = f'{workers} parallel workers'
+        elif completed < len(jobs):
             self.progress_current = f'Current image: {self._job_display_name(jobs[completed])}'
         self.progressChanged.emit()
 
+    @staticmethod
+    def _job_path(job):
+        target = job[0] if isinstance(job, tuple) else job
+        return target.path if isinstance(target, core.FolderImage) else Path(target)
+
+    def _folder_rows(self):
+        return {entry.path: index for index, entry in enumerate(self.entries)}
+
     def _run_jobs(self, label, jobs, operation, accept, finish=None, *, cancel=None,
-                  show_image=None, metrics_settings=None):
+                  show_image=None, metrics_settings=None, rows=None, workers=None):
         if not jobs or self._busy:
             return
         self._cancel_capture()
@@ -1044,57 +1175,86 @@ class Controller(QObject):
         self._job_token += 1
         token = self._job_token
         total = len(jobs)
+        requested = self._settings['parallelImages'] if workers is None else workers
+        worker_count = core.batch_worker_count(requested, total, self.parallel_limit)
+        pace = show_image is not None and worker_count == 1
         queue = Queue()
+        pending_indexes = Queue()
+        for index in range(total):
+            pending_indexes.put(index)
         failures = []
-        advance = Event() if show_image is not None else None
-        trace = PerformanceRun(label, total, metrics_settings)
+        advance = Event() if pace else None
+        job_rows = [rows.get(self._job_path(job)) if rows else None for job in jobs]
+        trace_settings = dict(metrics_settings or {})
+        trace_settings['parallel_jobs'] = worker_count
+        trace = PerformanceRun(label, total, trace_settings)
         self.progress_max = total
         self.progress_value = 0
         self.progress_detail = ''
         self.progress_current = ''
+        self._folder_model.set_job_states(
+            {row: 'queued' for row in job_rows if row is not None}
+        )
         self.busyChanged.emit()
         self.progressChanged.emit()
 
+        stop = Event()
+
         def worker():
-            try:
-                for index, job in enumerate(jobs):
-                    if advance is not None:
-                        while not advance.wait(0.1):
-                            if cancel is not None and cancel.is_set():
-                                return
-                        advance.clear()
-                    if cancel is not None and cancel.is_set():
-                        break
-                    try:
-                        with trace.image(index) as metrics:
-                            result = operation(job)
-                            if cancel is not None and isinstance(result, tuple) and len(result) == 3:
-                                metrics.update(suggestions=len(result[1]),
-                                               incomplete_passes=len(result[2]))
-                        queue.put((index, result, None))
-                    except core.ScanCancelled:
-                        break
-                    except Exception as error:
-                        queue.put((index, None, str(error)))
-            finally:
-                trace.finish(stopped=cancel is not None and cancel.is_set())
-                queue.put(None)
+            while not stop.is_set():
+                try:
+                    index = pending_indexes.get_nowait()
+                except Empty:
+                    return
+                if cancel is not None and cancel.is_set():
+                    return
+                if advance is not None:
+                    while not advance.wait(0.1):
+                        if cancel is not None and cancel.is_set():
+                            return
+                    advance.clear()
+                if cancel is not None and cancel.is_set():
+                    return
+                queue.put(('start', index))
+                try:
+                    with trace.image(index) as metrics:
+                        result = operation(jobs[index])
+                        if cancel is not None and isinstance(result, tuple) and len(result) == 3:
+                            metrics.update(suggestions=len(result[1]),
+                                           incomplete_passes=len(result[2]))
+                    queue.put(('result', index, result, None))
+                except core.ScanCancelled:
+                    return
+                except Exception as error:
+                    queue.put(('result', index, None, str(error)))
+
+        threads = [Thread(target=worker, daemon=True) for _ in range(worker_count)]
+
+        def coordinator():
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            trace.finish(stopped=cancel is not None and cancel.is_set())
+            queue.put(None)
 
         self._job = {
             'token': token, 'label': label, 'jobs': jobs, 'queue': queue, 'total': total,
             'completed': 0, 'accept': accept, 'finish': finish, 'cancel': cancel,
-            'show_image': show_image, 'failures': failures, 'advance': advance, 'trace': trace,
+            'show_image': show_image, 'pace': pace, 'failures': failures, 'advance': advance,
+            'trace': trace, 'workers': worker_count, 'job_rows': job_rows, 'stop': stop,
+            'model': self._folder_model,
         }
-        if show_image is None:
-            self._show_progress(label, 0, total, jobs)
-        Thread(target=worker, daemon=True).start()
+        if not pace:
+            self._show_progress(label, 0, total, jobs, worker_count)
+        Thread(target=coordinator, daemon=True).start()
         self._job_timer.start()
-        if show_image is not None:
+        if pace:
             self._show_next_if_current(token)
 
     def _show_next_if_current(self, token):
         job = self._job
-        if job is None or job['token'] != token:
+        if job is None or job['token'] != token or job['advance'] is None:
             return
         if job['cancel'] is not None and job['cancel'].is_set():
             return
@@ -1102,7 +1262,7 @@ class Controller(QObject):
         if completed >= job['total']:
             return
         job['show_image'](completed)
-        self._show_progress(job['label'], completed, job['total'], job['jobs'])
+        self._show_progress(job['label'], completed, job['total'], job['jobs'], job['workers'])
         job['advance'].set()
 
     def _poll_jobs(self):
@@ -1120,7 +1280,13 @@ class Controller(QObject):
             if item is None:
                 finished = True
                 break
-            index, result, error = item
+            if item[0] == 'start':
+                row = job['job_rows'][item[1]]
+                job['model'].set_job_state(row, 'running')
+                continue
+            _, index, result, error = item
+            row = job['job_rows'][index]
+            job['model'].set_job_state(row, '')
             job['accept'](index, result, error)
             if error is not None:
                 job['failures'].append(error or 'Unknown error')
@@ -1131,12 +1297,12 @@ class Controller(QObject):
                 self.folderChanged.emit()
                 if job['completed'] < job['total'] and (
                         job['cancel'] is None or not job['cancel'].is_set()):
-                    if job['show_image'] is None:
+                    if not job['pace']:
                         self._show_progress(job['label'], job['completed'],
-                                            job['total'], job['jobs'])
+                                            job['total'], job['jobs'], job['workers'])
                     else:
-                        self.progress_value = job['completed']
                         percent = job['completed'] * 100 // job['total']
+                        self.progress_value = job['completed']
                         self.progress_text = (f'{job["label"]} · {job["completed"]}/{job["total"]} '
                                               f'processed ({percent}%)')
                         self.progressChanged.emit()
@@ -1144,6 +1310,7 @@ class Controller(QObject):
             return
         self._job_timer.stop()
         self._job = None
+        self._folder_model.clear_job_states()
         self._busy = False
         self.busy_label = ''
         self.job_cancel = None
@@ -1151,7 +1318,10 @@ class Controller(QObject):
         self.folderChanged.emit()
         self.progress_max = job['total']
         self.progress_value = job['completed']
+        self.progress_current = ''
         canceled = job['cancel'] is not None and job['cancel'].is_set() and job['completed'] < job['total']
+        if canceled:
+            job['stop'].set()
         outcome = 'Scan canceled' if canceled else f'{job["label"]} finished'
         self.progress_text = f'{outcome} · {job["completed"]}/{job["total"]} processed'
         detail = job['finish']() if job['finish'] is not None else (
@@ -1229,7 +1399,7 @@ class Controller(QObject):
         self._run_jobs(
             'Copying boxes',
             [(entry.path, entry.stamp) for entry in targets],
-            operation, accept, finish,
+            operation, accept, finish, rows=self._folder_rows(),
         )
 
     def _match_boxes_to_folder(self, anchor):
@@ -1288,7 +1458,7 @@ class Controller(QObject):
         self._run_jobs(
             'Matching visual anchor',
             [(entry.path, entry.stamp) for entry in targets],
-            operation, accept, finish,
+            operation, accept, finish, rows=self._folder_rows(),
         )
 
     @Slot()
@@ -1391,7 +1561,9 @@ class Controller(QObject):
                     'created_local_time': datetime.now().isoformat(timespec='seconds'),
                     'method': self._settings['method'],
                     'note': ('Automated suggestions can miss identifiers; manual review required. '
-                             'Pixelation may not fully conceal sensitive content.'),
+                             'Pixelation may not fully conceal sensitive content.'
+                             + (' Pasted from the clipboard; no source file exists.'
+                                if self._pasted_image else '')),
                 }
                 core.save_export(out, target, log, overwrite=True)
             self._info(
@@ -1473,6 +1645,7 @@ class Controller(QObject):
         self._run_jobs(
             'Saving', snapshots, operation, accept,
             metrics_settings={'method': self._settings['method'], 'coordinate_logs': include_log},
+            rows=self._folder_rows(),
         )
 
     def load_preferences(self):
@@ -1513,6 +1686,9 @@ class Controller(QObject):
         if method in ('Pixelate', 'Solid black'):
             self.default_method = method
             self._settings['method'] = method
+        workers = saved.get('parallel_images')
+        if type(workers) is int:
+            self._settings['parallelImages'] = max(1, min(self.parallel_limit, workers))
         self._restore_output_preferences(saved)
 
     def _restore_output_preferences(self, saved):
@@ -1538,13 +1714,17 @@ class Controller(QObject):
             self.include_log = saved['include_log']
             self._settings['includeLog'] = saved['include_log']
 
-    @Slot(str, int, bool, bool, bool, str, str, 'QVariantList', str, str, str, bool, result=str)
+    @Slot(str, int, bool, bool, bool, str, str, 'QVariantList', str, str, str, bool, int, result=str)
     def applySettings(self, sensitivity, confidence, all_text, enhanced, color, engine,
-                      pattern, categories, method, output_directory, template, include_log):
+                      pattern, categories, method, output_directory, template, include_log,
+                      parallel_images):
         try:
             threshold = int(confidence)
             if not 0 <= threshold <= 100:
                 raise ValueError('OCR confidence must be between 0 and 100.')
+            workers = int(parallel_images)
+            if not 1 <= workers <= self.parallel_limit:
+                raise ValueError(f'Parallel image jobs must be between 1 and {self.parallel_limit}.')
             expression = pattern.strip()
             re.compile(expression)
             chosen = Path(output_directory.strip()) if output_directory.strip() else None
@@ -1570,6 +1750,7 @@ class Controller(QObject):
                 'output_directory': str(chosen) if chosen is not None else '',
                 'filename_template': name,
                 'include_log': include_log,
+                'parallel_images': workers,
             }
             core.write_preferences(self.preferences_file, preferences)
         except (ValueError, re.error, KeyError, IndexError, AttributeError) as error:
@@ -1585,6 +1766,7 @@ class Controller(QObject):
             'colorOcr': color,
             'ocrEngine': engine,
             'customPattern': expression,
+            'parallelImages': workers,
         })
         self._categories = set(selected)
         self._restore_output_preferences(preferences)

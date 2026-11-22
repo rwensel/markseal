@@ -3,13 +3,14 @@ import subprocess
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Barrier, Thread
 from PIL import Image
 from unittest.mock import patch
 from types import SimpleNamespace
 from rapidocr_backend import result_to_tsv
 from performance_log import PerformanceRun, stage
 from redactor.core import (
-    PRESETS, FolderImage, apply_redactions, detect_regions, new_ocr_boxes,
+    PRESETS, FolderImage, apply_redactions, batch_worker_count, detect_regions, new_ocr_boxes,
     pixelate, recognize_regions, save_export,
 )
 from redactor.review import Review
@@ -276,6 +277,35 @@ class RedactionTests(unittest.TestCase):
                 save_export(Image.new('RGB', (10, 10)), target, {'boxes': []})
             self.assertEqual(target.read_bytes(), b'existing')
             self.assertEqual(list(Path(folder).iterdir()), [target])
+
+    def test_batch_worker_count_is_bounded_by_jobs_and_limit(self):
+        self.assertEqual(batch_worker_count(3, 10, 8), 3)
+        self.assertEqual(batch_worker_count(0, 10, 8), 1)
+        self.assertEqual(batch_worker_count(99, 4, 8), 4)
+        self.assertEqual(batch_worker_count(2, 0, 8), 1)
+
+    def test_parallel_performance_traces_remain_valid_jsonl(self):
+        with TemporaryDirectory() as folder, patch('performance_log.log_directory', return_value=Path(folder)):
+            run = PerformanceRun('Scanning', 4)
+            barrier = Barrier(4)
+
+            def record(index):
+                barrier.wait()
+                with run.image(index):
+                    pass
+
+            threads = [Thread(target=record, args=(index,)) for index in range(4)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            run.finish()
+
+            events = [json.loads(line) for line in run.path.read_text(encoding='utf-8').splitlines()]
+            self.assertEqual(sum(event.get('event') == 'image' for event in events), 4)
+            self.assertEqual(events[-1]['event'], 'finish')
+            self.assertEqual(events[-1]['attempted'], 4)
+            self.assertEqual(events[-1]['failed'], 0)
 
     def test_performance_log_records_timings_without_exception_message(self):
         with TemporaryDirectory() as folder, patch('performance_log.log_directory', return_value=Path(folder)):
