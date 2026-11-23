@@ -9,9 +9,9 @@ from threading import Barrier, Event, Lock, Thread
 from PIL import Image
 from unittest.mock import patch
 from types import SimpleNamespace
-import rapidocr_backend
-from rapidocr_backend import result_to_tsv
-from performance_log import PerformanceRun, stage
+from redactor import rapidocr_backend
+from redactor.rapidocr_backend import result_to_tsv
+from redactor.performance_log import PerformanceRun, stage
 from redactor.core import (
     PRESETS, BoxList, FolderImage, apply_redactions, batch_worker_count, detect_regions,
     new_ocr_boxes, pattern_from_text, pixelate, read_area_text, recognize_regions, save_export,
@@ -28,7 +28,7 @@ from redactor import themes
 from redactor import export
 from redactor import core
 from redactor.viewport import Viewport
-import audit_exports
+from redactor import audit_exports
 
 
 class FakeEngine:
@@ -418,7 +418,7 @@ class RedactionTests(unittest.TestCase):
                '1\t1\t1\t1\t100\t80\t80\t40\t95\tBFE\n')
         engine = FakeEngine(outcomes=['', '', tsv])
         engine.single_label = True
-        with patch('ocr_preprocess.small_text_tiles', return_value=[((500, 300, 1100, 700), tile)]):
+        with patch('redactor.ocr_preprocess.small_text_tiles', return_value=[((500, 300, 1100, 700), tile)]):
             self.assertEqual(recognize_regions(image, engine, settings, enhanced=True), [(548, 338, 592, 362)])
 
     def test_model_places_matched_word_even_if_other_characters_lack_boxes(self):
@@ -437,7 +437,7 @@ class RedactionTests(unittest.TestCase):
 
     def test_strikethrough_pass_reduces_stroke_without_moving_pixels(self):
         from PIL import ImageDraw
-        from ocr_preprocess import strike_reduced_variant
+        from redactor.ocr_preprocess import strike_reduced_variant
 
         image = Image.new('RGB', (320, 100), 'white')
         draw = ImageDraw.Draw(image)
@@ -518,7 +518,7 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(batch_worker_count(2, 0, 8), 1)
 
     def test_parallel_performance_traces_remain_valid_jsonl(self):
-        with TemporaryDirectory() as folder, patch('performance_log.log_directory', return_value=Path(folder)):
+        with TemporaryDirectory() as folder, patch('redactor.performance_log.log_directory', return_value=Path(folder)):
             run = PerformanceRun('Scanning', 4)
             barrier = Barrier(4)
 
@@ -557,7 +557,7 @@ class RedactionTests(unittest.TestCase):
                 return SimpleNamespace(boxes=None, txts=None)
 
         pool = rapidocr_backend.EnginePool(lambda: FakeEngine())
-        with patch('rapidocr_backend._pool', pool):
+        with patch('redactor.rapidocr_backend._pool', pool):
             threads = [Thread(target=rapidocr_backend.recognize_words,
                               args=(Image.new('RGB', (20, 20)),)) for _ in range(2)]
             for thread in threads:
@@ -567,7 +567,7 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(peak[0], 2)
 
     def test_performance_log_records_timings_without_exception_message(self):
-        with TemporaryDirectory() as folder, patch('performance_log.log_directory', return_value=Path(folder)):
+        with TemporaryDirectory() as folder, patch('redactor.performance_log.log_directory', return_value=Path(folder)):
             run = PerformanceRun('Scanning', 1)
             with self.assertRaises(OSError), run.image(0), stage('OCR'):
                 raise OSError('private filename')
@@ -954,9 +954,9 @@ class OcrAdapterTests(unittest.TestCase):
         image = Image.new('RGB', (1200, 800), 'white')
         settings = (False, {'Emails'}, 40, '')
         engine = FakeEngine(outcomes=['', ''])
-        with patch('ocr_preprocess.strike_reduced_variant', return_value=None), \
-             patch('ocr_preprocess.small_text_tiles', return_value=[]), \
-             patch('ocr_preprocess.color_ocr_variants', return_value=[]):
+        with patch('redactor.ocr_preprocess.strike_reduced_variant', return_value=None), \
+             patch('redactor.ocr_preprocess.small_text_tiles', return_value=[]), \
+             patch('redactor.ocr_preprocess.color_ocr_variants', return_value=[]):
             recognize_regions(image, engine, settings, enhanced=True, color_assisted=True)
         self.assertEqual([call['psm'] for call in engine.calls], [None, '11'])
 
@@ -968,18 +968,18 @@ class OcrAdapterTests(unittest.TestCase):
         with patch('redactor.ocr.subprocess.run',
                    return_value=SimpleNamespace(stdout=tsv.encode('utf-8'))):
             tesseract = recognize_regions(image, TesseractEngine('ocr'), settings)
-        with patch('rapidocr_backend.recognize_words', return_value=tsv):
+        with patch('redactor.rapidocr_backend.recognize_words', return_value=tsv):
             rapid = recognize_regions(image, RapidEngine(), settings)
         self.assertEqual(tesseract, rapid)
         self.assertEqual(tesseract, [(6, 16, 114, 44)])
 
     def test_make_engine_validates_the_requested_backend(self):
         self.assertIsInstance(make_engine('Tesseract', executable='ocr'), TesseractEngine)
-        with patch('rapidocr_backend.model_files', return_value={}):
+        with patch('redactor.rapidocr_backend.model_files', return_value={}):
             engine = make_engine('RapidOCR')
         self.assertIsInstance(engine, RapidEngine)
         self.assertTrue(engine.single_label)
-        with patch('rapidocr_backend.model_files', side_effect=OSError('missing models')):
+        with patch('redactor.rapidocr_backend.model_files', side_effect=OSError('missing models')):
             with self.assertRaises(OSError):
                 make_engine('RapidOCR')
         with patch('redactor.ocr.find_tesseract', return_value=None):
@@ -1156,7 +1156,7 @@ class JobRunnerTests(unittest.TestCase):
     def setUp(self):
         self.temporary = TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.log_patch = patch('performance_log.log_directory',
+        self.log_patch = patch('redactor.performance_log.log_directory',
                                return_value=Path(self.temporary.name))
         self.log_patch.start()
         self.addCleanup(self.log_patch.stop)

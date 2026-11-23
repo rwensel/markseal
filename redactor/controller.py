@@ -16,7 +16,7 @@ from PySide6.QtGui import QDesktopServices, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-from performance_log import PerformanceRun, log_directory
+from .performance_log import PerformanceRun, log_directory
 
 from . import boxset
 from . import detection
@@ -1558,11 +1558,11 @@ class Controller(QObject):
 
     def _match_boxes_to_folder(self, anchor):
         try:
-            from visual_anchor import locate_anchor, prepare_anchor, relocate_boxes
+            from .visual_anchor import locate_anchor, prepare_anchor, relocate_boxes
         except ImportError:
             self._error(
                 'Visual matching unavailable',
-                'Install the project dependencies from requirements.txt and restart.',
+                'Install the project dependencies with pip install -e . and restart.',
             )
             return
         boxes = self.review.selected_boxes()

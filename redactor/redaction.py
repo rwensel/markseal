@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from PIL import Image, ImageDraw
 
-from performance_log import timed
+from .performance_log import timed
 
 
 # Very coarse blocks remove fine detail, but mosaic redaction can remain reversible.

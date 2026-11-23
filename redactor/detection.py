@@ -7,7 +7,7 @@ import ipaddress
 import math
 import re
 
-from performance_log import timed
+from .performance_log import timed
 
 
 PATTERNS = {

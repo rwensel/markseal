@@ -1,6 +1,6 @@
 """One owner for the selectable visual themes and their resolved tokens.
 
-The six themes are the curated worlds from ``world-picker.html``. A theme is
+The six themes are the curated worlds from ``docs/history/world-picker.html``. A theme is
 seven base values, two font stacks, and the authored signal names; every
 other token is derived here so the QML shell has one palette to read.
 """

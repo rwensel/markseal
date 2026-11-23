@@ -30,20 +30,19 @@ def classify_coverage(mask, boxes):
     return counts
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('originals', type=Path)
     parser.add_argument('exports', type=Path)
     parser.add_argument('--ocr', action='store_true', help='Run local RapidOCR Broad passes on originals and exports.')
     parser.add_argument('--use-app-pattern', action='store_true',
                         help='Also test enabled blocked patterns without printing them.')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     patterns = ()
     if args.use_app_pattern:
         if not args.ocr:
             parser.error('--use-app-pattern requires --ocr')
-        from offline_redactor import preferences_path
-        from redactor.preferences import PreferencesError, enabled_blocked_patterns
+        from .preferences import PreferencesError, enabled_blocked_patterns, preferences_path
         try:
             patterns = enabled_blocked_patterns(preferences_path())
         except (OSError, PreferencesError):
@@ -72,8 +71,8 @@ def main():
                         wide_boxes=sum(right-left >= .25*original.width for left, top, right, bottom in boxes),
                         masked_percent=round(100*mask.histogram()[255]/(mask.width*mask.height), 3))
             if args.ocr:
-                from offline_redactor import PRESETS, recognize_regions
-                from redactor.ocr import make_engine
+                from .detection import PRESETS
+                from .ocr import make_engine, recognize_regions
                 engine = make_engine('RapidOCR')
                 settings = (False, PRESETS['Broad'], 40, '', patterns)
                 suggested = recognize_regions(original, engine, settings)

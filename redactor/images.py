@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from performance_log import timed
+from .performance_log import timed
 
 
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff'}

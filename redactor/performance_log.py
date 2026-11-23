@@ -145,13 +145,17 @@ def summarize(path):
               f'{samples[ceil(.95*len(samples))-1]:10.1f} {str(additions.get(name, "")):>10}')
 
 
-if __name__ == '__main__':
+def main(argv=None):
     import argparse
 
     parser = argparse.ArgumentParser(description='Summarize timings from an offline redactor run.')
     parser.add_argument('trace', type=Path, nargs='?', help='JSONL file. Defaults to the latest run.')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     path = args.trace or max(log_directory().glob('*.jsonl'), default=None, key=lambda p: p.stat().st_mtime)
     if path is None:
         parser.error('No performance traces found. Run a scan or export first.')
     summarize(path)
+
+
+if __name__ == '__main__':
+    main()

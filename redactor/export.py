@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from performance_log import stage
+from .performance_log import stage
 
 from .images import read_folder_image
 from .redaction import apply_redactions

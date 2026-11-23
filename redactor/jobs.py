@@ -13,7 +13,7 @@ from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Any, Callable
 
-from performance_log import PerformanceRun
+from .performance_log import PerformanceRun
 
 
 class ScanCancelled(Exception):

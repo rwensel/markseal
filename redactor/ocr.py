@@ -13,7 +13,7 @@ from time import monotonic
 
 from PIL import Image, ImageFilter, ImageOps
 
-from performance_log import stage
+from .performance_log import stage
 
 from .boxset import BoxList, new_ocr_boxes, same_region
 from .detection import detect_regions, learned_pattern_rules
@@ -93,18 +93,18 @@ class RapidEngine:
     single_label = True
 
     def recognize(self, image, *, psm=None, cancel=None, timeout=120):
-        from rapidocr_backend import recognize_words
+        from .rapidocr_backend import recognize_words
         with stage('rapidocr_inference', width=image.width, height=image.height):
             return recognize_words(image)
 
     def read_label(self, crop):
-        from rapidocr_backend import recognize_single_label
+        from .rapidocr_backend import recognize_single_label
         return recognize_single_label(crop)
 
 
 def make_engine(name, executable=None):
     if name == 'RapidOCR':
-        from rapidocr_backend import model_files
+        from .rapidocr_backend import model_files
         model_files()
         return RapidEngine()
     if executable is None:
@@ -226,7 +226,7 @@ def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
 
     if color_assisted:
         check_cancel()
-        from ocr_preprocess import strike_reduced_variant
+        from .ocr_preprocess import strike_reduced_variant
         report('Recovering struck-through text')
         with stage('strikethrough_preprocess'):
             strike_reduced = strike_reduced_variant(working)
@@ -240,14 +240,14 @@ def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
         if not add_pass(contrast, 'enhanced OCR'):
             return BoxList(boxes, rules)
         if engine.single_label and area_layout is None:
-            from ocr_preprocess import small_text_tiles
+            from .ocr_preprocess import small_text_tiles
             for index, (bounds, tile) in enumerate(small_text_tiles(image), 1):
                 report(f'Reading small-text section {index}')
                 if not add_pass(tile, f'small-text section {index}', bounds):
                     return BoxList(boxes, rules)
     if color_assisted:
         check_cancel()
-        from ocr_preprocess import color_ocr_variants
+        from .ocr_preprocess import color_ocr_variants
         with stage('color_preprocess'):
             variants = list(color_ocr_variants(working))
         for index, variant in enumerate(variants, 1):

@@ -8,14 +8,14 @@ from queue import Empty, Queue
 from threading import Lock
 
 from PIL import Image, ImageOps
-from performance_log import stage
+from .performance_log import stage
 
 def model_files():
     try:
         import rapidocr
         import onnxruntime
     except ImportError as error:
-        raise OSError('Install requirements-rapidocr.txt to use RapidOCR.') from error
+        raise OSError('Install the rapidocr extra (pip install -e ".[rapidocr]") to use RapidOCR.') from error
     directory = Path(rapidocr.__file__).resolve().parent / 'models'
     files = {
         'Det': directory / 'PP-OCRv6_det_small.onnx',
@@ -23,7 +23,7 @@ def model_files():
         'Cls': directory / 'ch_ppocr_mobile_v2.0_cls_mobile.onnx',
     }
     if not all(path.is_file() for path in files.values()):
-        raise OSError('Bundled RapidOCR models are missing. Reinstall requirements-rapidocr.txt.')
+        raise OSError('Bundled RapidOCR models are missing. Reinstall the rapidocr extra (pip install -e ".[rapidocr]").')
     return files
 
 
