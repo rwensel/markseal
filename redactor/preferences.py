@@ -14,7 +14,7 @@ from tempfile import NamedTemporaryFile
 
 from .detection import PATTERNS, PRESETS
 from .export import output_path
-from . import themes
+from .theme_tokens import DEFAULT_ID, is_known
 
 ENGINE_NAMES = ('Tesseract', 'RapidOCR')
 METHOD_NAMES = ('Pixelate', 'Solid black')
@@ -46,7 +46,7 @@ class Preferences:
     filename_template: str = DEFAULT_TEMPLATE
     include_log: bool = True
     parallel_images: int = 1
-    theme: str = themes.DEFAULT_ID
+    theme: str = DEFAULT_ID
     categories: tuple = ()
     blocked_patterns: list = field(default_factory=list)
 
@@ -127,7 +127,7 @@ def from_document(document, parallel_limit=MAX_PARALLEL):
     if method in METHOD_NAMES:
         preferences.method = method
     theme = document.get('theme')
-    if isinstance(theme, str) and themes.is_known(theme):
+    if isinstance(theme, str) and is_known(theme):
         preferences.theme = theme
     workers = document.get('parallel_images')
     if type(workers) is int:
@@ -218,7 +218,7 @@ def apply_form(current, form, parallel_limit, source=None):
     if method not in METHOD_NAMES:
         raise ValueError('Choose pixelation or solid black.')
     theme = form.get('theme', current.theme)
-    if not themes.is_known(theme):
+    if not is_known(theme):
         raise ValueError('Choose a known theme.')
     return Preferences(
         sensitivity=sensitivity,

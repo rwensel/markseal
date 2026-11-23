@@ -9,11 +9,9 @@ from threading import Event
 
 from PIL import Image
 from PySide6.QtCore import (
-    Property, QAbstractListModel, QBuffer, QIODevice, QModelIndex, QObject, Qt, QTimer, QUrl,
-    Signal, Slot,
+    Property, QBuffer, QIODevice, QObject, QTimer, QUrl, Signal, Slot,
 )
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QImage
-from PySide6.QtQuick import QQuickImageProvider
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from .performance_log import PerformanceRun, log_directory
@@ -29,7 +27,9 @@ from . import preferences
 from . import redaction
 from .jobs import JobRunner, progress_line
 from .review import Review
+from .ui.models import DisplayImageProvider, FolderModel, preference_property
 from . import themes
+from . import workflows
 from .themes import Palette
 
 
@@ -40,128 +40,10 @@ def box_hint(theme_id):
 
 
 
-class DisplayImageProvider(QQuickImageProvider):
-    def __init__(self, controller):
-        super().__init__(QQuickImageProvider.ImageType.Image)
-        self._controller = controller
-
-    def requestImage(self, identifier, size, requested_size):
-        image = self._controller.display_qimage()
-        if size is not None:
-            size.setWidth(max(1, image.width()))
-            size.setHeight(max(1, image.height()))
-        return image
 
 
-class FolderModel(QAbstractListModel):
-    NameRole = Qt.ItemDataRole.UserRole + 1
-    StatusRole = NameRole + 1
-    ActiveRole = NameRole + 2
-    SelectedRole = NameRole + 3
-    ReviewedRole = NameRole + 4
-    SavedRole = NameRole + 5
-    ErrorRole = NameRole + 6
-    ScannedRole = NameRole + 7
-    PartialRole = NameRole + 8
-    JobStateRole = NameRole + 9
-
-    def __init__(self):
-        super().__init__()
-        self.entries = []
-        self.active = None
-        self.selection = set()
-        self.job_states = {}
-
-    def set_entries(self, entries):
-        self.beginResetModel()
-        self.entries = entries
-        self.active = 0 if entries else None
-        self.selection = {0} if entries else set()
-        self.job_states = {}
-        self.endResetModel()
-
-    def set_job_states(self, states):
-        if not self.entries:
-            return
-        self.job_states = {row: state for row, state in states.items() if state}
-        self.refresh()
-
-    def set_job_state(self, row, state):
-        if row is None:
-            return
-        if state:
-            self.job_states[row] = state
-        else:
-            self.job_states.pop(row, None)
-        if 0 <= row < len(self.entries):
-            self.dataChanged.emit(self.index(row), self.index(row))
-
-    def clear_job_states(self):
-        if not self.job_states:
-            return
-        self.job_states = {}
-        self.refresh()
-
-    def set_active(self, index):
-        self.active = index
-        self.refresh()
-
-    def set_selection(self, selection):
-        self.selection = set(selection)
-        self.refresh()
-
-    def refresh(self):
-        if not self.entries:
-            return
-        self.dataChanged.emit(self.index(0), self.index(len(self.entries) - 1))
-
-    def rowCount(self, parent=QModelIndex()):
-        return 0 if parent.isValid() else len(self.entries)
-
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        if not index.isValid() or not 0 <= index.row() < len(self.entries):
-            return None
-        row = index.row()
-        entry = self.entries[row]
-        values = {
-            self.NameRole: entry.path.name,
-            self.StatusRole: entry.status,
-            self.ActiveRole: row == self.active,
-            self.SelectedRole: row in self.selection,
-            self.ReviewedRole: entry.reviewed,
-            self.SavedRole: entry.saved,
-            self.ErrorRole: bool(entry.error),
-            self.ScannedRole: entry.scanned,
-            self.PartialRole: bool(entry.incomplete_ocr),
-            self.JobStateRole: self.job_states.get(row, ''),
-        }
-        return values.get(role)
-
-    def roleNames(self):
-        return {
-            self.NameRole: b'name',
-            self.StatusRole: b'status',
-            self.ActiveRole: b'active',
-            self.SelectedRole: b'selected',
-            self.ReviewedRole: b'reviewed',
-            self.SavedRole: b'saved',
-            self.ErrorRole: b'hasError',
-            self.ScannedRole: b'scanned',
-            self.PartialRole: b'partial',
-            self.JobStateRole: b'jobState',
-        }
 
 
-def _preference_property(name, kind, notify):
-    def getter(self):
-        return getattr(self._preferences, name)
-
-    def setter(self, value):
-        if getattr(self._preferences, name) != value:
-            setattr(self._preferences, name, value)
-            self.settingsChanged.emit()
-
-    return Property(kind, getter, setter, notify=notify)
 
 
 class Controller(QObject):
@@ -545,22 +427,22 @@ class Controller(QObject):
     def categories(self):
         return list(self._preferences.categories)
 
-    sensitivity = _preference_property('sensitivity', str, settingsChanged)
-    confidence = _preference_property('confidence', int, settingsChanged)
-    allText = _preference_property('all_text', bool, settingsChanged)
-    enhancedOcr = _preference_property('enhanced_ocr', bool, settingsChanged)
-    colorOcr = _preference_property('color_ocr', bool, settingsChanged)
-    showRules = _preference_property('show_rules', bool, settingsChanged)
-    ocrEngine = _preference_property('ocr_engine', str, settingsChanged)
+    sensitivity = preference_property('sensitivity', str, settingsChanged)
+    confidence = preference_property('confidence', int, settingsChanged)
+    allText = preference_property('all_text', bool, settingsChanged)
+    enhancedOcr = preference_property('enhanced_ocr', bool, settingsChanged)
+    colorOcr = preference_property('color_ocr', bool, settingsChanged)
+    showRules = preference_property('show_rules', bool, settingsChanged)
+    ocrEngine = preference_property('ocr_engine', str, settingsChanged)
 
     @Property(str, notify=settingsChanged)
     def redactionMethod(self):
         return self._preferences.method
 
-    outputDirectory = _preference_property('output_directory', str, settingsChanged)
-    filenameTemplate = _preference_property('filename_template', str, settingsChanged)
-    includeLog = _preference_property('include_log', bool, settingsChanged)
-    parallelImages = _preference_property('parallel_images', int, settingsChanged)
+    outputDirectory = preference_property('output_directory', str, settingsChanged)
+    filenameTemplate = preference_property('filename_template', str, settingsChanged)
+    includeLog = preference_property('include_log', bool, settingsChanged)
+    parallelImages = preference_property('parallel_images', int, settingsChanged)
 
     @Property(int, constant=True)
     def parallelLimit(self):
@@ -1292,7 +1174,8 @@ class Controller(QObject):
         if self._busy:
             return
         self._store_active()
-        pending = [entry for entry in entries if rescan or not (entry.scanned or entry.reviewed)]
+        plan = workflows.plan_scan(self.entries, entries, rescan=rescan, area=area)
+        pending = plan.entries
         if not pending:
             self._info(
                 'Folder scan',
@@ -1312,7 +1195,6 @@ class Controller(QObject):
                         self.requestSettings)
             return
         cancel = Event()
-        rows = {entry.path: index for index, entry in enumerate(self.entries)}
         enhanced = self._preferences.enhanced_ocr
         color_assisted = self._preferences.color_ocr
         processed = []
@@ -1337,28 +1219,20 @@ class Controller(QObject):
                     entry.error = 'Scan failed'
                 self._set_status(f'{entry.path.name} · {error}')
                 return
-            stamp, found, incomplete = result
-            if entry.stamp is not None and entry.stamp != stamp:
-                entry.error = 'Source changed'
+            outcome = workflows.apply_scan_result(entry, result, area=area)
+            if outcome.error:
                 return
             area_completed = area is not None
-            entry.stamp = stamp
-            if area is None:
-                count = entry.add_suggestions(found, incomplete)
-                changed = True
-            else:
-                added = boxset.new_ocr_boxes(found, entry.boxes)
-                count = len(added)
-                changed = entry.add_shared_boxes(added, found.rules, source='Area OCR')
             if self.active is not None and entry is self.entries[self.active] and self.review.image is not None:
-                if changed:
+                if outcome.changed:
                     self.review.confirmed = False
                     self._refresh_display()
                     self._emit_review()
                     self._emit_view()
-                detail = f' Partial scan: {", ".join(incomplete)}.' if incomplete else ''
+                detail = (f' Partial scan: {", ".join(outcome.incomplete)}.'
+                          if outcome.incomplete else '')
                 self._set_status(
-                    f'{entry.path.name} · {count} new OCR suggestions.{detail} Review before confirming.'
+                    f'{entry.path.name} · {outcome.count} new OCR suggestions.{detail} Review before confirming.'
                 )
 
         def track_result(index, result, error):
@@ -1366,20 +1240,12 @@ class Controller(QObject):
             processed.append(pending[index])
 
         def finish():
-            if area is not None:
-                return ('Area scan finished · review suggested boxes'
-                        if processed and area_completed else 'No area results')
-            complete = sum(entry.scanned and not entry.incomplete_ocr and not entry.error
-                           for entry in processed)
-            partial = sum(bool(entry.incomplete_ocr) and not entry.error for entry in processed)
-            return f'{complete} succeeded' + (f' · {partial} partial' if partial else '')
+            return workflows.scan_summary(processed, area=area, area_completed=area_completed)
 
         self._run_jobs(
-            'Scanning area' if area is not None else 'Scanning',
-            [(entry.path, entry.stamp) for entry in pending],
-            operation, track_result, finish,
+            plan.label, list(plan.jobs), operation, track_result, finish,
             cancel=cancel, show_image=show_image if follow else None,
-            metrics_settings=self._scan_metrics(), rows=self._folder_rows(),
+            metrics_settings=self._scan_metrics(), rows=plan.rows,
         )
 
     @Slot()
@@ -1533,11 +1399,11 @@ class Controller(QObject):
                 return
             entry = targets[index]
             stamp, matches = result
-            if not matches or (entry.stamp is not None and entry.stamp != stamp):
+            outcome = workflows.copy_boxes_to_entry(entry, boxes, stamp, matches)
+            if outcome == 'skipped':
                 skipped += 1
                 return
-            entry.stamp = stamp
-            if not entry.add_shared_boxes(boxes, source='Copied box'):
+            if outcome == 'unchanged':
                 unchanged += 1
                 return
             applied += 1
@@ -1596,12 +1462,12 @@ class Controller(QObject):
             if error:
                 return
             stamp, placed = result
-            if not placed or (entry.stamp is not None and entry.stamp != stamp):
+            matched_here, changed = workflows.match_boxes_to_entry(entry, placed, stamp)
+            if not matched_here:
                 skipped += 1
                 return
-            entry.stamp = stamp
             matched += 1
-            if entry.add_shared_boxes(placed, source='Anchor match') and self.active is not None and self.entries[self.active] is entry:
+            if changed and self.active is not None and self.entries[self.active] is entry:
                 self.review.confirmed = False
                 self._refresh_display()
                 self._emit_review()
@@ -1622,8 +1488,7 @@ class Controller(QObject):
 
     def _confirm_entries(self, entries, title):
         self._store_active()
-        pending = [entry for entry in entries
-                   if entry.selected and not entry.error and not entry.reviewed]
+        pending = workflows.eligible_for_confirmation(entries)
         if not pending:
             self._info(
                 title,
@@ -1631,13 +1496,7 @@ class Controller(QObject):
                 'reviewed, have no selected boxes, or have a scan error.',
             )
             return
-        partial_count = sum(bool(entry.incomplete_ocr) for entry in pending)
-        prompt = (f'Apply {self._preferences.method} to the selected boxes on '
-                  f'{len(pending)} image(s)?')
-        if partial_count:
-            prompt += (f'\n\n{partial_count} image(s) have partial scans. '
-                       'Confirm only if you have checked those images for missed sensitive text.')
-        if not self._ask(title, prompt):
+        if not self._ask(title, workflows.confirmation_prompt(pending, self._preferences.method)):
             return
         for entry in pending:
             entry.reviewed = True
@@ -1754,41 +1613,27 @@ class Controller(QObject):
         )
 
     def _export_entries(self, pending, individual=False):
-        jobs = []
-        targets = set()
+        def choose(target):
+            chosen, _ = QFileDialog.getSaveFileName(
+                None, 'Save redacted copy', str(target), 'PNG image (*.png)'
+            )
+            return chosen or None
+
         try:
-            for index, entry in pending:
-                target = export.output_path(
-                    self.output_directory, self._preferences.filename_template,
-                    entry.path, index + 1
-                )
-                if individual:
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    chosen, _ = QFileDialog.getSaveFileName(
-                        None, 'Save redacted copy', str(target), 'PNG image (*.png)'
-                    )
-                    if not chosen:
-                        return
-                    target = Path(chosen)
-                    if target.suffix.lower() != '.png':
-                        raise ValueError('Choose a filename ending in .png.')
-                outputs = [target]
-                if self._preferences.include_log:
-                    outputs.append(target.with_suffix('.redactions.json'))
-                for path in outputs:
-                    key = str(path.resolve()).casefold()
-                    if key in targets or path.exists():
-                        raise ValueError(
-                            f'{path.name} already exists or would be written twice. '
-                            'Choose another name or folder.'
-                        )
-                    targets.add(key)
-                jobs.append((entry, target))
+            plan = workflows.plan_exports(
+                pending,
+                output_directory=self.output_directory,
+                template=self._preferences.filename_template,
+                include_log=self._preferences.include_log,
+                choose=choose if individual else None,
+            )
         except (ValueError, KeyError, IndexError, AttributeError, OSError) as error:
             self._error('Cannot save images', str(error), 'RETRY', self.saveReviewed)
             return
-
-        unredacted = sum(not entry.selected for _, entry in pending)
+        if plan is None:
+            return
+        jobs = list(plan.jobs)
+        unredacted = plan.unredacted
         if unredacted and not self._ask(
                 'Save unredacted copies?',
                 f'{unredacted} reviewed image(s) have no selected boxes. '
@@ -1812,8 +1657,7 @@ class Controller(QObject):
             snapshot = snapshots[index][1]
             if error:
                 self._set_status(f'{entry.path.name} · {error}')
-            elif entry.reviewed and (tuple(entry.boxes), entry.selected, entry.method) == (
-                    snapshot.boxes, snapshot.selected, snapshot.method):
+            elif workflows.export_succeeded(entry, snapshot):
                 entry.saved = True
                 entry.error = ''
                 self._set_status(f'Saved {target.name} to {target.parent}')
