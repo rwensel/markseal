@@ -206,6 +206,17 @@ Item {
         Item { Layout.fillWidth: true }
 
         ConcourseButton {
+            text: "REDACT ALL"
+            compact: true
+            variant: toolbar.canConfirm && Backend.review.totalBoxes > 0 ? "primary" : "secondary"
+            tip: "Select every box and apply it in one click"
+            visible: Backend.review.hasImage && Backend.review.totalBoxes > 0
+                     && !Backend.review.confirmed
+            enabled: toolbar.canConfirm && Backend.review.totalBoxes > 0
+            onClicked: Backend.review.redactAll()
+        }
+
+        ConcourseButton {
             text: Backend.review.confirmLabel
             compact: true
             variant: toolbar.canConfirm && Backend.review.totalBoxes > 0 ? "primary" : "secondary"

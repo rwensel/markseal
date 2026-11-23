@@ -70,7 +70,8 @@ class ReviewFacadeTests(unittest.TestCase):
         for name in ('setViewSize', 'press', 'move', 'release', 'zoomAt', 'zoomStep',
                      'zoomFit', 'panStep', 'selectAllBoxes', 'selectNoBoxes',
                      'beginPan', 'movePan', 'endPan', 'toggleBox', 'removeBox', 'undo',
-                     'editBoxes', 'clearBoxes', 'confirmSelection', 'cancelCapture',
+                     'editBoxes', 'clearBoxes', 'confirmSelection', 'redactAll',
+                     'cancelCapture',
                      'find', 'beginScanArea', 'beginAnchorCapture',
                      'beginLearnPattern', 'copyRedacted', 'save', 'verifyCurrent'):
             self.assertTrue(hasattr(self.review, name), name)
@@ -136,6 +137,15 @@ class ReviewFacadeTests(unittest.TestCase):
         self.review.confirmSelection()
         self.assertEqual(self.batch.calls,
                          [('confirm_entries', entries, 'Confirm selected images')])
+
+    def test_redact_all_selects_and_confirms_every_box(self):
+        self.open_image()
+        self.controller.session.review.boxes = [(10, 10, 20, 20), (30, 30, 40, 40)]
+        self.controller.session.review.selected = {1}
+        self.controller.session.review.confirmed = False
+        self.review.redactAll()
+        self.assertEqual(self.controller.session.review.selected, {0, 1})
+        self.assertTrue(self.controller.session.review.confirmed)
 
     def test_folder_find_and_save_delegate_to_batch(self):
         self.open_image()

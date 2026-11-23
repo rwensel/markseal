@@ -446,6 +446,23 @@ class ReviewFacade(QObject):
         )
 
     @Slot()
+    def redactAll(self):
+        review = self.session.review
+        if self.session.jobs.busy or review.image is None or review.confirmed:
+            return
+        if not review.boxes:
+            return
+        review.select_all()
+        review.confirmed = True
+        self.refresh_display()
+        self.session.store_active()
+        self.emit_review()
+        self.alerts.set_status(
+            f'All {len(review.selected)} boxes applied in preview. '
+            'Save, or click to change your selection.'
+        )
+
+    @Slot()
     def cancelCapture(self):
         if self.capture != 'none':
             self.cancel_capture()
