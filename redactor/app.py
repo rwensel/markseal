@@ -1,4 +1,4 @@
-"""PySide6 entry point for the Offline Screenshot Redactor."""
+"""PySide6 entry point for Markseal."""
 from __future__ import annotations
 
 import sys
@@ -15,9 +15,9 @@ from .controller import Controller, DisplayImageProvider
 def main():
     QQuickStyle.setStyle('Basic')
     app = QApplication(sys.argv)
-    app.setApplicationName('Offline Screenshot Redactor')
-    app.setOrganizationName('OfflineScreenshotRedactor')
-    app.setApplicationDisplayName('Offline Screenshot Redactor')
+    app.setApplicationName('Markseal')
+    app.setOrganizationName('Markseal')
+    app.setApplicationDisplayName('Markseal')
     controller = Controller()
     qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', controller)
     engine = QQmlApplicationEngine()

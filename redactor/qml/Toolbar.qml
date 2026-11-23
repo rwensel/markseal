@@ -97,7 +97,7 @@ Item {
                 spacing: 0
 
                 Text {
-                    text: "OFFLINE REDACTOR"
+                    text: "MARKSEAL"
                     color: Theme.white
                     font.family: Theme.displayFont
                     font.pixelSize: 15
@@ -106,7 +106,7 @@ Item {
                 }
 
                 Text {
-                    text: "SCREENSHOT / LOCAL ONLY"
+                    text: "SCREENSHOT / VERIFIED / LOCAL"
                     color: Theme.steelLight
                     font.family: Theme.displayFont
                     font.pixelSize: 9

@@ -15,7 +15,7 @@ Window {
     flags: Qt.Dialog
     transientParent: parentWindow
     color: Theme.bg
-    title: "Settings - Offline Screenshot Redactor"
+    title: "Settings - Markseal"
     visible: false
 
     property string tab: "engine"

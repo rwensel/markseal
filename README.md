@@ -1,4 +1,4 @@
-# Offline Screenshot Redactor
+# Markseal
 
 Double-click `launch.bat` to run the app using the project’s `.venv`. To recreate the environment, run `python -m venv .venv` and then `.venv\Scripts\python.exe -m pip install -e .`. Python 3.10 or newer is required. The program does not make network calls and sends image data to OCR only through a local process.
 

@@ -12,8 +12,8 @@ Window {
     visible: true
     color: Theme.bg
     title: Backend.review.imageName.length > 0
-           ? Backend.review.imageName + " - Offline Screenshot Redactor"
-           : "Offline Screenshot Redactor"
+           ? Backend.review.imageName + " - Markseal"
+           : "Markseal"
 
     Rectangle {
         anchors.fill: parent
