@@ -6,7 +6,7 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from PIL import Image
 from PySide6.QtWidgets import QApplication
@@ -72,10 +72,29 @@ class ReviewFacadeTests(unittest.TestCase):
                      'beginPan', 'movePan', 'endPan', 'toggleBox', 'removeBox', 'undo',
                      'editBoxes', 'clearBoxes', 'confirmSelection', 'cancelCapture',
                      'find', 'beginScanArea', 'beginAnchorCapture',
-                     'beginLearnPattern', 'copyRedacted', 'save'):
+                     'beginLearnPattern', 'copyRedacted', 'save', 'verifyCurrent'):
             self.assertTrue(hasattr(self.review, name), name)
         self.assertFalse(hasattr(self.controller, 'totalBoxes'))
         self.assertFalse(hasattr(self.controller, 'confirmSelection'))
+
+    def test_verify_current_reports_the_last_export(self):
+        self.open_image()
+        self.controller.session.review.boxes = [(10, 10, 30, 30)]
+        self.controller.session.review.selected = {0}
+        self.controller.session.review.confirmed = True
+        target = Path(self.temporary.name) / 'screen_redacted.png'
+        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+                   return_value=(str(target), 'PNG image (*.png)')):
+            self.review.save_single()
+        self.assertTrue(target.is_file())
+        self.assertEqual(self.review.last_export, target)
+        signals = []
+        self.review.verifyResult.connect(lambda result: signals.append(result))
+        self.review.verifyCurrent()
+        self.assertEqual(self.errors, [])
+        self.assertIsNone(self.review.last_verify['issue'])
+        self.assertTrue(self.review.last_verify['outside_pixels_unchanged'])
+        self.assertEqual(len(signals), 1)
 
     def test_counts_follow_the_box_set(self):
         self.open_image()

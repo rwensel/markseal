@@ -9,12 +9,14 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
 
 from .. import export, images, ocr, workflows
+from ..audit_exports import verify_export
 
 
 class BatchFacade(QObject):
     busyChanged = Signal()
     progressChanged = Signal()
     scanStageChanged = Signal()
+    verifyResult = Signal(dict)
 
     def __init__(self, session, alerts, parent=None):
         super().__init__(parent)
@@ -23,6 +25,7 @@ class BatchFacade(QObject):
         self.session.jobs.busyChanged.connect(self.busyChanged)
         self.session.jobs.progressChanged.connect(self.progressChanged)
         self.session.jobs.scanStageChanged.connect(self.scanStageChanged)
+        self.last_verify = None
 
     @Property(bool, notify=busyChanged)
     def busy(self):
@@ -398,6 +401,8 @@ class BatchFacade(QObject):
             elif workflows.export_succeeded(entry, snapshot):
                 entry.saved = True
                 entry.error = ''
+                entry.export_path = target
+                self.session.facades.review.last_export = target
                 self.alerts.set_status(f'Saved {target.name} to {target.parent}')
 
         self.session.jobs.run(
@@ -406,3 +411,39 @@ class BatchFacade(QObject):
                               'coordinate_logs': include_log},
             rows=self.session.facades.folder.rows(),
         )
+
+    @Slot()
+    def verifyReviewed(self):
+        if self.session.jobs.busy:
+            return
+        self.session.store_active()
+        saved = [entry for entry in self.session.entries
+                 if entry.saved and entry.export_path is not None]
+        files = []
+        for entry in saved:
+            target = entry.export_path
+            if target.is_file():
+                files.append(verify_export(target, entry.path.parent))
+        result = {
+            'files': files,
+            'all_ok': bool(files) and all(
+                item['outside_pixels_unchanged'] and not item['issue'] for item in files),
+        }
+        self.last_verify = result
+        self.verifyResult.emit(result)
+        if not files:
+            self.alerts.set_status(
+                'No exported copies found to verify. Save reviewed images first.'
+            )
+        elif result['all_ok']:
+            self.alerts.set_status(
+                f'Verified {len(files)} export(s): pixels outside redactions unchanged.'
+            )
+        else:
+            problems = [
+                f'{item["export"]}: '
+                f'{item["issue"] or "pixels changed outside redactions"}'
+                for item in files
+                if item['issue'] or not item['outside_pixels_unchanged']
+            ]
+            self.alerts.error('Verify failed', '; '.join(problems))

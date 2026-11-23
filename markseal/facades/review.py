@@ -11,6 +11,7 @@ from PySide6.QtGui import QGuiApplication, QImage
 from PySide6.QtWidgets import QFileDialog
 
 from .. import export, images, ocr, redaction
+from ..audit_exports import verify_export
 from ..performance_log import PerformanceRun
 
 
@@ -21,6 +22,7 @@ class ReviewFacade(QObject):
     viewChanged = Signal()
     captureChanged = Signal()
     confirmLabelChanged = Signal()
+    verifyResult = Signal(dict)
 
     def __init__(self, session, alerts, parent=None):
         super().__init__(parent)
@@ -32,6 +34,8 @@ class ReviewFacade(QObject):
         self.image_revision = 0
         self._display_qimage = QImage()
         self.batch = None
+        self.last_export = None
+        self.last_verify = None
 
     @Property(bool, notify=imageChanged)
     def hasImage(self):
@@ -667,9 +671,35 @@ class ReviewFacade(QObject):
         if error is not None:
             self.alerts.error('Save failed', str(error), 'RETRY', self.save)
             return
+        self.last_export = target
         note = ' and coordinate log' if include_log else ''
         self.alerts.info(
             'Saved',
             f'Saved the redacted PNG{note}. Review before sharing; '
             'pixelated text can sometimes be recovered.',
         )
+
+    @Slot()
+    def verifyCurrent(self):
+        source = self.session.review.path
+        if self.session.pasted_image or source is None:
+            self.alerts.set_status(
+                'Cannot verify a pasted image: there is no original file to compare.'
+            )
+            return
+        path = self.last_export
+        if path is None or not Path(path).is_file():
+            self.alerts.set_status('Save the redacted copy first, then verify it.')
+            return
+        result = verify_export(Path(path), Path(source).parent)
+        self.last_verify = result
+        self.verifyResult.emit(result)
+        name = Path(path).name
+        if result['issue']:
+            self.alerts.error('Verify failed', f'{name}: {result["issue"]}')
+        elif result['outside_pixels_unchanged']:
+            self.alerts.set_status(
+                f'Verified {name}: pixels outside redactions unchanged.'
+            )
+        else:
+            self.alerts.error('Verify failed', f'{name}: pixels outside redactions changed.')

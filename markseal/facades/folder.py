@@ -42,6 +42,10 @@ class FolderFacade(QObject):
         return sum(1 for entry in self.session.entries if entry.reviewed and not entry.saved)
 
     @Property(int, notify=folderChanged)
+    def savedCount(self):
+        return sum(1 for entry in self.session.entries if entry.saved)
+
+    @Property(int, notify=folderChanged)
     def folderImageCount(self):
         return len(self.session.entries)
 

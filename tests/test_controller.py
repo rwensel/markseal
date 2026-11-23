@@ -107,6 +107,10 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(exported.getpixel((20, 25)), (0, 0, 0))
             self.assertEqual(original.getpixel((250, 80)), exported.getpixel((250, 80)))
 
+        self.controller.review.verifyCurrent()
+        self.assertIsNone(self.controller.review.last_verify['issue'])
+        self.assertTrue(self.controller.review.last_verify['outside_pixels_unchanged'])
+
     def test_main_qml_loads_with_the_backend(self):
         qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', self.controller)
         engine = QQmlApplicationEngine()

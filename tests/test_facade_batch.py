@@ -70,10 +70,27 @@ class BatchFacadeTests(unittest.TestCase):
                      'progressCurrent', 'scanStage'):
             self.assertTrue(hasattr(self.batch, name), name)
         for name in ('scanAll', 'scanSelected', 'rescanAll', 'cancelScan',
-                     'copyBoxesToFolder', 'confirmAll', 'saveReviewed'):
+                     'copyBoxesToFolder', 'confirmAll', 'saveReviewed', 'verifyReviewed'):
             self.assertTrue(hasattr(self.batch, name), name)
         self.assertFalse(hasattr(self.controller, 'scanAll'))
         self.assertFalse(hasattr(self.controller, 'busy'))
+
+    def test_verify_reviewed_reports_saved_exports(self):
+        self.controller.folder.open_path(self.make_folder())
+        for entry in self.controller.session.entries:
+            entry.boxes = BoxList([(5, 5, 20, 20)])
+            entry.selected = {0}
+        self.batch.confirmAll()
+        self.batch.saveReviewed()
+        self.wait_for_batch()
+        self.assertEqual(self.errors, [])
+        self.assertTrue(all(entry.saved for entry in self.controller.session.entries))
+        signals = []
+        self.batch.verifyResult.connect(lambda result: signals.append(result))
+        self.batch.verifyReviewed()
+        self.assertTrue(self.batch.last_verify['all_ok'])
+        self.assertEqual(len(self.batch.last_verify['files']), 2)
+        self.assertEqual(len(signals), 1)
 
     def test_scan_all_reports_progress_and_boxes(self):
         self.controller.folder.open_path(self.make_folder())

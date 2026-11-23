@@ -185,7 +185,7 @@ class FolderImage:
 
     def __init__(self, path, boxes=(), rules=None, selected=(), scanned=False,
                  incomplete_ocr=(), reviewed=False, saved=False, error='', stamp=None,
-                 method='Pixelate'):
+                 method='Pixelate', export_path=None):
         self.path = path
         self.boxset = BoxSet(boxes, rules, selected)
         self.scanned = scanned
@@ -195,6 +195,7 @@ class FolderImage:
         self.error = error
         self.stamp = stamp
         self.method = method
+        self.export_path = export_path
 
     @property
     def boxes(self):
