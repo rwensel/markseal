@@ -11,6 +11,9 @@ from tempfile import NamedTemporaryFile
 
 from performance_log import stage
 
+from .images import read_folder_image
+from .redaction import apply_redactions
+
 PNG_COMPRESSION = 3
 NOTE = ('Automated suggestions can miss identifiers; manual review required. '
         'Pixelation may not fully conceal sensitive content.')
@@ -122,7 +125,6 @@ def snapshot(source, target, boxes, selected, method, *, stamp=None, image=None,
 
 
 def write_copy(job, *, include_log=True, overwrite=False):
-    from .core import apply_redactions, read_folder_image
     if job.image is not None:
         image = job.image
     else:

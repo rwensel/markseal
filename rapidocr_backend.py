@@ -10,7 +10,6 @@ from threading import Lock
 from PIL import Image, ImageOps
 from performance_log import stage
 
-
 def model_files():
     try:
         import rapidocr
@@ -28,10 +27,6 @@ def model_files():
     return files
 
 
-_engines = Queue()
-_engine_creation = Lock()
-
-
 def _create_engine():
     files = model_files()
     from rapidocr import RapidOCR
@@ -47,20 +42,35 @@ def _create_engine():
         })
 
 
-def _borrow_engine():
-    try:
-        return _engines.get_nowait()
-    except Empty:
-        pass
-    with _engine_creation:
+class EnginePool:
+    def __init__(self, create=None):
+        self._create = create or _create_engine
+        self._idle = Queue()
+        self._lock = Lock()
+
+    def borrow(self):
         try:
-            return _engines.get_nowait()
+            return self._idle.get_nowait()
         except Empty:
-            return _create_engine()
+            pass
+        with self._lock:
+            try:
+                return self._idle.get_nowait()
+            except Empty:
+                return self._create()
+
+    def release(self, engine):
+        self._idle.put(engine)
+
+    def close(self):
+        while True:
+            try:
+                self._idle.get_nowait()
+            except Empty:
+                return
 
 
-def _return_engine(engine):
-    _engines.put(engine)
+_pool = EnginePool()
 
 
 def positioned_words(text, confidence, line_polygon, fragments):
@@ -122,12 +132,12 @@ def result_to_tsv(result, size):
 
 
 def recognize_words(image):
-    engine = _borrow_engine()
+    engine = _pool.borrow()
     try:
         output = engine(image.convert('RGB'), return_word_box=True, return_single_char_box=True,
                         use_det=True, use_cls=False)
     finally:
-        _return_engine(engine)
+        _pool.release(engine)
     return result_to_tsv(output, image.size)
 
 
@@ -139,11 +149,11 @@ def recognize_single_label(crop):
     image = image.resize((max(1, round(image.width*factor)), max(1, round(image.height*factor))),
                          Image.Resampling.LANCZOS)
     image = ImageOps.expand(image, border=10, fill=image.getpixel((0, 0)))
-    engine = _borrow_engine()
+    engine = _pool.borrow()
     try:
         output = engine(image, return_word_box=False, use_det=False, use_cls=False)
     finally:
-        _return_engine(engine)
+        _pool.release(engine)
     if output.txts and output.scores:
         return output.txts[0].strip(), 100 * output.scores[0]
     return '', 0.0

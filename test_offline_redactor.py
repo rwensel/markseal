@@ -4,7 +4,6 @@ import json
 import re
 import time
 from pathlib import Path
-from queue import Queue
 from tempfile import TemporaryDirectory
 from threading import Barrier, Event, Lock, Thread
 from PIL import Image
@@ -26,6 +25,7 @@ from redactor import preferences
 from redactor.preferences import Preferences, PreferencesError
 from redactor import patterns
 from redactor import export
+from redactor import core
 from redactor.viewport import Viewport
 import audit_exports
 
@@ -188,7 +188,7 @@ class RedactionTests(unittest.TestCase):
     def test_recognizer_reports_progress_stages(self):
         image = Image.new('RGB', (120, 80), 'white')
         stages = []
-        with patch('redactor.core.detect_regions', return_value=[]):
+        with patch('redactor.ocr.detect_regions', return_value=[]):
             recognize_regions(image, FakeEngine('tsv'), (False,), progress=stages.append)
         self.assertIn('Recognizing text', stages)
 
@@ -366,7 +366,7 @@ class RedactionTests(unittest.TestCase):
         incomplete = []
         box = (10, 10, 70, 35)
         engine = FakeEngine(outcomes=['tsv', subprocess.TimeoutExpired('ocr', 15)])
-        with patch('redactor.core.detect_regions', return_value=[box]):
+        with patch('redactor.ocr.detect_regions', return_value=[box]):
             result = recognize_regions(image, engine, (False,), enhanced=True, incomplete=incomplete)
         self.assertEqual(result, [box])
         self.assertEqual(incomplete, ['enhanced OCR timed out'])
@@ -555,17 +555,14 @@ class RedactionTests(unittest.TestCase):
                     active[0] -= 1
                 return SimpleNamespace(boxes=None, txts=None)
 
-        rapidocr_backend._engines = Queue()
-        try:
-            with patch('rapidocr_backend._create_engine', side_effect=lambda: FakeEngine()):
-                threads = [Thread(target=rapidocr_backend.recognize_words,
-                                  args=(Image.new('RGB', (20, 20)),)) for _ in range(2)]
-                for thread in threads:
-                    thread.start()
-                for thread in threads:
-                    thread.join()
-        finally:
-            rapidocr_backend._engines = Queue()
+        pool = rapidocr_backend.EnginePool(lambda: FakeEngine())
+        with patch('rapidocr_backend._pool', pool):
+            threads = [Thread(target=rapidocr_backend.recognize_words,
+                              args=(Image.new('RGB', (20, 20)),)) for _ in range(2)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
         self.assertEqual(peak[0], 2)
 
     def test_performance_log_records_timings_without_exception_message(self):
@@ -586,6 +583,44 @@ class RedactionTests(unittest.TestCase):
         rows = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t10\t20\t90\t10\t95\tuser@example.com\n5\t1\t1\t1\t2\t1\t10\t50\t50\t10\t95\tDashboard\n'
         self.assertEqual(detect_regions(rows, (200, 100)), [(6, 16, 104, 34)])
         self.assertEqual(len(detect_regions(rows, (200, 100), all_text=True)), 2)
+
+class ModuleSplitTests(unittest.TestCase):
+    def test_public_launcher_reexports_keep_resolving(self):
+        import offline_redactor
+        for name in ('IMAGE_SUFFIXES', 'PATTERNS', 'PRESETS', 'FolderImage', 'ScanCancelled',
+                     'apply_redactions', 'detect_regions', 'find_tesseract', 'new_ocr_boxes',
+                     'output_path', 'pixelate', 'preferences_path', 'read_folder_image',
+                     'recognize_regions', 'save_export', 'write_folder_copy',
+                     'write_preferences'):
+            self.assertTrue(hasattr(offline_redactor, name), name)
+
+    def test_each_concept_lives_in_its_sibling_module(self):
+        from redactor import detection, images, ocr, redaction
+        self.assertIs(detection.detect_regions, core.detect_regions)
+        self.assertIs(detection.pattern_from_text, core.pattern_from_text)
+        self.assertIs(redaction.pixelate, core.pixelate)
+        self.assertIs(redaction.apply_redactions, core.apply_redactions)
+        self.assertIs(images.read_folder_image, core.read_folder_image)
+        self.assertIs(ocr.recognize_regions, core.recognize_regions)
+        self.assertIs(ocr.scan_folder_image, core.scan_folder_image)
+
+    def test_engine_pool_reuses_idle_engines_and_clears_on_close(self):
+        created = []
+
+        def create():
+            created.append(object())
+            return created[-1]
+
+        pool = rapidocr_backend.EnginePool(create)
+        first = pool.borrow()
+        pool.release(first)
+        self.assertIs(pool.borrow(), first)
+        self.assertEqual(len(created), 1)
+        pool.close()
+        second = pool.borrow()
+        self.assertIsNot(second, first)
+        self.assertEqual(len(created), 2)
+
 
 class PatternDialogTests(unittest.TestCase):
     def test_pattern_validation_rejects_empty_and_invalid_expressions(self):

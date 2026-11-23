@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import patterns
-from .core import (
+from .detection import (
     PATTERN_TYPE_LABELS, value_pattern_expression, value_pattern_types,
 )
 

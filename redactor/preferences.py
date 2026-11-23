@@ -12,10 +12,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+from .detection import PATTERNS, PRESETS
+from .export import output_path
+
 ENGINE_NAMES = ('Tesseract', 'RapidOCR')
 METHOD_NAMES = ('Pixelate', 'Solid black')
 DEFAULT_TEMPLATE = '{stem}_redacted'
 MAX_PARALLEL = 16
+
+
+def preferences_path():
+    local = os.environ.get('LOCALAPPDATA')
+    base = Path(local) if local else Path.home() / '.config'
+    return base / 'OfflineScreenshotRedactor' / 'settings.json'
 
 
 class PreferencesError(ValueError):
@@ -58,25 +67,12 @@ class Preferences:
         }
 
 
-def _catalog():
-    from .core import PATTERNS, PRESETS, output_path
-    return PATTERNS, PRESETS, output_path
-
-
-def preferences_path():
-    local = os.environ.get('LOCALAPPDATA')
-    base = Path(local) if local else Path.home() / '.config'
-    return base / 'OfflineScreenshotRedactor' / 'settings.json'
-
-
 def _category_names(names):
-    patterns, _, _ = _catalog()
     chosen = set(names or ())
-    return tuple(name for name in patterns if name in chosen)
+    return tuple(name for name in PATTERNS if name in chosen)
 
 
 def _valid_template(template, source):
-    _, _, output_path = _catalog()
     try:
         output_path(Path('.'), template, source or Path('example.png'), 1)
     except (ValueError, KeyError, IndexError, AttributeError):
@@ -85,8 +81,7 @@ def _valid_template(template, source):
 
 
 def defaults():
-    _, presets, _ = _catalog()
-    return Preferences(categories=_category_names(presets['Focused']))
+    return Preferences(categories=_category_names(PRESETS['Focused']))
 
 
 def _blocked_entry(entry):
@@ -106,11 +101,10 @@ def _blocked_entry(entry):
 
 
 def from_document(document, parallel_limit=MAX_PARALLEL):
-    _, presets, _ = _catalog()
     limit = max(1, int(parallel_limit))
     preferences = defaults()
     preset = document.get('sensitivity')
-    if isinstance(preset, str) and preset in {*presets, 'Custom'}:
+    if isinstance(preset, str) and preset in {*PRESETS, 'Custom'}:
         preferences.sensitivity = preset
     categories = document.get('categories')
     if isinstance(categories, list):
@@ -196,7 +190,6 @@ def _checked_confidence(value):
 
 
 def apply_form(current, form, parallel_limit, source=None):
-    _, presets, output_path = _catalog()
     limit = max(1, int(parallel_limit))
     threshold = _checked_confidence(form['confidence'])
     workers = int(form['parallel_images'])
@@ -210,7 +203,7 @@ def apply_form(current, form, parallel_limit, source=None):
         raise ValueError('Enter a filename template.')
     output_path(chosen or Path('.'), name, source or Path('example.png'), 1)
     sensitivity = form['sensitivity']
-    if isinstance(sensitivity, str) and sensitivity not in {*presets, 'Custom'}:
+    if isinstance(sensitivity, str) and sensitivity not in {*PRESETS, 'Custom'}:
         raise ValueError('Choose a detection preset.')
     engine = form['ocr_engine']
     if engine not in ENGINE_NAMES:
