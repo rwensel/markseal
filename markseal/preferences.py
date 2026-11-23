@@ -63,6 +63,8 @@ class Preferences:
     output_directory: str = ''
     filename_template: str = DEFAULT_TEMPLATE
     include_log: bool = True
+    check_for_updates: bool = False
+    download_updates_automatically: bool = False
     parallel_images: int = 1
     theme: str = DEFAULT_ID
     categories: tuple = ()
@@ -80,6 +82,8 @@ class Preferences:
             'output_directory': self.output_directory,
             'filename_template': self.filename_template,
             'include_log': self.include_log,
+            'check_for_updates': self.check_for_updates,
+            'download_updates_automatically': self.download_updates_automatically,
             'parallel_images': self.parallel_images,
             'show_rules': self.show_rules,
             'theme': self.theme,
@@ -134,7 +138,9 @@ def from_document(document, parallel_limit=MAX_PARALLEL):
         preferences.confidence = threshold
     for key, attribute in (('all_text', 'all_text'), ('enhanced_ocr', 'enhanced_ocr'),
                            ('color_ocr', 'color_ocr'), ('show_rules', 'show_rules'),
-                           ('include_log', 'include_log')):
+                           ('include_log', 'include_log'),
+                           ('check_for_updates', 'check_for_updates'),
+                           ('download_updates_automatically', 'download_updates_automatically')):
         if isinstance(document.get(key), bool):
             setattr(preferences, attribute, document[key])
     method = document.get('redaction_method')
