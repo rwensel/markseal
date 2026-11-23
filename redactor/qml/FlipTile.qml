@@ -80,7 +80,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: tile.displayValue
             color: tile.accent
-            font.family: Backend.displayFont
+            font.family: Theme.displayFont
             font.pixelSize: 13
             font.letterSpacing: 0.8
             font.weight: Font.DemiBold
@@ -92,7 +92,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: tile.label
             color: Theme.mutedText
-            font.family: Backend.displayFont
+            font.family: Theme.displayFont
             font.pixelSize: 9
             font.letterSpacing: 0.8
         }

@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Window {
@@ -19,7 +18,7 @@ Window {
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#101215" }
+            GradientStop { position: 0.0; color: Theme.shellTop }
             GradientStop { position: 1.0; color: Theme.bg }
         }
     }
@@ -68,7 +67,7 @@ Window {
         Rectangle {
             anchors.fill: parent
             visible: parent.containsDrag
-            color: "#D90B0B0D"
+            color: Theme.scrim
 
             Rectangle {
                 anchors.fill: parent
@@ -86,7 +85,7 @@ Window {
                 Text {
                     text: "DROP TO OPEN"
                     color: Theme.white
-                    font.family: Backend.displayFont
+                    font.family: Theme.displayFont
                     font.pixelSize: 30
                     font.letterSpacing: 3
                     font.weight: Font.DemiBold
@@ -95,7 +94,7 @@ Window {
                 Text {
                     text: "PNG / JPEG / BMP / TIFF / FOLDER"
                     color: Theme.steelLight
-                    font.family: Backend.displayFont
+                    font.family: Theme.displayFont
                     font.pixelSize: 9
                     font.letterSpacing: 1.2
                 }

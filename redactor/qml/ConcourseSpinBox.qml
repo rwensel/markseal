@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import "Theme.js" as Theme
 import Redactor 1.0
 
 SpinBox {
@@ -11,7 +10,7 @@ SpinBox {
 
     contentItem: TextInput {
         text: control.textFromValue(control.value, control.locale)
-        font.family: Backend.bodyFont
+        font.family: Theme.bodyFont
         font.pixelSize: 12
         color: Theme.white
         selectionColor: Theme.amber
@@ -31,13 +30,13 @@ SpinBox {
         width: 25
         height: (control.height - 3) / 2
         radius: 3
-        color: up.pressed ? "#2A2E33" : "transparent"
+        color: up.pressed ? Theme.buttonFaceHover : "transparent"
 
         Text {
             anchors.centerIn: parent
             text: "+"
             color: up.pressed ? Theme.amber : Theme.steelLight
-            font.family: Backend.displayFont
+            font.family: Theme.displayFont
             font.pixelSize: 12
         }
     }
@@ -48,21 +47,21 @@ SpinBox {
         width: 25
         height: (control.height - 3) / 2
         radius: 3
-        color: down.pressed ? "#2A2E33" : "transparent"
+        color: down.pressed ? Theme.buttonFaceHover : "transparent"
 
         Text {
             anchors.centerIn: parent
             text: "-"
             color: down.pressed ? Theme.amber : Theme.steelLight
-            font.family: Backend.displayFont
+            font.family: Theme.displayFont
             font.pixelSize: 12
         }
     }
 
     background: Rectangle {
         radius: 6
-        color: "#0F1114"
+        color: Theme.fieldFace
         border.width: 1
-        border.color: control.activeFocus ? Theme.amber : "#2A2D31"
+        border.color: control.activeFocus ? Theme.amber : Theme.fieldBorder
     }
 }

@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Window {
@@ -101,7 +100,7 @@ Window {
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#121417" }
+            GradientStop { position: 0.0; color: Theme.settingsTop }
             GradientStop { position: 1.0; color: Theme.bg }
         }
     }
@@ -118,7 +117,7 @@ Window {
             Text {
                 text: "SETTINGS"
                 color: Theme.white
-                font.family: Backend.displayFont
+                font.family: Theme.displayFont
                 font.pixelSize: 24
                 font.letterSpacing: 2.4
                 font.weight: Font.DemiBold
@@ -127,7 +126,7 @@ Window {
             Text {
                 text: "LOCAL DETECTION / REDACTION / OUTPUT"
                 color: Theme.steelLight
-                font.family: Backend.displayFont
+                font.family: Theme.displayFont
                 font.pixelSize: 9
                 font.letterSpacing: 1.2
             }
@@ -187,7 +186,7 @@ Window {
                     Layout.fillWidth: true
                     text: "NO NETWORK CALLS"
                     color: Theme.steelMid
-                    font.family: Backend.displayFont
+                    font.family: Theme.displayFont
                     font.pixelSize: 9
                     font.letterSpacing: 1.1
                 }
@@ -359,9 +358,9 @@ Window {
                                 Layout.fillWidth: true
                                 implicitHeight: categoriesGrid.implicitHeight + 22
                                 radius: 6
-                                color: "#101214"
+                                color: Theme.fieldFace
                                 border.width: 1
-                                border.color: "#2A2D31"
+                                border.color: Theme.fieldBorder
 
                                 GridLayout {
                                     id: categoriesGrid
@@ -440,7 +439,7 @@ Window {
                                 Layout.fillWidth: true
                                 Layout.topMargin: 4
                                 implicitHeight: 88
-                                fillColor: "#101214"
+                                fillColor: Theme.fieldFace
                                 inset: true
 
                                 ColumnLayout {
@@ -451,7 +450,7 @@ Window {
                                     Text {
                                         text: "PIXELATE"
                                         color: Theme.amber
-                                        font.family: Backend.displayFont
+                                        font.family: Theme.displayFont
                                         font.pixelSize: 10
                                         font.letterSpacing: 1
                                     }
@@ -461,7 +460,7 @@ Window {
                                         text: "Coarse mosaic blocks cover the selected pixels. Fast, but text can remain recognizable or recoverable."
                                         wrapMode: Text.WordWrap
                                         color: Theme.steelLight
-                                        font.family: Backend.bodyFont
+                                        font.family: Theme.bodyFont
                                         font.pixelSize: 11
                                     }
                                 }
@@ -470,7 +469,7 @@ Window {
                             Panel {
                                 Layout.fillWidth: true
                                 implicitHeight: 88
-                                fillColor: "#101214"
+                                fillColor: Theme.fieldFace
                                 inset: true
 
                                 ColumnLayout {
@@ -481,7 +480,7 @@ Window {
                                     Text {
                                         text: "SOLID BLACK"
                                         color: Theme.red
-                                        font.family: Backend.displayFont
+                                        font.family: Theme.displayFont
                                         font.pixelSize: 10
                                         font.letterSpacing: 1
                                     }
@@ -491,7 +490,7 @@ Window {
                                         text: "Opaque black removes image detail inside the selected boxes. Recommended for highly sensitive material."
                                         wrapMode: Text.WordWrap
                                         color: Theme.steelLight
-                                        font.family: Backend.bodyFont
+                                        font.family: Theme.bodyFont
                                         font.pixelSize: 11
                                     }
                                 }
@@ -606,7 +605,7 @@ Window {
                                           + "Traces omit filenames, paths, OCR text, and blocked-pattern expressions."
                                     wrapMode: Text.WordWrap
                                     color: Theme.steelLight
-                                    font.family: Backend.bodyFont
+                                    font.family: Theme.bodyFont
                                     font.pixelSize: 11
                                     lineHeight: 1.2
                                 }
@@ -615,9 +614,9 @@ Window {
                                     Layout.fillWidth: true
                                     implicitHeight: 40
                                     radius: 6
-                                    color: "#101214"
+                                    color: Theme.fieldFace
                                     border.width: 1
-                                    border.color: "#2A2D31"
+                                    border.color: Theme.fieldBorder
 
                                     Text {
                                         anchors.fill: parent
@@ -627,7 +626,7 @@ Window {
                                         elide: Text.ElideMiddle
                                         verticalAlignment: Text.AlignVCenter
                                         color: Theme.steelLight
-                                        font.family: Backend.bodyFont
+                                        font.family: Theme.bodyFont
                                         font.pixelSize: 11
                                     }
                                 }
@@ -679,7 +678,7 @@ Window {
                                       + "The app generates a regular expression with fixed-text or detected value-type matching for you to review and save."
                                 wrapMode: Text.WordWrap
                                 color: Theme.steelLight
-                                font.family: Backend.bodyFont
+                                font.family: Theme.bodyFont
                                 font.pixelSize: 12
                                 lineHeight: 1.25
                             }
@@ -689,7 +688,7 @@ Window {
                                 text: "CHANGES ON THIS PAGE SAVE IMMEDIATELY, EVEN IF YOU CANCEL"
                                 wrapMode: Text.WordWrap
                                 color: Theme.amber
-                                font.family: Backend.displayFont
+                                font.family: Theme.displayFont
                                 font.pixelSize: 9
                                 font.letterSpacing: 0.8
                             }
@@ -725,7 +724,7 @@ Window {
                                       : "Open an image to learn from a scan area, or add a pattern manually."
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
-                                font.family: Backend.bodyFont
+                                font.family: Theme.bodyFont
                                 font.pixelSize: 10
                             }
 
@@ -740,7 +739,7 @@ Window {
                                 text: "No blocked patterns yet. Learn one from a scan area or add an expression manually."
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
-                                font.family: Backend.bodyFont
+                                font.family: Theme.bodyFont
                                 font.pixelSize: 11
                             }
 
@@ -753,9 +752,9 @@ Window {
                                     Layout.fillWidth: true
                                     implicitHeight: card.implicitHeight + 20
                                     radius: 6
-                                    color: "#101214"
+                                    color: Theme.fieldFace
                                     border.width: 1
-                                    border.color: modelData.enabled ? "#3A3F45" : "#262A2E"
+                                    border.color: modelData.enabled ? Theme.buttonBorder : Theme.hairline
                                     opacity: modelData.enabled ? 1 : 0.72
 
                                     ColumnLayout {
@@ -777,7 +776,7 @@ Window {
                                                 textFormat: Text.PlainText
                                                 elide: Text.ElideRight
                                                 color: Theme.white
-                                                font.family: Backend.bodyFont
+                                                font.family: Theme.bodyFont
                                                 font.pixelSize: 11
                                                 font.weight: Font.DemiBold
                                             }
@@ -810,7 +809,7 @@ Window {
                                             textFormat: Text.PlainText
                                             wrapMode: Text.WrapAnywhere
                                             color: Theme.steelLight
-                                            font.family: Backend.bodyFont
+                                            font.family: Theme.bodyFont
                                             font.pixelSize: 10
                                         }
                                     }
@@ -841,7 +840,7 @@ Window {
                 maximumLineCount: 2
                 elide: Text.ElideRight
                 color: Theme.red
-                font.family: Backend.bodyFont
+                font.family: Theme.bodyFont
                 font.pixelSize: 11
             }
 

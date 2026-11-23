@@ -12,7 +12,7 @@ from PySide6.QtCore import (
     Property, QAbstractListModel, QBuffer, QIODevice, QModelIndex, QObject, Qt, QTimer, QUrl,
     Signal, Slot,
 )
-from PySide6.QtGui import QDesktopServices, QFontDatabase, QGuiApplication, QImage
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
@@ -29,7 +29,7 @@ from . import preferences
 from . import redaction
 from .jobs import JobRunner, progress_line
 from .review import Review
-from .themes import Palette, pick_font
+from .themes import Palette
 
 
 INITIAL_STATUS = (
@@ -216,16 +216,6 @@ class Controller(QObject):
         self._folder_model = FolderModel()
         self._preferences = preferences.defaults()
         self._palette = Palette(self)
-        available_fonts = set(QFontDatabase.families())
-        self.display_font = pick_font(
-            ['Bahnschrift Condensed', 'Bahnschrift SemiCondensed', 'Avenir Next Condensed',
-             'Roboto Condensed', 'DejaVu Sans Condensed', 'Noto Sans'],
-            'Segoe UI', available_fonts,
-        )
-        self.body_font = pick_font(
-            ['Inter', 'Segoe UI Variable Text', 'Segoe UI', 'Helvetica Neue', 'Noto Sans'],
-            'Sans Serif', available_fonts,
-        )
         self._job_timer = QTimer(self)
         self._job_timer.setInterval(100)
         self._job_timer.timeout.connect(self._poll_jobs)
@@ -496,14 +486,6 @@ class Controller(QObject):
     @Property(QObject, constant=True)
     def palette(self):
         return self._palette
-
-    @Property(str, constant=True)
-    def displayFont(self):
-        return self.display_font
-
-    @Property(str, constant=True)
-    def bodyFont(self):
-        return self.body_font
 
     @Property(list, constant=True)
     def categoryNames(self):

@@ -40,7 +40,7 @@ Item {
             text: Backend.statusText
             elide: Text.ElideRight
             color: Theme.steelLight
-            font.family: Backend.bodyFont
+            font.family: Theme.bodyFont
             font.pixelSize: 12
             Accessible.role: Accessible.StaticText
             Accessible.name: Backend.statusText

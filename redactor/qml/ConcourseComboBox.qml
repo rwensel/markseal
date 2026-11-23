@@ -1,22 +1,21 @@
 import QtQuick
 import QtQuick.Controls
-import "Theme.js" as Theme
 import Redactor 1.0
 
 ComboBox {
     id: control
     implicitHeight: 34
     implicitWidth: 160
-    font.family: Backend.bodyFont
+    font.family: Theme.bodyFont
     font.pixelSize: 12
     hoverEnabled: true
 
     background: Rectangle {
         radius: 6
-        color: control.pressed ? "#1A1D21" : "#0F1114"
+        color: control.pressed ? Theme.fieldHover : Theme.fieldFace
         border.width: 1
         border.color: control.pressed || control.activeFocus ? Theme.amber
-                      : control.hovered ? Theme.steelMid : "#2A2D31"
+                      : control.hovered ? Theme.steelMid : Theme.fieldBorder
         Behavior on color { ColorAnimation { duration: 100 } }
         Behavior on border.color { ColorAnimation { duration: 100 } }
     }
@@ -25,7 +24,7 @@ ComboBox {
         leftPadding: 10
         rightPadding: 26
         text: control.displayText
-        font.family: Backend.bodyFont
+        font.family: Theme.bodyFont
         font.pixelSize: 12
         color: Theme.white
         verticalAlignment: Text.AlignVCenter
@@ -36,7 +35,7 @@ ComboBox {
         x: control.width - 19
         y: (control.height - height) / 2
         text: "v"
-        font.family: Backend.displayFont
+        font.family: Theme.displayFont
         font.pixelSize: 11
         color: Theme.steelLight
     }
@@ -49,7 +48,7 @@ ComboBox {
         contentItem: Text {
             leftPadding: 10
             text: modelData
-            font.family: Backend.bodyFont
+            font.family: Theme.bodyFont
             font.pixelSize: 12
             color: item.highlighted ? Theme.ink : Theme.white
             verticalAlignment: Text.AlignVCenter
@@ -67,7 +66,7 @@ ComboBox {
         padding: 4
 
         background: Rectangle {
-            color: "#181B1F"
+            color: Theme.panel
             radius: 8
             border.width: 1
             border.color: Theme.hairline

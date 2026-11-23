@@ -1,5 +1,4 @@
 import QtQuick
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Item {
@@ -21,11 +20,11 @@ Item {
         anchors.fill: parent
         radius: 6
         color: pointer.pressed
-               ? (tab.active ? "#262A2F" : "#24282D")
+               ? (tab.active ? Theme.tabActiveFace : Theme.tabActiveFace)
                : tab.active ? Theme.panelRaised
-               : (pointer.containsMouse ? "#1A1D21" : "transparent")
+               : (pointer.containsMouse ? Theme.tabHover : "transparent")
         border.width: tab.active || pointer.pressed ? 1 : 0
-        border.color: pointer.pressed ? Theme.amber : "#3B4046"
+        border.color: pointer.pressed ? Theme.amber : Theme.tabBorder
         Behavior on color { ColorAnimation { duration: 100 } }
     }
 
@@ -45,7 +44,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         text: tab.text
         color: tab.active ? Theme.white : Theme.steelLight
-        font.family: Backend.displayFont
+        font.family: Theme.displayFont
         font.pixelSize: 11
         font.letterSpacing: 1.1
     }
