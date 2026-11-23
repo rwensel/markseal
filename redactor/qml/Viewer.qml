@@ -40,8 +40,8 @@ Item {
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.shellTop }
-            GradientStop { position: 1.0; color: Theme.shellBottom }
+            GradientStop { position: 0.0; color: Theme.viewerTop }
+            GradientStop { position: 1.0; color: Theme.viewerBottom }
         }
     }
 

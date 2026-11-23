@@ -508,7 +508,7 @@ class Controller(QObject):
                 'tagline': entry.tagline,
                 'swatches': {
                     'bg': tokens['bg'],
-                    'surface': tokens['panelRaised'],
+                    'surface': tokens['panel'],
                     'accent': tokens['amber'],
                     'white': tokens['white'],
                     'muted': tokens['mutedText'],

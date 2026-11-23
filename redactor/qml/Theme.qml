@@ -36,12 +36,17 @@ QtObject {
     readonly property color tileHingeLight: t.tileHingeLight
     readonly property color shellTop: t.shellTop
     readonly property color shellBottom: t.shellBottom
+    readonly property color viewerTop: t.viewerTop
+    readonly property color viewerBottom: t.viewerBottom
     readonly property color toolbarTop: t.toolbarTop
     readonly property color toolbarBottom: t.toolbarBottom
     readonly property color sidebarTop: t.sidebarTop
     readonly property color sidebarBottom: t.sidebarBottom
     readonly property color settingsTop: t.settingsTop
     readonly property color settingsBottom: t.settingsBottom
+    readonly property color toolbarDivider: t.toolbarDivider
+    readonly property color toolbarEdge: t.toolbarEdge
+    readonly property color insetBorder: t.insetBorder
     readonly property color boardTop: t.boardTop
     readonly property color boardBottom: t.boardBottom
     readonly property color rowActive: t.rowActive

@@ -17,6 +17,6 @@ MenuItem {
 
     background: Rectangle {
         radius: 5
-        color: control.highlighted && control.enabled ? Theme.rowSelected : "transparent"
+        color: control.highlighted && control.enabled ? Theme.rowActive : "transparent"
     }
 }

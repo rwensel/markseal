@@ -18,7 +18,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         height: 1
-        color: Theme.hairline
+        color: Theme.buttonBorder
         opacity: 0.5
     }
 

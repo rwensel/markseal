@@ -26,7 +26,7 @@ Item {
         anchors.rightMargin: 1
         radius: 6
         color: Theme.shadow
-        opacity: 1
+        opacity: 0.45
     }
 
     Rectangle {
@@ -52,7 +52,7 @@ Item {
             height: 1
             radius: 1
             color: Theme.highlight
-            opacity: 1
+            opacity: 0.14
         }
 
         Rectangle {

@@ -191,6 +191,8 @@ def _tokens(spec: ThemeSpec) -> dict[str, object]:
     muted_text = mix(ink, spec.muted, 0.60)
     hairline = mix(spec.muted, bg, 0.35)
     light_surface = relative_luminance(bg) > 0.5
+    shadow = mix(ink, bg, 0.5) if light_surface else '#000000'
+    highlight = ink if light_surface else '#FFFFFF'
     button_border = mix(spec.muted, bg, 0.50)
     danger_text = _ensure_contrast(stop, panel, bg, 4.5)
     return {
@@ -231,6 +233,9 @@ def _tokens(spec: ThemeSpec) -> dict[str, object]:
         'sidebarBottom': mix(panel, bg, 0.15),
         'settingsTop': mix(bg, panel, 0.10),
         'settingsBottom': bg,
+        'toolbarDivider': mix(button_border, bg, 0.20),
+        'toolbarEdge': mix(panel, ink, 0.35),
+        'insetBorder': mix(surface, ink, 0.30),
         'boardTop': mix(bg, panel, 0.10),
         'boardBottom': mix(bg, ink, 0.04),
         'rowActive': mix(surface, accent, 0.18),
@@ -247,7 +252,7 @@ def _tokens(spec: ThemeSpec) -> dict[str, object]:
         'focusRing': accent,
         'fieldFace': mix(surface, bg, 0.08),
         'fieldBorder': mix(spec.muted, bg, 0.45),
-        'fieldHover': mix(spec.muted, ink, 0.15),
+        'fieldHover': mix(surface, ink, 0.10),
         'placeholder': mix(spec.muted, bg, 0.20),
         'tabFace': surface,
         'tabHover': mix(surface, ink, 0.06),
@@ -257,10 +262,10 @@ def _tokens(spec: ThemeSpec) -> dict[str, object]:
         'bannerBorder': mix(stop, bg, 0.25),
         'scrim': with_alpha(bg, 0.85),
         'dropBorder': accent,
-        'shadow': with_alpha(mix(ink, bg, 0.5) if light_surface else '#000000',
-                             0.28 if light_surface else 0.55),
-        'highlight': with_alpha(ink if light_surface else '#ffffff',
-                                0.06 if light_surface else 0.08),
+        'shadow': shadow,
+        'highlight': highlight,
+        'viewerTop': mix(panel, bg, 0.25),
+        'viewerBottom': mix(bg, surface, 0.05),
         'displayFont': spec.display,
         'bodyFont': spec.body,
         'labelTracking': spec.label_tracking,
@@ -268,6 +273,77 @@ def _tokens(spec: ThemeSpec) -> dict[str, object]:
         'selectedSignalName': spec.selected_name,
         'excludedSignalName': spec.excluded_name,
     }
+
+
+_DEFAULT_OVERRIDES = {
+    'bg': '#0B0B0D',
+    'panel': '#15171A',
+    'panelRaised': '#1D2024',
+    'inset': '#101215',
+    'steel': '#2A2D31',
+    'steelMid': '#585E63',
+    'steelLight': '#A7AAAF',
+    'hairline': '#3A3E43',
+    'amber': '#FFB000',
+    'amberHover': '#FFC24D',
+    'amberPressed': '#E6A000',
+    'amberBorder': '#FFD37A',
+    'amberFill': '#1AFFB000',
+    'red': '#B00020',
+    'redFill': '#14B00020',
+    'redBorder': '#B00020',
+    'dangerFace': '#171214',
+    'dangerBorder': '#B00020',
+    'dangerText': '#cd5b70',
+    'white': '#F2F2F2',
+    'ink': '#0A0A0B',
+    'mutedText': '#8A9096',
+    'tile': '#232629',
+    'tileTop': '#2C3034',
+    'tileHingeDark': '#8C000000',
+    'tileHingeLight': '#0FFFFFFF',
+    'shellTop': '#101215',
+    'shellBottom': '#0B0B0D',
+    'toolbarTop': '#1C1F23',
+    'toolbarBottom': '#121417',
+    'sidebarTop': '#191C20',
+    'sidebarBottom': '#131518',
+    'settingsTop': '#121417',
+    'settingsBottom': '#0B0B0D',
+    'toolbarDivider': '#34393F',
+    'toolbarEdge': '#464B51',
+    'insetBorder': '#050506',
+    'boardTop': '#15181B',
+    'boardBottom': '#0E1012',
+    'viewerTop': '#14171A',
+    'viewerBottom': '#0B0C0E',
+    'rowActive': '#25292E',
+    'rowSelected': '#1D2024',
+    'rowHover': '#1A1D21',
+    'buttonFace': '#15181B',
+    'buttonFaceHover': '#2A2E33',
+    'buttonFacePressed': '#15181B',
+    'buttonBorder': '#3B4046',
+    'buttonBorderHover': '#3B4046',
+    'ghostHover': '#22262A',
+    'disabledFace': '#191C1F',
+    'disabledText': '#8A9096',
+    'focusRing': '#FFB000',
+    'fieldFace': '#0F1114',
+    'fieldBorder': '#2A2D31',
+    'fieldHover': '#1A1D21',
+    'placeholder': '#666C72',
+    'tabFace': '#101214',
+    'tabHover': '#1A1D21',
+    'tabActiveFace': '#262A2F',
+    'tabBorder': '#3B4046',
+    'bannerFace': '#1A1418',
+    'bannerBorder': '#8C1A2E',
+    'scrim': '#B0000000',
+    'dropBorder': '#FFB000',
+    'shadow': '#000000',
+    'highlight': '#FFFFFF',
+}
 
 
 REQUIRED_TOKENS = frozenset({
@@ -283,7 +359,8 @@ REQUIRED_TOKENS = frozenset({
     'fieldFace', 'fieldBorder', 'fieldHover', 'placeholder',
     'tabFace', 'tabHover', 'tabActiveFace', 'tabBorder',
     'bannerFace', 'bannerBorder', 'scrim', 'dropBorder',
-    'shadow', 'highlight',
+    'shadow', 'highlight', 'viewerTop', 'viewerBottom',
+    'toolbarDivider', 'toolbarEdge', 'insetBorder',
     'displayFont', 'bodyFont', 'labelTracking', 'labelScale',
     'selectedSignalName', 'excludedSignalName',
 })
@@ -292,6 +369,8 @@ REQUIRED_TOKENS = frozenset({
 def resolve(theme_id: str) -> dict[str, object]:
     spec = _SPECS.get(theme_id) or _SPECS[DEFAULT_ID]
     tokens = _tokens(spec)
+    if spec.id == DEFAULT_ID:
+        tokens.update(_DEFAULT_OVERRIDES)
     if set(tokens) != set(REQUIRED_TOKENS):
         missing = sorted(set(REQUIRED_TOKENS) - set(tokens))
         extra = sorted(set(tokens) - set(REQUIRED_TOKENS))

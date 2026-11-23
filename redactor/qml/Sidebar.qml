@@ -48,7 +48,7 @@ Item {
         anchors.right: parent.right
         anchors.rightMargin: 1
         width: 1
-        color: Theme.hairline
+        color: Theme.buttonBorder
         opacity: 0.5
     }
 
@@ -238,7 +238,7 @@ Item {
                     radius: 3
                     color: Theme.inset
                     border.width: 1
-                    border.color: Theme.buttonBorder
+                    border.color: Theme.fieldBorder
 
                     Rectangle {
                         width: parent.width * (Backend.progressMax > 0
@@ -357,7 +357,7 @@ Item {
                        : model.selected ? Theme.rowSelected
                        : (pointer.containsMouse ? Theme.rowHover : "transparent")
                 border.width: model.selected || model.active ? 1 : 0
-                border.color: model.active ? Theme.amber : Theme.hairline
+                border.color: model.active ? Theme.amber : Theme.toolbarDivider
 
                 Rectangle {
                     anchors.left: parent.left

@@ -54,7 +54,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 1
         height: 1
-        color: Theme.hairline
+        color: Theme.toolbarEdge
         opacity: 0.55
     }
 
@@ -118,7 +118,7 @@ Item {
         Rectangle {
             Layout.preferredWidth: 1
             Layout.preferredHeight: 30
-            color: Theme.hairline
+            color: Theme.toolbarDivider
         }
 
         ConcourseButton {
@@ -149,7 +149,7 @@ Item {
         Rectangle {
             Layout.preferredWidth: 1
             Layout.preferredHeight: 30
-            color: Theme.hairline
+            color: Theme.toolbarDivider
         }
 
         ConcourseButton {
@@ -173,7 +173,7 @@ Item {
         Rectangle {
             Layout.preferredWidth: 1
             Layout.preferredHeight: 30
-            color: Theme.hairline
+            color: Theme.toolbarDivider
         }
 
         ConcourseButton {

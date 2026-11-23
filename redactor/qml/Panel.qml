@@ -13,7 +13,7 @@ Item {
         radius: panel.cornerRadius
         color: panel.fillColor
         border.width: 1
-        border.color: panel.inset ? Theme.shadow : Theme.hairline
+        border.color: panel.inset ? Theme.insetBorder : Theme.hairline
     }
 
     MultiEffect {
@@ -21,7 +21,7 @@ Item {
         source: face
         shadowEnabled: !panel.inset
         shadowColor: Theme.shadow
-        shadowOpacity: 1
+        shadowOpacity: 0.42
         shadowBlur: 0.65
         shadowVerticalOffset: 5
     }
@@ -34,6 +34,6 @@ Item {
         height: 1
         radius: 1
         color: Theme.highlight
-        opacity: 1
+        opacity: panel.inset ? 0.02 : 0.07
     }
 }

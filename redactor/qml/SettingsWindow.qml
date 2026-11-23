@@ -490,7 +490,7 @@ Window {
 
                                     Text {
                                         text: "SOLID BLACK"
-                                        color: Theme.red
+                                        color: Theme.dangerText
                                         font.family: Theme.displayFont
                                         font.pixelSize: 10
                                         font.letterSpacing: 1
@@ -902,7 +902,7 @@ Window {
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
-                color: Theme.red
+                color: Theme.dangerText
                 font.family: Theme.bodyFont
                 font.pixelSize: 11
             }

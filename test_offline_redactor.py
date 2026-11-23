@@ -1364,6 +1364,24 @@ class ThemeTests(unittest.TestCase):
             excluded = themes.relative_luminance(tokens['red'])
             self.assertGreaterEqual(abs(selected - excluded), 0.08, theme_id)
 
+    def test_default_theme_preserves_incumbent_values(self):
+        tokens = themes.resolve(themes.DEFAULT_ID)
+        expected = {
+            'panel': '#15171A', 'panelRaised': '#1D2024', 'inset': '#101215',
+            'steelLight': '#A7AAAF', 'mutedText': '#8A9096', 'tile': '#232629',
+            'amberFill': '#1AFFB000', 'amberHover': '#FFC24D', 'amberPressed': '#E6A000',
+            'toolbarTop': '#1C1F23', 'toolbarBottom': '#121417',
+            'sidebarTop': '#191C20', 'sidebarBottom': '#131518',
+            'boardTop': '#15181B', 'boardBottom': '#0E1012',
+            'viewerTop': '#14171A', 'viewerBottom': '#0B0C0E',
+            'rowActive': '#25292E', 'buttonFace': '#15181B',
+            'fieldFace': '#0F1114', 'bannerFace': '#1A1418',
+            'toolbarDivider': '#34393F', 'toolbarEdge': '#464B51', 'insetBorder': '#050506',
+            'shadow': '#000000', 'highlight': '#FFFFFF',
+        }
+        for key, value in expected.items():
+            self.assertEqual(tokens[key], value, key)
+
     def test_resolution_is_deterministic(self):
         self.assertEqual(themes.resolve('midnight-transit-diagram'),
                          themes.resolve('midnight-transit-diagram'))

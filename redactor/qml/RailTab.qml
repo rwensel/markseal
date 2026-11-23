@@ -20,8 +20,8 @@ Item {
         anchors.fill: parent
         radius: 6
         color: pointer.pressed
-               ? (tab.active ? Theme.tabActiveFace : Theme.tabActiveFace)
-               : tab.active ? Theme.panelRaised
+               ? Qt.lighter(Theme.tabActiveFace, 1.06)
+               : tab.active ? Theme.tabActiveFace
                : (pointer.containsMouse ? Theme.tabHover : "transparent")
         border.width: tab.active || pointer.pressed ? 1 : 0
         border.color: pointer.pressed ? Theme.amber : Theme.tabBorder

@@ -78,7 +78,7 @@ Pixelation changes only marked rectangles, using coarse blocks, but it can leave
 
 ## Themes
 
-Open **Settings → Appearance** to pick one of six worlds: Split-flap Concourse (the default), Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram. Clicking a card previews it across the whole window; **Apply** keeps it, while Cancel, Escape, or closing the window restores the saved theme. The choice persists in the local settings file. The bottom status line names the current theme's selected and excluded colors (for example "Blue = selected; black = excluded"). No network calls are involved.
+Open **Settings → Appearance** to pick one of six worlds: Split-flap Concourse (the default), Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram. Clicking a card previews it across the whole window; **Apply** keeps it, while Cancel, Escape, or closing the window restores the saved theme. The choice persists in the local settings file. The bottom status line names the current theme's selected and excluded colors (for example, in Crouwel Grid Specimen: "Blue = selected; black = excluded"). No network calls are involved.
 
 ## Desktop interface
 

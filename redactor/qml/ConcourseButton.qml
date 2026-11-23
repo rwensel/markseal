@@ -57,17 +57,18 @@ Item {
                : control.primary
                  ? (control.hovered ? Theme.amberHover : Theme.amber)
                  : control.danger
-                   ? (control.hovered ? Theme.dangerFace : Theme.dangerFace)
+                   ? (control.hovered ? Qt.lighter(Theme.dangerFace, 1.25) : Theme.dangerFace)
                    : control.ghost
                      ? (control.hovered ? Theme.ghostHover : "transparent")
                      : (control.hovered ? Theme.buttonFaceHover : Theme.panelRaised)
         border.width: control.ghost && !control.isPressed ? 0 : 1
         border.color: !control.enabled
-                      ? Theme.buttonBorder
+                      ? Theme.fieldBorder
                       : control.isPressed
-                      ? (control.danger ? Theme.dangerBorder : control.primary ? Theme.amberBorder : Theme.amber)
+                      ? (control.danger ? Qt.lighter(Theme.dangerBorder, 1.2)
+                         : control.primary ? Qt.lighter(Theme.amberBorder, 1.08) : Theme.amber)
                       : control.danger
-                        ? Theme.red
+                        ? Theme.dangerBorder
                         : control.primary ? Theme.amberBorder : Theme.buttonBorder
         Behavior on color { ColorAnimation { duration: 110 } }
     }
@@ -115,7 +116,9 @@ Item {
         radius: Theme.radiusButton + 2
         color: "transparent"
         border.width: 1
-        border.color: control.danger ? Theme.red : control.primary ? Theme.amberBorder : Theme.amber
+        border.color: control.danger ? Theme.dangerBorder
+                                      : control.primary ? Qt.lighter(Theme.amberBorder, 1.08)
+                                                        : Theme.amber
         opacity: control.pressPulse * 0.5
         scale: 1 + (1 - control.pressPulse) * 0.025
         visible: control.pressPulse > 0.001
