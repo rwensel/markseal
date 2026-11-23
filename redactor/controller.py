@@ -6,8 +6,8 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from queue import Empty, Queue
-from threading import Event, Thread
+from queue import Queue
+from threading import Event
 
 from PIL import Image
 from PySide6.QtCore import (
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from performance_log import PerformanceRun, log_directory
 
 from . import core
+from .jobs import JobRunner, progress_line
 from .review import Review
 
 
@@ -199,7 +200,6 @@ class Controller(QObject):
         self.default_method = 'Pixelate'
         self._busy = False
         self.busy_label = ''
-        self.job_cancel = None
         self.capture = 'none'
         self.drag = None
         self._panning = False
@@ -212,8 +212,7 @@ class Controller(QObject):
         self.scan_stage = ''
         self.image_revision = 0
         self._display_qimage = QImage()
-        self._job = None
-        self._job_token = 0
+        self._runner = JobRunner(self.parallel_limit)
         self._blocked_patterns = []
         self._folder_model = FolderModel()
         self._settings = {
@@ -430,7 +429,7 @@ class Controller(QObject):
 
     @Property(bool, notify=busyChanged)
     def canCancel(self):
-        return self.job_cancel is not None
+        return self._runner.can_cancel
 
     @Property(str, notify=progressChanged)
     def progressText(self):
@@ -1435,33 +1434,18 @@ class Controller(QObject):
 
     @Slot()
     def cancelScan(self):
-        if self._job is not None and self._job['cancel'] is not None:
-            self._job['cancel'].set()
+        if self._runner.cancel():
             self.progress_text = 'Canceling scan…'
             self.progressChanged.emit()
 
-    def _job_display_name(self, job):
-        target = job[0] if isinstance(job, tuple) else job
-        if isinstance(target, core.FolderImage):
-            return target.path.name
-        return Path(target).name
-
     def _show_progress(self, label, completed, total, jobs, workers=1):
-        percent = completed * 100 // total
-        note = f' · {workers} parallel' if workers > 1 else ''
+        text, current = progress_line(label, completed, total, jobs, workers)
         self.progress_max = total
         self.progress_value = completed
-        self.progress_text = f'{label} · {completed}/{total} processed ({percent}%){note}'
-        if workers > 1:
-            self.progress_current = f'{workers} parallel workers'
-        elif completed < len(jobs):
-            self.progress_current = f'Current image: {self._job_display_name(jobs[completed])}'
+        self.progress_text = text
+        if current:
+            self.progress_current = current
         self.progressChanged.emit()
-
-    @staticmethod
-    def _job_path(job):
-        target = job[0] if isinstance(job, tuple) else job
-        return target.path if isinstance(target, core.FolderImage) else Path(target)
 
     def _folder_rows(self):
         return {entry.path: index for index, entry in enumerate(self.entries)}
@@ -1472,191 +1456,95 @@ class Controller(QObject):
         if not jobs or self._busy:
             return
         self._cancel_capture()
+        requested = self._settings['parallelImages'] if workers is None else workers
+        if not self._runner.start(
+                label, jobs, operation, accept, finish,
+                cancel=cancel, show_image=show_image, metrics_settings=metrics_settings,
+                rows=rows, workers=requested, stage_queue=stage_queue,
+                complete=complete, report_failures=report_failures):
+            return
+        runner = self._runner
         self._busy = True
         self.busy_label = label
-        self.job_cancel = cancel
-        self._job_token += 1
-        token = self._job_token
-        total = len(jobs)
-        requested = self._settings['parallelImages'] if workers is None else workers
-        worker_count = core.batch_worker_count(requested, total, self.parallel_limit)
-        pace = show_image is not None and worker_count == 1
-        queue = Queue()
-        pending_indexes = Queue()
-        for index in range(total):
-            pending_indexes.put(index)
-        failures = []
-        advance = Event() if pace else None
-        job_rows = [rows.get(self._job_path(job)) if rows else None for job in jobs]
-        trace_settings = dict(metrics_settings or {})
-        trace_settings['parallel_jobs'] = worker_count
-        trace = PerformanceRun(label, total, trace_settings)
-        self.progress_max = total
+        self.progress_max = runner.total
         self.progress_value = 0
         self.progress_detail = ''
         self.progress_current = ''
         self._set_scan_stage('')
         self._folder_model.set_job_states(
-            {row: 'queued' for row in job_rows if row is not None}
+            {row: 'queued' for row in runner.job_rows if row is not None}
         )
         self.busyChanged.emit()
         self.progressChanged.emit()
-
-        stop = Event()
-
-        def worker():
-            while not stop.is_set():
-                try:
-                    index = pending_indexes.get_nowait()
-                except Empty:
-                    return
-                if cancel is not None and cancel.is_set():
-                    return
-                if advance is not None:
-                    while not advance.wait(0.1):
-                        if cancel is not None and cancel.is_set():
-                            return
-                    advance.clear()
-                if cancel is not None and cancel.is_set():
-                    return
-                queue.put(('start', index))
-                try:
-                    with trace.image(index) as metrics:
-                        result = operation(jobs[index])
-                        if cancel is not None and isinstance(result, tuple) and len(result) == 3:
-                            metrics.update(suggestions=len(result[1]),
-                                           incomplete_passes=len(result[2]))
-                    queue.put(('result', index, result, None))
-                except core.ScanCancelled:
-                    return
-                except Exception as error:
-                    queue.put(('result', index, None, str(error)))
-
-        threads = [Thread(target=worker, daemon=True) for _ in range(worker_count)]
-
-        def coordinator():
-            for thread in threads:
-                thread.start()
-            for thread in threads:
-                thread.join()
-            trace.finish(stopped=cancel is not None and cancel.is_set())
-            queue.put(None)
-
-        self._job = {
-            'token': token, 'label': label, 'jobs': jobs, 'queue': queue, 'total': total,
-            'completed': 0, 'accept': accept, 'finish': finish, 'cancel': cancel,
-            'show_image': show_image, 'pace': pace, 'failures': failures, 'advance': advance,
-            'trace': trace, 'workers': worker_count, 'job_rows': job_rows, 'stop': stop,
-            'model': self._folder_model, 'stage_queue': stage_queue,
-            'complete': complete, 'report_failures': report_failures,
-        }
-        if not pace:
-            self._show_progress(label, 0, total, jobs, worker_count)
-        Thread(target=coordinator, daemon=True).start()
+        if not runner.paced:
+            self._show_progress(label, 0, runner.total, runner.jobs, runner.workers)
         self._job_timer.start()
-        if pace:
-            self._show_next_if_current(token)
+        if runner.paced:
+            self._show_next_if_current(runner.generation)
 
-    def _show_next_if_current(self, token):
-        job = self._job
-        if job is None or job['token'] != token or job['advance'] is None:
+    def _show_next_if_current(self, generation):
+        runner = self._runner
+        if runner.next_paced(generation) is None:
             return
-        if job['cancel'] is not None and job['cancel'].is_set():
-            return
-        completed = job['completed']
-        if completed >= job['total']:
-            return
-        job['show_image'](completed)
-        self._show_progress(job['label'], completed, job['total'], job['jobs'], job['workers'])
-        job['advance'].set()
+        self._show_progress(runner.label, runner.completed, runner.total,
+                            runner.jobs, runner.workers)
+        runner.release_paced(generation)
 
     def _poll_jobs(self):
-        job = self._job
-        if job is None:
+        events = self._runner.poll()
+        if events is None:
             self._job_timer.stop()
             return
-        previous = job['completed']
-        finished = False
-        stages = job.get('stage_queue')
-        if stages is not None:
-            while True:
-                try:
-                    text = stages.get_nowait()
-                except Empty:
-                    break
-                self._set_scan_stage(text)
-        while True:
-            try:
-                item = job['queue'].get_nowait()
-            except Empty:
-                break
-            if item is None:
-                finished = True
-                break
-            if item[0] == 'start':
-                row = job['job_rows'][item[1]]
-                job['model'].set_job_state(row, 'running')
-                continue
-            _, index, result, error = item
-            row = job['job_rows'][index]
-            job['model'].set_job_state(row, '')
-            job['accept'](index, result, error)
-            if error is not None:
-                job['failures'].append(error or 'Unknown error')
-            job['completed'] += 1
-        if not finished:
-            if job['completed'] != previous:
-                self._folder_model.refresh()
-                self.folderChanged.emit()
-                if job['completed'] < job['total'] and (
-                        job['cancel'] is None or not job['cancel'].is_set()):
-                    if not job['pace']:
-                        self._show_progress(job['label'], job['completed'],
-                                            job['total'], job['jobs'], job['workers'])
-                    else:
-                        percent = job['completed'] * 100 // job['total']
-                        self.progress_value = job['completed']
-                        self.progress_text = (f'{job["label"]} · {job["completed"]}/{job["total"]} '
-                                              f'processed ({percent}%)')
-                        self.progressChanged.emit()
-                        QTimer.singleShot(250, lambda: self._show_next_if_current(job['token']))
+        for text in events.stages:
+            self._set_scan_stage(text)
+        for row in events.started:
+            self._folder_model.set_job_state(row, 'running')
+        for row in events.result_rows:
+            self._folder_model.set_job_state(row, '')
+        if events.finished:
+            self._finish_job(events.summary)
             return
+        if events.progress_changed:
+            self._folder_model.refresh()
+            self.folderChanged.emit()
+            runner = self._runner
+            if runner.completed < runner.total and not runner.cancel_pending:
+                if not runner.paced:
+                    self._show_progress(runner.label, runner.completed, runner.total,
+                                        runner.jobs, runner.workers)
+                else:
+                    percent = runner.completed * 100 // runner.total
+                    self.progress_value = runner.completed
+                    self.progress_text = (f'{runner.label} · {runner.completed}/{runner.total} '
+                                          f'processed ({percent}%)')
+                    self.progressChanged.emit()
+                    generation = runner.generation
+                    QTimer.singleShot(
+                        250, lambda: self._show_next_if_current(generation)
+                    )
+
+    def _finish_job(self, summary):
         self._job_timer.stop()
-        self._job = None
         self._folder_model.clear_job_states()
         self._busy = False
         self.busy_label = ''
-        self.job_cancel = None
         self._folder_model.refresh()
         self.folderChanged.emit()
-        self.progress_max = job['total']
-        self.progress_value = job['completed']
+        self.progress_max = summary.total
+        self.progress_value = summary.completed
         self.progress_current = ''
         self._set_scan_stage('')
-        canceled = job['cancel'] is not None and job['cancel'].is_set() and job['completed'] < job['total']
-        if canceled:
-            job['stop'].set()
-        outcome = 'Scan canceled' if canceled else f'{job["label"]} finished'
-        self.progress_text = f'{outcome} · {job["completed"]}/{job["total"]} processed'
-        detail = job['finish']() if job['finish'] is not None else (
-            f'{job["completed"] - len(job["failures"])} succeeded'
-        )
-        if canceled:
-            detail += f' · {job["total"] - job["completed"]} remaining'
-        if job['failures']:
-            detail += f' · {len(job["failures"])} failed'
-        if not job['trace'].available:
-            detail += ' · performance log unavailable'
-        self.progress_detail = detail
+        self.progress_text, self.progress_detail = summary.lines()
         self.busyChanged.emit()
         self.progressChanged.emit()
-        if job['failures'] and job.get('report_failures', True):
+        if summary.failures and summary.report_failures:
             QMessageBox.warning(
-                None, job['label'],
-                f'{len(job["failures"])} of {len(job["jobs"])} failed. First error:\n{job["failures"][0]}',
+                None, summary.label,
+                f'{len(summary.failures)} of {summary.total} failed. '
+                f'First error:\n{summary.failures[0]}',
             )
-        if job.get('complete') is not None:
-            job['complete']()
+        if summary.complete is not None:
+            summary.complete()
 
     @Slot()
     def copyBoxesToFolder(self):

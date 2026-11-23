@@ -23,6 +23,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 from performance_log import stage, timed
 
+from .jobs import ScanCancelled, batch_worker_count
+
 
 # Very coarse blocks remove fine detail, but mosaic redaction can remain reversible.
 def pixelate(image, boxes, block_size=32):
@@ -276,10 +278,6 @@ def write_preferences(path, preferences):
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff'}
 
 
-def batch_worker_count(requested, job_count, limit):
-    return max(1, min(int(requested), max(1, int(job_count)), max(1, int(limit))))
-
-
 @dataclass
 class FolderImage:
     path: Path
@@ -448,10 +446,6 @@ def write_folder_copy(entry, target, include_log):
         'created_local_time': datetime.now().isoformat(timespec='seconds'),
     }
     save_export(copy, target, log if include_log else None)
-
-
-class ScanCancelled(Exception):
-    """The user stopped a folder scan before this image finished."""
 
 
 def cancellable_ocr(command, data, creationflags, cancel, *, timeout=120, env=None):
