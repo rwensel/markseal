@@ -28,6 +28,7 @@ from .jobs import ScanCancelled, batch_worker_count
 from .ocr import (
     RapidEngine, TesseractEngine, cancellable_ocr, find_tesseract, make_engine,
 )
+from .preferences import preferences_path, write_preferences
 
 
 # Very coarse blocks remove fine detail, but mosaic redaction can remain reversible.
@@ -247,25 +248,6 @@ def apply_redactions(image, boxes, method='Pixelate'):
     out = image.copy(); draw = ImageDraw.Draw(out)
     for x1, y1, x2, y2 in boxes: draw.rectangle((x1,y1,x2-1,y2-1), fill='black')
     return out
-
-
-def preferences_path():
-    local = os.environ.get('LOCALAPPDATA')
-    base = Path(local) if local else Path.home() / '.config'
-    return base / 'OfflineScreenshotRedactor' / 'settings.json'
-
-
-def write_preferences(path, preferences):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    try:
-        with NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, delete=False) as stream:
-            temporary = Path(stream.name)
-            json.dump(preferences, stream, indent=2)
-        temporary.replace(path)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
 
 
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff'}

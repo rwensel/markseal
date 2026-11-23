@@ -1,7 +1,6 @@
 """Read-only checks for exported copies and their coordinate logs."""
 import argparse
 import json
-import re
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw
@@ -44,31 +43,11 @@ def main():
         if not args.ocr:
             parser.error('--use-app-pattern requires --ocr')
         from offline_redactor import preferences_path
+        from redactor.preferences import PreferencesError, enabled_blocked_patterns
         try:
-            saved = json.loads(preferences_path().read_text(encoding='utf-8'))
-        except (OSError, ValueError, AttributeError):
+            patterns = enabled_blocked_patterns(preferences_path())
+        except (OSError, PreferencesError):
             parser.error('No readable app settings found')
-        candidates = []
-        blocked = saved.get('blocked_patterns')
-        if isinstance(blocked, list):
-            for entry in blocked:
-                if not isinstance(entry, dict) or entry.get('enabled', True) is False:
-                    continue
-                pattern = entry.get('pattern')
-                if isinstance(pattern, str) and pattern.strip():
-                    candidates.append(pattern.strip())
-        legacy = saved.get('custom_pattern')
-        if isinstance(legacy, str) and legacy.strip():
-            candidates.append(legacy.strip())
-        valid = []
-        for pattern in candidates:
-            try:
-                re.compile(pattern)
-            except re.error:
-                continue
-            if pattern not in valid:
-                valid.append(pattern)
-        patterns = tuple(valid)
         if not patterns:
             parser.error('Add or enable a blocked pattern in the app first')
     for path in sorted(args.exports.glob('*.png')):

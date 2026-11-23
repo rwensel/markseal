@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import json
 import os
 import re
 from datetime import datetime
@@ -24,6 +23,7 @@ from PySide6.QtWidgets import (
 from performance_log import PerformanceRun, log_directory
 
 from . import core
+from . import preferences
 from .jobs import JobRunner, progress_line
 from .review import Review
 
@@ -154,13 +154,13 @@ class FolderModel(QAbstractListModel):
         }
 
 
-def _setting_property(name, kind, notify):
+def _preference_property(name, kind, notify):
     def getter(self):
-        return self._settings[name]
+        return getattr(self._preferences, name)
 
     def setter(self, value):
-        if self._settings[name] != value:
-            self._settings[name] = value
+        if getattr(self._preferences, name) != value:
+            setattr(self._preferences, name, value)
             self.settingsChanged.emit()
 
     return Property(kind, getter, setter, notify=notify)
@@ -195,9 +195,6 @@ class Controller(QObject):
         self.preferences_file = Path(preferences_file) if preferences_file else core.preferences_path()
         self.parallel_limit = max(1, min(16, os.cpu_count() or 4))
         self._pasted_image = False
-        self.filename_template = '{stem}_redacted'
-        self.include_log = True
-        self.default_method = 'Pixelate'
         self._busy = False
         self.busy_label = ''
         self.capture = 'none'
@@ -213,23 +210,8 @@ class Controller(QObject):
         self.image_revision = 0
         self._display_qimage = QImage()
         self._runner = JobRunner(self.parallel_limit)
-        self._blocked_patterns = []
         self._folder_model = FolderModel()
-        self._settings = {
-            'sensitivity': 'Focused',
-            'confidence': 50,
-            'allText': False,
-            'enhancedOcr': False,
-            'colorOcr': False,
-            'showRules': False,
-            'ocrEngine': 'Tesseract',
-            'method': 'Pixelate',
-            'outputDirectory': '',
-            'filenameTemplate': '{stem}_redacted',
-            'includeLog': True,
-            'parallelImages': 1,
-        }
-        self._categories = set(core.PRESETS['Focused'])
+        self._preferences = preferences.defaults()
         self.display_font = _pick_font(
             ['Bahnschrift Condensed', 'Bahnschrift SemiCondensed', 'Avenir Next Condensed',
              'Roboto Condensed', 'DejaVu Sans Condensed', 'Noto Sans'],
@@ -262,7 +244,7 @@ class Controller(QObject):
     def _refresh_display(self):
         image = self.review.image
         if image is not None and self.review.confirmed:
-            image = core.apply_redactions(image, self.review.selected_boxes(), self._settings['method'])
+            image = core.apply_redactions(image, self.review.selected_boxes(), self._preferences.method)
         if image is None:
             self._display_qimage = QImage()
         else:
@@ -491,24 +473,24 @@ class Controller(QObject):
 
     @Property(list, notify=settingsChanged)
     def categories(self):
-        return [name for name in core.PATTERNS if name in self._categories]
+        return list(self._preferences.categories)
 
-    sensitivity = _setting_property('sensitivity', str, settingsChanged)
-    confidence = _setting_property('confidence', int, settingsChanged)
-    allText = _setting_property('allText', bool, settingsChanged)
-    enhancedOcr = _setting_property('enhancedOcr', bool, settingsChanged)
-    colorOcr = _setting_property('colorOcr', bool, settingsChanged)
-    showRules = _setting_property('showRules', bool, settingsChanged)
-    ocrEngine = _setting_property('ocrEngine', str, settingsChanged)
+    sensitivity = _preference_property('sensitivity', str, settingsChanged)
+    confidence = _preference_property('confidence', int, settingsChanged)
+    allText = _preference_property('all_text', bool, settingsChanged)
+    enhancedOcr = _preference_property('enhanced_ocr', bool, settingsChanged)
+    colorOcr = _preference_property('color_ocr', bool, settingsChanged)
+    showRules = _preference_property('show_rules', bool, settingsChanged)
+    ocrEngine = _preference_property('ocr_engine', str, settingsChanged)
 
     @Property(str, notify=settingsChanged)
     def redactionMethod(self):
-        return self._settings['method']
+        return self._preferences.method
 
-    outputDirectory = _setting_property('outputDirectory', str, settingsChanged)
-    filenameTemplate = _setting_property('filenameTemplate', str, settingsChanged)
-    includeLog = _setting_property('includeLog', bool, settingsChanged)
-    parallelImages = _setting_property('parallelImages', int, settingsChanged)
+    outputDirectory = _preference_property('output_directory', str, settingsChanged)
+    filenameTemplate = _preference_property('filename_template', str, settingsChanged)
+    includeLog = _preference_property('include_log', bool, settingsChanged)
+    parallelImages = _preference_property('parallel_images', int, settingsChanged)
 
     @Property(int, constant=True)
     def parallelLimit(self):
@@ -516,7 +498,7 @@ class Controller(QObject):
 
     @Property(list, notify=blockedPatternsChanged)
     def blockedPatterns(self):
-        return [dict(entry) for entry in self._blocked_patterns]
+        return [dict(entry) for entry in self._preferences.blocked_patterns]
 
     def _choose_image(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -621,7 +603,7 @@ class Controller(QObject):
         self._cancel_capture()
         self.folder = chosen
         self.output_directory = self.output_directory_override or chosen / 'redacted'
-        self.entries = [core.FolderImage(path, method=self.default_method) for path in paths]
+        self.entries = [core.FolderImage(path, method=self._preferences.method) for path in paths]
         self.active = None
         self.row_selection = {0}
         self.row_anchor = 0
@@ -942,30 +924,13 @@ class Controller(QObject):
             self._emit_view()
 
     def _scan_engine(self):
-        return core.make_engine(self._settings['ocrEngine'])
+        return core.make_engine(self._preferences.ocr_engine)
 
     def _scan_settings(self):
-        confidence = self._settings['confidence']
-        if not 0 <= confidence <= 100:
-            raise ValueError('OCR confidence must be between 0 and 100.')
-        learned = tuple(
-            (f'Blocked pattern: {entry["text"]}' if entry['text'] else 'Blocked pattern',
-             entry['pattern'])
-            for entry in self._blocked_patterns if entry['enabled']
-        )
-        return self._settings['allText'], set(self._categories), confidence, '', learned
+        return preferences.scan_settings(self._preferences)
 
     def _scan_metrics(self):
-        return {
-            'engine': self._settings['ocrEngine'],
-            'confidence': self._settings['confidence'],
-            'enhanced': self._settings['enhancedOcr'],
-            'color_assisted': self._settings['colorOcr'],
-            'sensitivity': self._settings['sensitivity'],
-            'builtin_category_count': len(self._categories),
-            'blocked_patterns': sum(1 for entry in self._blocked_patterns if entry['enabled']),
-            'all_text': self._settings['allText'],
-        }
+        return preferences.scan_metrics(self._preferences)
 
     @Slot()
     def find(self):
@@ -995,8 +960,8 @@ class Controller(QObject):
         def operation(job):
             incomplete = []
             found = core.recognize_regions(
-                self.review.image, engine, settings, self._settings['enhancedOcr'],
-                color_assisted=self._settings['colorOcr'], incomplete=incomplete,
+                self.review.image, engine, settings, self._preferences.enhanced_ocr,
+                color_assisted=self._preferences.color_ocr, incomplete=incomplete,
                 area=area, progress=stages.put,
             )
             return None, found, incomplete
@@ -1234,9 +1199,9 @@ class Controller(QObject):
 
     @Slot(int)
     def renameBlockedPattern(self, index):
-        if not 0 <= index < len(self._blocked_patterns):
+        if not 0 <= index < len(self._preferences.blocked_patterns):
             return
-        entry = self._blocked_patterns[index]
+        entry = self._preferences.blocked_patterns[index]
         dialog = QDialog()
         dialog.setWindowTitle('Rename blocked pattern')
         dialog.setMinimumWidth(520)
@@ -1268,7 +1233,7 @@ class Controller(QObject):
 
     def _persist_blocked_patterns(self):
         try:
-            core.write_preferences(self.preferences_file, self._preference_document())
+            preferences.write_preferences(self.preferences_file, self._preferences)
         except OSError as error:
             self._error('Could not save blocked patterns', str(error))
 
@@ -1282,10 +1247,11 @@ class Controller(QObject):
             self._error('Invalid pattern', str(error))
             return False
         if any(entry['pattern'].casefold() == pattern.casefold()
-               for entry in self._blocked_patterns):
+               for entry in self._preferences.blocked_patterns):
             self._set_status('That pattern is already in the blocked list.')
             return False
-        self._blocked_patterns.append({'text': text.strip(), 'pattern': pattern, 'enabled': True})
+        self._preferences.blocked_patterns.append(
+            {'text': text.strip(), 'pattern': pattern, 'enabled': True})
         self._persist_blocked_patterns()
         self.blockedPatternsChanged.emit()
         self._set_status('Blocked pattern added. It applies to the next scan.')
@@ -1293,16 +1259,16 @@ class Controller(QObject):
 
     @Slot(int)
     def removeBlockedPattern(self, index):
-        if 0 <= index < len(self._blocked_patterns):
-            del self._blocked_patterns[index]
+        if 0 <= index < len(self._preferences.blocked_patterns):
+            del self._preferences.blocked_patterns[index]
             self._persist_blocked_patterns()
             self.blockedPatternsChanged.emit()
             self._set_status('Blocked pattern removed.')
 
     @Slot(int, bool)
     def setBlockedPatternEnabled(self, index, enabled):
-        if 0 <= index < len(self._blocked_patterns):
-            self._blocked_patterns[index]['enabled'] = bool(enabled)
+        if 0 <= index < len(self._preferences.blocked_patterns):
+            self._preferences.blocked_patterns[index]['enabled'] = bool(enabled)
             self._persist_blocked_patterns()
             self.blockedPatternsChanged.emit()
             self._set_status('Blocked pattern enabled.' if enabled else 'Blocked pattern disabled.')
@@ -1351,8 +1317,8 @@ class Controller(QObject):
             return
         cancel = Event()
         rows = {entry.path: index for index, entry in enumerate(self.entries)}
-        enhanced = self._settings['enhancedOcr']
-        color_assisted = self._settings['colorOcr']
+        enhanced = self._preferences.enhanced_ocr
+        color_assisted = self._preferences.color_ocr
         processed = []
         area_completed = False
 
@@ -1444,7 +1410,7 @@ class Controller(QObject):
         if not jobs or self._busy:
             return
         self._cancel_capture()
-        requested = self._settings['parallelImages'] if workers is None else workers
+        requested = self._preferences.parallel_images if workers is None else workers
         if not self._runner.start(
                 label, jobs, operation, accept, finish,
                 cancel=cancel, show_image=show_image, metrics_settings=metrics_settings,
@@ -1670,7 +1636,7 @@ class Controller(QObject):
             )
             return
         partial_count = sum(bool(entry.incomplete_ocr) for entry in pending)
-        prompt = (f'Apply {self._settings["method"]} to the selected boxes on '
+        prompt = (f'Apply {self._preferences.method} to the selected boxes on '
                   f'{len(pending)} image(s)?')
         if partial_count:
             prompt += (f'\n\n{partial_count} image(s) have partial scans. '
@@ -1759,12 +1725,12 @@ class Controller(QObject):
             self._error('Choose a different file', 'The original image cannot be overwritten.')
             return
         trace = PerformanceRun('Saving image', 1, {
-            'method': self._settings['method'], 'coordinate_logs': True,
+            'method': self._preferences.method, 'coordinate_logs': True,
         })
         try:
             with trace.image(0):
                 out = core.apply_redactions(self.review.image, self.review.selected_boxes(),
-                                            self._settings['method'])
+                                            self._preferences.method)
                 out.info.clear()
                 log = {
                     'source_filename': self.review.path.name,
@@ -1772,7 +1738,7 @@ class Controller(QObject):
                     'image_dimensions': list(self.review.image.size),
                     'redaction_rectangles_xyxy': self.review.selected_boxes(),
                     'created_local_time': datetime.now().isoformat(timespec='seconds'),
-                    'method': self._settings['method'],
+                    'method': self._preferences.method,
                     'note': ('Automated suggestions can miss identifiers; manual review required. '
                              'Pixelation may not fully conceal sensitive content.'
                              + (' Pasted from the clipboard; no source file exists.'
@@ -1795,7 +1761,8 @@ class Controller(QObject):
         try:
             for index, entry in pending:
                 target = core.output_path(
-                    self.output_directory, self.filename_template, entry.path, index + 1
+                    self.output_directory, self._preferences.filename_template,
+                    entry.path, index + 1
                 )
                 if individual:
                     target.parent.mkdir(parents=True, exist_ok=True)
@@ -1808,7 +1775,7 @@ class Controller(QObject):
                     if target.suffix.lower() != '.png':
                         raise ValueError('Choose a filename ending in .png.')
                 outputs = [target]
-                if self.include_log:
+                if self._preferences.include_log:
                     outputs.append(target.with_suffix('.redactions.json'))
                 for path in outputs:
                     key = str(path.resolve()).casefold()
@@ -1830,7 +1797,7 @@ class Controller(QObject):
                 'Save them as unredacted PNG copies?'):
             return
 
-        include_log = self.include_log
+        include_log = self._preferences.include_log
         snapshots = [
             (core.FolderImage(
                 entry.path, boxes=entry.boxes.copy(), selected=entry.selected.copy(),
@@ -1857,126 +1824,34 @@ class Controller(QObject):
 
         self._run_jobs(
             'Saving', snapshots, operation, accept,
-            metrics_settings={'method': self._settings['method'], 'coordinate_logs': include_log},
+            metrics_settings={'method': self._preferences.method, 'coordinate_logs': include_log},
             rows=self._folder_rows(),
         )
 
     def load_preferences(self):
         try:
-            saved = json.loads(self.preferences_file.read_text(encoding='utf-8'))
-        except FileNotFoundError:
+            self._preferences = preferences.load(self.preferences_file, self.parallel_limit)
+        except preferences.PreferencesError as error:
+            self._preferences = preferences.defaults()
+            self._set_status(str(error))
             return
-        except (OSError, ValueError):
-            self._set_status('Saved settings could not be loaded. Using defaults.')
-            return
-        if not isinstance(saved, dict):
-            return
-        preset = saved.get('sensitivity')
-        if isinstance(preset, str) and preset in {*core.PRESETS, 'Custom'}:
-            self._settings['sensitivity'] = preset
-        categories = saved.get('categories')
-        if isinstance(categories, list):
-            self._categories = {name for name in core.PATTERNS if name in categories}
-        threshold = saved.get('confidence')
-        if type(threshold) is int and 0 <= threshold <= 100:
-            self._settings['confidence'] = threshold
-        for key, name in (('all_text', 'allText'), ('enhanced_ocr', 'enhancedOcr'),
-                          ('color_ocr', 'colorOcr'), ('show_rules', 'showRules')):
-            if isinstance(saved.get(key), bool):
-                self._settings[name] = saved[key]
-        engine = saved.get('ocr_engine')
-        if engine in ('Tesseract', 'RapidOCR'):
-            self._settings['ocrEngine'] = engine
-        method = saved.get('redaction_method')
-        if method in ('Pixelate', 'Solid black'):
-            self.default_method = method
-            self._settings['method'] = method
-        workers = saved.get('parallel_images')
-        if type(workers) is int:
-            self._settings['parallelImages'] = max(1, min(self.parallel_limit, workers))
-        blocked = saved.get('blocked_patterns')
-        if isinstance(blocked, list):
-            loaded = []
-            for entry in blocked:
-                if not isinstance(entry, dict):
-                    continue
-                text = entry.get('text')
-                pattern = entry.get('pattern')
-                if not isinstance(text, str) or not isinstance(pattern, str) or not pattern.strip():
-                    continue
-                try:
-                    re.compile(pattern)
-                except re.error:
-                    continue
-                enabled = entry.get('enabled', True)
-                loaded.append({'text': text.strip(), 'pattern': pattern.strip(),
-                               'enabled': enabled if isinstance(enabled, bool) else True})
-            self._blocked_patterns = loaded
-        legacy = saved.get('custom_pattern')
-        if isinstance(legacy, str) and legacy.strip():
-            legacy = legacy.strip()
-            try:
-                re.compile(legacy)
-            except re.error:
-                pass
-            else:
-                if not any(entry['pattern'].casefold() == legacy.casefold()
-                           for entry in self._blocked_patterns):
-                    self._blocked_patterns.append({
-                        'text': 'Imported custom pattern', 'pattern': legacy, 'enabled': True,
-                    })
-        self._restore_output_preferences(saved)
+        self._apply_loaded_preferences()
 
-    def _restore_output_preferences(self, saved):
-        directory = saved.get('output_directory')
-        if isinstance(directory, str):
-            path = Path(directory) if directory else None
-            if path is None or path.is_absolute():
-                self.output_directory_override = path
-                self.output_directory = path or (
-                    self.folder / 'redacted' if self.folder else None
-                )
-                self._settings['outputDirectory'] = str(path) if path else ''
-        template = saved.get('filename_template')
-        if isinstance(template, str) and template.strip():
-            try:
-                core.output_path(Path('.'), template, Path('example.png'), 1)
-            except (ValueError, KeyError, IndexError, AttributeError):
-                pass
-            else:
-                self.filename_template = template
-                self._settings['filenameTemplate'] = template
-        if isinstance(saved.get('include_log'), bool):
-            self.include_log = saved['include_log']
-            self._settings['includeLog'] = saved['include_log']
-
-    def _preference_document(self, method=None):
-        return {
-            'sensitivity': self._settings['sensitivity'],
-            'confidence': self._settings['confidence'],
-            'all_text': self._settings['allText'],
-            'enhanced_ocr': self._settings['enhancedOcr'],
-            'color_ocr': self._settings['colorOcr'],
-            'ocr_engine': self._settings['ocrEngine'],
-            'categories': [name for name in core.PATTERNS if name in self._categories],
-            'redaction_method': method or self._settings['method'],
-            'output_directory': self._settings['outputDirectory'],
-            'filename_template': self._settings['filenameTemplate'],
-            'include_log': self._settings['includeLog'],
-            'parallel_images': self._settings['parallelImages'],
-            'show_rules': self._settings['showRules'],
-            'blocked_patterns': [dict(entry) for entry in self._blocked_patterns],
-        }
+    def _apply_loaded_preferences(self):
+        directory = self._preferences.output_directory
+        path = Path(directory) if directory else None
+        self.output_directory_override = path
+        self.output_directory = path or (self.folder / 'redacted' if self.folder else None)
 
     @Slot(bool)
     def setShowRules(self, enabled):
         enabled = bool(enabled)
-        if self._settings['showRules'] == enabled:
+        if self._preferences.show_rules == enabled:
             return
-        self._settings['showRules'] = enabled
+        self._preferences.show_rules = enabled
         self.settingsChanged.emit()
         try:
-            core.write_preferences(self.preferences_file, self._preference_document())
+            preferences.write_preferences(self.preferences_file, self._preferences)
         except OSError as error:
             self._set_status(self.status_text + f' Settings could not be saved: {error}')
             return
@@ -1986,17 +1861,16 @@ class Controller(QObject):
     @Slot(str)
     def setRedactionMethod(self, method):
         if self._busy or method not in ('Pixelate', 'Solid black') \
-                or method == self._settings['method']:
+                or method == self._preferences.method:
             return
-        self._settings['method'] = method
-        self.default_method = method
+        self._preferences.method = method
         self.settingsChanged.emit()
         self._method_changed()
         if not self.entries:
             updated = ' Preview updated.' if self.review.confirmed else ''
             self._set_status(f'Redaction method set to {method}.{updated}')
         try:
-            core.write_preferences(self.preferences_file, self._preference_document())
+            preferences.write_preferences(self.preferences_file, self._preferences)
         except OSError as error:
             self._set_status(self.status_text + f' Settings could not be saved: {error}')
 
@@ -2005,60 +1879,36 @@ class Controller(QObject):
                       categories, method, output_directory, template, include_log,
                       parallel_images):
         try:
-            threshold = int(confidence)
-            if not 0 <= threshold <= 100:
-                raise ValueError('OCR confidence must be between 0 and 100.')
-            workers = int(parallel_images)
-            if not 1 <= workers <= self.parallel_limit:
-                raise ValueError(f'Parallel image jobs must be between 1 and {self.parallel_limit}.')
-            chosen = Path(output_directory.strip()) if output_directory.strip() else None
-            if chosen is not None and not chosen.is_absolute():
-                raise ValueError('Choose an absolute output folder.')
-            name = template.strip()
-            if not name:
-                raise ValueError('Enter a filename template.')
-            source = self.entries[0].path if self.entries else Path('example.png')
-            core.output_path(chosen or Path('.'), name, source, 1)
-            selected = [category for category in core.PATTERNS if category in categories]
-            method_changed = method != self._settings['method']
-            preferences = {
-                'sensitivity': sensitivity,
-                'confidence': threshold,
-                'all_text': all_text,
-                'enhanced_ocr': enhanced,
-                'color_ocr': color,
-                'ocr_engine': engine,
-                'categories': selected,
-                'redaction_method': method if method_changed else self.default_method,
-                'output_directory': str(chosen) if chosen is not None else '',
-                'filename_template': name,
-                'include_log': include_log,
-                'parallel_images': workers,
-                'show_rules': self._settings['showRules'],
-                'blocked_patterns': [dict(entry) for entry in self._blocked_patterns],
-            }
-            core.write_preferences(self.preferences_file, preferences)
+            updated = preferences.apply_form(
+                self._preferences,
+                {
+                    'sensitivity': sensitivity,
+                    'confidence': confidence,
+                    'all_text': all_text,
+                    'enhanced_ocr': enhanced,
+                    'color_ocr': color,
+                    'ocr_engine': engine,
+                    'categories': categories,
+                    'method': method,
+                    'output_directory': output_directory,
+                    'filename_template': template,
+                    'include_log': include_log,
+                    'parallel_images': parallel_images,
+                },
+                self.parallel_limit,
+                source=self.entries[0].path if self.entries else Path('example.png'),
+            )
+            preferences.write_preferences(self.preferences_file, updated)
         except (ValueError, re.error, KeyError, IndexError, AttributeError) as error:
             return str(error)
         except OSError as error:
             return f'Could not save settings: {error}'
 
-        self._settings.update({
-            'sensitivity': sensitivity,
-            'confidence': threshold,
-            'allText': all_text,
-            'enhancedOcr': enhanced,
-            'colorOcr': color,
-            'ocrEngine': engine,
-            'parallelImages': workers,
-        })
-        self._categories = set(selected)
-        self._restore_output_preferences(preferences)
-        self.default_method = preferences['redaction_method']
+        method_changed = updated.method != self._preferences.method
+        self._preferences = updated
+        self._apply_loaded_preferences()
         self.settingsChanged.emit()
         if method_changed:
-            self._settings['method'] = method
-            self.settingsChanged.emit()
             self._method_changed()
         return ''
 
@@ -2067,7 +1917,7 @@ class Controller(QObject):
             if self.review.confirmed:
                 self._refresh_display()
             return
-        method = self._settings['method']
+        method = self._preferences.method
         for entry in self.entries:
             if entry.method != method:
                 entry.method = method
