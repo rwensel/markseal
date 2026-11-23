@@ -23,6 +23,7 @@ Window {
         showFullScreen()
         raise()
         requestActivate()
+        captureArea.forceActiveFocus()
     }
 
     function commit() {
@@ -56,11 +57,6 @@ Window {
         onTriggered: Backend.captureRegion(region.x, region.y, region.w, region.h)
     }
 
-    Shortcut {
-        sequence: "Escape"
-        onActivated: overlay.visible = false
-    }
-
     Rectangle {
         anchors.fill: parent
         color: "#66000000"
@@ -78,8 +74,11 @@ Window {
     }
 
     MouseArea {
+        id: captureArea
         anchors.fill: parent
+        focus: true
         cursorShape: Qt.CrossCursor
+        Keys.onEscapePressed: overlay.visible = false
         onPressed: function(mouse) {
             overlay.startX = mouse.x
             overlay.startY = mouse.y

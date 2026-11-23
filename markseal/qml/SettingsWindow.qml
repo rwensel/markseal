@@ -110,6 +110,7 @@ Window {
         anchors.fill: parent
         anchors.margins: 20
         spacing: 14
+        Keys.onEscapePressed: settings.closeSettings()
 
         ColumnLayout {
             Layout.fillWidth: true
