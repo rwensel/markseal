@@ -14,15 +14,14 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QDesktopServices, QFontDatabase, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
-from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QMessageBox,
-    QPlainTextEdit, QVBoxLayout,
-)
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from performance_log import PerformanceRun, log_directory
 
 from . import core
+from . import dialogs
 from . import export
+from . import patterns
 from . import preferences
 from .jobs import JobRunner, progress_line
 from .review import Review
@@ -1070,7 +1069,7 @@ class Controller(QObject):
             if not text:
                 self._info('No text recognized', 'Draw a tighter box around the text and try again.')
                 return
-            pattern = self._prompt_blocked_pattern(text)
+            pattern = dialogs.prompt_blocked_pattern(text)
             if pattern is not None:
                 self.addBlockedPattern(text, pattern)
 
@@ -1078,143 +1077,21 @@ class Controller(QObject):
         self._run_jobs('Learning pattern', [self.review.path], operation, accept, finish,
                        complete=complete, report_failures=False)
 
-    def _prompt_blocked_pattern(self, text):
-        kinds = [('fixed', 'Fixed text (exact)')]
-        kinds.extend((kind, core.PATTERN_TYPE_LABELS[kind])
-                     for kind in core.value_pattern_types(text))
-        selected_kind = 'fixed'
-        suggested = core.value_pattern_expression(text, selected_kind)
-        while True:
-            dialog = QDialog()
-            dialog.setWindowTitle('Block this text')
-            dialog.setMinimumWidth(580)
-            layout = QVBoxLayout(dialog)
-            layout.addWidget(QLabel('Recognized text'))
-            recognized = QPlainTextEdit(text)
-            recognized.setReadOnly(True)
-            recognized.setMaximumHeight(110)
-            layout.addWidget(recognized)
-            type_box = None
-            if len(kinds) > 1:
-                layout.addWidget(QLabel('Match type'))
-                type_box = QComboBox()
-                for kind, label in kinds:
-                    type_box.addItem(label, kind)
-                type_box.setCurrentIndex(max(0, type_box.findData(selected_kind)))
-                layout.addWidget(type_box)
-            layout.addWidget(QLabel('Regex pattern (case-insensitive)'))
-            field = QLineEdit(suggested)
-            field.setSelection(0, len(suggested))
-            layout.addWidget(field)
-            if type_box is not None:
-                def update_type(index):
-                    nonlocal selected_kind
-                    selected_kind = type_box.itemData(index) or 'fixed'
-                    field.setText(core.value_pattern_expression(text, selected_kind))
-                type_box.currentIndexChanged.connect(update_type)
-            note_text = 'Enabled patterns are matched locally on future scans. '
-            if len(kinds) > 1:
-                note_text = ('Fixed text matches only the recognized value; a match type matches any value of that kind. '
-                             'Enabled patterns are matched locally on future scans. '
-                             'Edit the expression for a narrower range.')
-            else:
-                note_text += 'Edit the expression if the text varies.'
-            note = QLabel(note_text)
-            note.setWordWrap(True)
-            layout.addWidget(note)
-            buttons = QDialogButtonBox(
-                QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-            )
-            buttons.accepted.connect(dialog.accept)
-            buttons.rejected.connect(dialog.reject)
-            layout.addWidget(buttons)
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return None
-            pattern = field.text().strip()
-            if not pattern:
-                QMessageBox.warning(None, 'Empty pattern', 'Enter a pattern or cancel.')
-                suggested = pattern
-                continue
-            try:
-                re.compile(pattern)
-            except re.error as error:
-                QMessageBox.warning(None, 'Invalid pattern', str(error))
-                suggested = pattern
-                continue
-            return pattern
-
     @Slot()
     def addBlockedPatternManually(self):
-        label_value = ''
-        pattern_value = ''
-        while True:
-            dialog = QDialog()
-            dialog.setWindowTitle('Add blocked pattern')
-            dialog.setMinimumWidth(580)
-            layout = QVBoxLayout(dialog)
-            layout.addWidget(QLabel('Label (optional)'))
-            label_field = QLineEdit(label_value)
-            label_field.setPlaceholderText('Manual pattern')
-            layout.addWidget(label_field)
-            layout.addWidget(QLabel('Regex pattern (case-insensitive)'))
-            pattern_field = QLineEdit(pattern_value)
-            pattern_field.setPlaceholderText(r'Example: \bsecret-\d+\b')
-            pattern_field.setFocus()
-            layout.addWidget(pattern_field)
-            note = QLabel('Enabled patterns are matched locally on future scans.')
-            note.setWordWrap(True)
-            layout.addWidget(note)
-            buttons = QDialogButtonBox(
-                QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-            )
-            buttons.accepted.connect(dialog.accept)
-            buttons.rejected.connect(dialog.reject)
-            layout.addWidget(buttons)
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return
-            label_value = label_field.text().strip()
-            pattern_value = pattern_field.text().strip()
-            if not pattern_value:
-                QMessageBox.warning(None, 'Empty pattern', 'Enter a pattern or cancel.')
-                continue
-            try:
-                re.compile(pattern_value)
-            except re.error as error:
-                QMessageBox.warning(None, 'Invalid pattern', str(error))
-                continue
-            self.addBlockedPattern(label_value, pattern_value)
+        result = dialogs.prompt_new_pattern()
+        if result is None:
             return
+        self.addBlockedPattern(*result)
 
     @Slot(int)
     def renameBlockedPattern(self, index):
         if not 0 <= index < len(self._preferences.blocked_patterns):
             return
         entry = self._preferences.blocked_patterns[index]
-        dialog = QDialog()
-        dialog.setWindowTitle('Rename blocked pattern')
-        dialog.setMinimumWidth(520)
-        layout = QVBoxLayout(dialog)
-        layout.addWidget(QLabel('Pattern name'))
-        field = QLineEdit(entry.get('text', ''))
-        field.setPlaceholderText('Manual pattern')
-        field.selectAll()
-        field.setFocus()
-        layout.addWidget(field)
-        note = QLabel('Used in the rule label for future scans. Leave blank for "Manual pattern".')
-        note.setWordWrap(True)
-        layout.addWidget(note)
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
+        name = dialogs.prompt_rename(entry.get('text', ''))
+        if name is None or not patterns.rename_entry(entry, name):
             return
-        name = field.text().strip()
-        if name == entry.get('text', ''):
-            return
-        entry['text'] = name
         self._persist_blocked_patterns()
         self.blockedPatternsChanged.emit()
         self._set_status('Blocked pattern renamed.')
@@ -1229,17 +1106,14 @@ class Controller(QObject):
         pattern = pattern.strip()
         if not pattern:
             return False
-        try:
-            re.compile(pattern)
-        except re.error as error:
-            self._error('Invalid pattern', str(error))
+        error = patterns.compile_error(pattern)
+        if error is not None:
+            self._error('Invalid pattern', error)
             return False
-        if any(entry['pattern'].casefold() == pattern.casefold()
-               for entry in self._preferences.blocked_patterns):
+        if patterns.duplicate_pattern(self._preferences.blocked_patterns, pattern):
             self._set_status('That pattern is already in the blocked list.')
             return False
-        self._preferences.blocked_patterns.append(
-            {'text': text.strip(), 'pattern': pattern, 'enabled': True})
+        self._preferences.blocked_patterns.append(patterns.blocked_entry(text, pattern))
         self._persist_blocked_patterns()
         self.blockedPatternsChanged.emit()
         self._set_status('Blocked pattern added. It applies to the next scan.')
