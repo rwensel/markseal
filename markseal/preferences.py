@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from .detection import PATTERNS, PRESETS
+from .detection import CATEGORIES, PATTERNS, PRESETS
 from .export import output_path
 from .theme_tokens import DEFAULT_ID, is_known
 
@@ -93,7 +93,7 @@ class Preferences:
 
 def _category_names(names):
     chosen = set(names or ())
-    return tuple(name for name in PATTERNS if name in chosen)
+    return tuple(name for name in CATEGORIES if name in chosen)
 
 
 def _valid_template(template, source):

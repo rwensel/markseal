@@ -64,7 +64,7 @@ class SettingsFacade(QObject):
 
     @Property(list, constant=True)
     def categoryNames(self):
-        return list(detection.PATTERNS)
+        return list(detection.CATEGORIES)
 
     @Property(list, constant=True)
     def presetNames(self):
@@ -76,7 +76,7 @@ class SettingsFacade(QObject):
 
     @Property(dict, constant=True)
     def presetCategories(self):
-        return {name: [category for category in detection.PATTERNS if category in values]
+        return {name: [category for category in detection.CATEGORIES if category in values]
                 for name, values in detection.PRESETS.items()}
 
     @Property(list, notify=settingsChanged)

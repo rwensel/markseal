@@ -47,11 +47,18 @@ PATTERNS = {
         r"|\barn:[a-z0-9-]+:[^\s,]+"
     ),
     'Long identifiers': r"\b[A-Za-z0-9_/-]{24,}\b",
+    'Card numbers': r"\b\d(?:[ -]?\d){12,18}\b",
+    'IBANs': r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b",
+    'SSNs': r"\b\d{3}-\d{2}-\d{4}\b",
 }
+TEXT_CATEGORIES = tuple(PATTERNS)
+IMAGE_CATEGORIES = ('QR codes',)
+CATEGORIES = TEXT_CATEGORIES + IMAGE_CATEGORIES
 PRESETS = {
-    'Focused': {'Emails', 'URLs', 'IP addresses', 'Secrets', 'Infrastructure'},
-    'Balanced': set(PATTERNS) - {'Long identifiers'},
-    'Broad': set(PATTERNS),
+    'Focused': {'Emails', 'URLs', 'IP addresses', 'Secrets', 'Card numbers', 'IBANs',
+                'SSNs', 'QR codes'},
+    'Balanced': (set(PATTERNS) - {'Long identifiers'}) | set(IMAGE_CATEGORIES),
+    'Broad': set(PATTERNS) | set(IMAGE_CATEGORIES),
 }
 
 CREDENTIAL_FIELD = re.compile(
@@ -136,6 +143,32 @@ def learned_pattern_rules(learned_patterns):
 _learned_pattern_rules = learned_pattern_rules
 
 
+def luhn_ok(text):
+    digits = [int(ch) for ch in str(text) if ch.isdigit()]
+    if not 13 <= len(digits) <= 19:
+        return False
+    total = 0
+    for index, digit in enumerate(reversed(digits)):
+        if index % 2:
+            digit *= 2
+            if digit > 9:
+                digit -= 9
+        total += digit
+    return total % 10 == 0
+
+
+def iban_ok(text):
+    compact = str(text).replace(' ', '').upper()
+    if not re.fullmatch(r'[A-Z]{2}\d{2}[A-Z0-9]{11,30}', compact):
+        return False
+    rearranged = compact[4:] + compact[:4]
+    digits = ''.join(str(ord(ch) - 55) if ch.isalpha() else ch for ch in rearranged)
+    return int(digits) % 97 == 1
+
+
+VALIDATORS = {'Card numbers': luhn_ok, 'IBANs': iban_ok}
+
+
 @timed('match_patterns')
 def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0, custom_pattern='',
                    learned_patterns=(), rules=None):
@@ -167,8 +200,13 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
             spans = [(0, len(text), 'All text')]
         else:
             for label, expression in expressions:
-                spans.extend((m.start(), m.end(), label)
-                             for m in expression.finditer(text) if m.end() > m.start())
+                validate = VALIDATORS.get(label)
+                for match in expression.finditer(text):
+                    if match.end() <= match.start():
+                        continue
+                    if validate is not None and not validate(match.group(0)):
+                        continue
+                    spans.append((match.start(), match.end(), label))
         fields = [(match.span('value'), []) for match in SECRET_ASSIGNMENT.finditer(text)] if (
             not all_text and 'Secrets' in categories) else []
         offset = 0

@@ -29,6 +29,32 @@ class DetectionTests(unittest.TestCase):
         self.assertEqual(len(detect_regions(tsv, (300,100), all_text=True, min_confidence=50)), 2)
         self.assertEqual(detect_regions(tsv, (300,100), categories=set(), custom_pattern='Contact', min_confidence=50), [(6,16,44,34)])
 
+    def test_checksum_validators(self):
+        from markseal.detection import iban_ok, luhn_ok
+        self.assertTrue(luhn_ok('4111 1111 1111 1111'))
+        self.assertFalse(luhn_ok('1234 5678 9012 3456'))
+        self.assertTrue(iban_ok('GB82 WEST 1234 5698 7654 32'))
+        self.assertFalse(iban_ok('GB82 WEST 1234 5698 7654 31'))
+
+    def test_card_iban_and_ssn_validators_gate_the_boxes(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+
+        def found(text, category):
+            tsv = header + f'1\t1\t1\t1\t10\t20\t180\t20\t95\t{text}\n'
+            return bool(detect_regions(tsv, (400, 100), categories={category}))
+
+        self.assertTrue(found('4111 1111 1111 1111', 'Card numbers'))
+        self.assertFalse(found('1234 5678 9012 3456', 'Card numbers'))
+        self.assertTrue(found('GB82WEST12345698765432', 'IBANs'))
+        self.assertFalse(found('GB82WEST12345698765431', 'IBANs'))
+        self.assertTrue(found('123-45-6789', 'SSNs'))
+
+    def test_focused_preset_leads_with_pii_and_qr(self):
+        self.assertIn('Card numbers', PRESETS['Focused'])
+        self.assertIn('QR codes', PRESETS['Focused'])
+        self.assertNotIn('Infrastructure', PRESETS['Focused'])
+        self.assertIn('Infrastructure', PRESETS['Balanced'])
+
     def test_generated_pattern_matches_the_selected_text_and_not_neighbors(self):
         pattern = pattern_from_text('DemoOnly_Pass-91!q')
         self.assertIsNotNone(re.search(pattern, 'demoOnly_pass-91!q', re.IGNORECASE))
@@ -150,7 +176,7 @@ class DetectionTests(unittest.TestCase):
         self.assertCountEqual(detect_regions(tsv, (320, 100), categories={'Secrets'}),
                               [(91, 6, 205, 34)])
 
-    def test_focused_detects_infrastructure_and_credentials(self):
+    def test_balanced_detects_infrastructure_and_credentials(self):
         lines = [
             ["---", "a/team/prod/deploy.yaml"],
             ["name:", "VAULT_CACERT_PATH"],
@@ -164,7 +190,7 @@ class DetectionTests(unittest.TestCase):
         for line, words in enumerate(lines, 1):
             for column, word in enumerate(words, 1):
                 tsv += f"1\t1\t1\t{line}\t{column*200}\t{line*30}\t150\t20\t90\t{word}\n"
-        found = detect_regions(tsv, (700, 500), categories=PRESETS['Focused'], min_confidence=50)
+        found = detect_regions(tsv, (700, 500), categories=PRESETS['Balanced'], min_confidence=50)
         self.assertEqual({(box[1]+4)//30 for box in found}, set(range(1, 7)))
         self.assertIn((396, 176, 554, 204), found)
 

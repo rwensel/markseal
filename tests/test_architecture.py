@@ -9,7 +9,7 @@ ROOT = Path(markseal.__file__).resolve().parent
 
 DOMAIN = (
     'audit_exports.py', 'boxset.py', 'core.py', 'detection.py', 'export.py',
-    'images.py', 'jobs.py', 'ocr.py', 'ocr_preprocess.py', 'patterns.py',
+    'image_detection.py', 'images.py', 'jobs.py', 'ocr.py', 'ocr_preprocess.py', 'patterns.py',
     'performance_log.py', 'preferences.py', 'rapidocr_backend.py', 'redaction.py',
     'review.py', 'theme_tokens.py', 'viewport.py', 'visual_anchor.py',
     'workflows.py',

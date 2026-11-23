@@ -37,6 +37,13 @@ def make_engine():
     return RapidEngine()
 
 
+def image_boxes(image, categories):
+    from .image_detection import detect_qr_codes
+    if 'QR codes' in categories:
+        for box in detect_qr_codes(image):
+            yield box, 'QR code'
+
+
 def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
                       color_assisted=False, incomplete=None, area=None, area_layout=None,
                       progress=None):
@@ -103,6 +110,12 @@ def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
                 timing['new_suggestions'] = len(boxes)
     except subprocess.TimeoutExpired as error:
         raise TimeoutError('Standard OCR timed out. Try a smaller photo or mark redactions manually.') from error
+
+    categories = settings[1] if len(settings) > 1 else set()
+    for box, label in image_boxes(image, categories):
+        if not any(same_region(box, existing) for existing in boxes):
+            boxes.append(box)
+            rules[box] = (label,)
 
     if not (enhanced or color_assisted):
         return BoxList(boxes, rules)
