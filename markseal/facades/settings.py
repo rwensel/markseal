@@ -71,10 +71,6 @@ class SettingsFacade(QObject):
         return [*detection.PRESETS, 'Custom']
 
     @Property(list, constant=True)
-    def engineNames(self):
-        return ['Tesseract', 'RapidOCR']
-
-    @Property(list, constant=True)
     def methodNames(self):
         return ['Pixelate', 'Solid black']
 
@@ -93,7 +89,6 @@ class SettingsFacade(QObject):
     enhancedOcr = preference_property('enhanced_ocr', bool, settingsChanged)
     colorOcr = preference_property('color_ocr', bool, settingsChanged)
     showRules = preference_property('show_rules', bool, settingsChanged)
-    ocrEngine = preference_property('ocr_engine', str, settingsChanged)
 
     @Property(str, notify=settingsChanged)
     def redactionMethod(self):
@@ -170,8 +165,8 @@ class SettingsFacade(QObject):
                 self.alerts.status_text + f' Settings could not be saved: {error}'
             )
 
-    @Slot(str, int, bool, bool, bool, str, 'QVariantList', str, str, str, bool, int, str, result=str)
-    def applySettings(self, sensitivity, confidence, all_text, enhanced, color, engine,
+    @Slot(str, int, bool, bool, bool, 'QVariantList', str, str, str, bool, int, str, result=str)
+    def applySettings(self, sensitivity, confidence, all_text, enhanced, color,
                       categories, method, output_directory, template, include_log,
                       parallel_images, theme):
         try:
@@ -183,7 +178,6 @@ class SettingsFacade(QObject):
                     'all_text': all_text,
                     'enhanced_ocr': enhanced,
                     'color_ocr': color,
-                    'ocr_engine': engine,
                     'categories': categories,
                     'method': method,
                     'output_directory': output_directory,

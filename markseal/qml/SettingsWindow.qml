@@ -27,7 +27,6 @@ Window {
     property bool allTextValue: false
     property bool enhancedValue: false
     property bool colorValue: false
-    property string engineValue: "Tesseract"
     property string methodValue: "Pixelate"
     property string outputValue: ""
     property string templateValue: ""
@@ -42,7 +41,6 @@ Window {
         allTextValue = Backend.settings.allText
         enhancedValue = Backend.settings.enhancedOcr
         colorValue = Backend.settings.colorOcr
-        engineValue = Backend.settings.ocrEngine
         methodValue = Backend.settings.redactionMethod
         outputValue = Backend.settings.outputDirectory
         templateValue = Backend.settings.filenameTemplate
@@ -51,7 +49,6 @@ Window {
         tab = "engine"
         showDiagnostics = false
         errorText = ""
-        engineCombo.currentIndex = Math.max(0, engineCombo.find(engineValue))
         sensitivityCombo.currentIndex = Math.max(0, sensitivityCombo.find(sensitivityValue))
         methodCombo.currentIndex = Math.max(0, methodCombo.find(methodValue))
         outputField.text = outputValue
@@ -73,7 +70,7 @@ Window {
         }
         var error = Backend.settings.applySettings(
             sensitivityValue, confidenceValue, allTextValue, enhancedValue, colorValue,
-            engineValue, selectedCategories, methodValue,
+            selectedCategories, methodValue,
             outputValue, templateValue, includeLogValue, parallelValue,
             Backend.settings.previewTheme
         )
@@ -240,15 +237,6 @@ Window {
                             id: enginePage
                             width: parent.width
                             spacing: 10
-
-                            FieldLabel { text: "OCR ENGINE" }
-
-                            ConcourseComboBox {
-                                id: engineCombo
-                                Layout.fillWidth: true
-                                model: Backend.settings.engineNames
-                                onActivated: settings.engineValue = currentText
-                            }
 
                             FieldLabel { text: "MIN OCR CONFIDENCE (0-100)" }
 

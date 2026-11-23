@@ -7,7 +7,6 @@ from markseal.core import (
     ScanCancelled,
     apply_redactions,
     detect_regions,
-    find_tesseract,
     new_ocr_boxes,
     output_path,
     pixelate,

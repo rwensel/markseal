@@ -68,7 +68,7 @@ def verify_export(export_path, originals, *, patterns=(), run_ocr=False):
         if run_ocr:
             from .detection import PRESETS
             from .ocr import make_engine, recognize_regions
-            engine = make_engine('RapidOCR')
+            engine = make_engine()
             settings = (False, PRESETS['Broad'], 40, '', patterns)
             suggested = recognize_regions(original, engine, settings)
             item['ocr_candidates'] = classify_coverage(mask, suggested)

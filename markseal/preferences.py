@@ -16,7 +16,6 @@ from .detection import PATTERNS, PRESETS
 from .export import output_path
 from .theme_tokens import DEFAULT_ID, is_known
 
-ENGINE_NAMES = ('Tesseract', 'RapidOCR')
 METHOD_NAMES = ('Pixelate', 'Solid black')
 DEFAULT_TEMPLATE = '{stem}_redacted'
 MAX_PARALLEL = 16
@@ -60,7 +59,6 @@ class Preferences:
     enhanced_ocr: bool = False
     color_ocr: bool = False
     show_rules: bool = False
-    ocr_engine: str = 'Tesseract'
     method: str = 'Pixelate'
     output_directory: str = ''
     filename_template: str = DEFAULT_TEMPLATE
@@ -77,7 +75,6 @@ class Preferences:
             'all_text': self.all_text,
             'enhanced_ocr': self.enhanced_ocr,
             'color_ocr': self.color_ocr,
-            'ocr_engine': self.ocr_engine,
             'categories': list(self.categories),
             'redaction_method': self.method,
             'output_directory': self.output_directory,
@@ -140,9 +137,6 @@ def from_document(document, parallel_limit=MAX_PARALLEL):
                            ('include_log', 'include_log')):
         if isinstance(document.get(key), bool):
             setattr(preferences, attribute, document[key])
-    engine = document.get('ocr_engine')
-    if engine in ENGINE_NAMES:
-        preferences.ocr_engine = engine
     method = document.get('redaction_method')
     if method in METHOD_NAMES:
         preferences.method = method
@@ -233,9 +227,6 @@ def apply_form(current, form, parallel_limit, source=None):
     sensitivity = form['sensitivity']
     if isinstance(sensitivity, str) and sensitivity not in {*PRESETS, 'Custom'}:
         raise ValueError('Choose a detection preset.')
-    engine = form['ocr_engine']
-    if engine not in ENGINE_NAMES:
-        raise ValueError('Choose Tesseract or RapidOCR.')
     method = form['method']
     if method not in METHOD_NAMES:
         raise ValueError('Choose pixelation or solid black.')
@@ -249,7 +240,6 @@ def apply_form(current, form, parallel_limit, source=None):
         enhanced_ocr=bool(form['enhanced_ocr']),
         color_ocr=bool(form['color_ocr']),
         show_rules=current.show_rules,
-        ocr_engine=engine,
         method=method,
         output_directory=str(chosen) if chosen is not None else '',
         filename_template=name,
@@ -274,7 +264,7 @@ def scan_settings(preferences):
 
 def scan_metrics(preferences):
     return {
-        'engine': preferences.ocr_engine,
+        'engine': 'RapidOCR',
         'confidence': preferences.confidence,
         'enhanced': preferences.enhanced_ocr,
         'color_assisted': preferences.color_ocr,

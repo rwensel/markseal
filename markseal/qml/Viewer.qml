@@ -619,7 +619,7 @@ Item {
 
                     Text {
                         width: parent.width
-                        text: "TESSERACT + RAPIDOCR / COORDINATE LOG / PNG COPY"
+                        text: "RAPIDOCR / COORDINATE LOG / PNG COPY"
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.mutedText
                         font.family: Theme.displayFont

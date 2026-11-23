@@ -9,7 +9,6 @@ from tests.support import (
     RapidEngine,
     SimpleNamespace,
     TemporaryDirectory,
-    TesseractEngine,
     detect_regions,
     make_engine,
     new_ocr_boxes,
@@ -42,12 +41,9 @@ class OcrPipelineTests(unittest.TestCase):
         )
         self.assertEqual(text_from_tsv(tsv), 'Crownfern Analytics\npass 42')
         image = Image.new('RGB', (240, 90), 'white')
-        engine = TesseractEngine('ocr')
-        with patch('markseal.ocr.subprocess.run',
-                   return_value=SimpleNamespace(stdout=tsv.encode('utf-8'))) as run:
-            self.assertEqual(read_area_text(image, engine, (10, 10, 200, 70)),
-                             'Crownfern Analytics\npass 42')
-        self.assertEqual(run.call_args.args[0][-1], 'tsv')
+        engine = FakeEngine(tsv)
+        self.assertEqual(read_area_text(image, engine, (10, 10, 200, 70)),
+                         'Crownfern Analytics\npass 42')
         found = detect_regions(tsv, (240, 90), categories=set(),
                                learned_patterns=[pattern_from_text('Crownfern Analytics')])
         self.assertEqual(len(found), 2)
@@ -153,31 +149,23 @@ class OcrAdapterTests(unittest.TestCase):
             recognize_regions(image, engine, settings, enhanced=True, color_assisted=True)
         self.assertEqual([call['psm'] for call in engine.calls], [None, '11'])
 
-    def test_tesseract_and_rapid_adapters_return_the_same_box_shape(self):
+    def test_rapid_adapter_returns_the_expected_box_shape(self):
         tsv = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
                '1\t1\t1\t1\t10\t20\t100\t20\t95\ta@example.com\n')
         image = Image.new('RGB', (300, 100), 'white')
         settings = (False, {'Emails'}, 50, '')
-        with patch('markseal.ocr.subprocess.run',
-                   return_value=SimpleNamespace(stdout=tsv.encode('utf-8'))):
-            tesseract = recognize_regions(image, TesseractEngine('ocr'), settings)
         with patch('markseal.rapidocr_backend.recognize_words', return_value=tsv):
             rapid = recognize_regions(image, RapidEngine(), settings)
-        self.assertEqual(tesseract, rapid)
-        self.assertEqual(tesseract, [(6, 16, 114, 44)])
+        self.assertEqual(rapid, [(6, 16, 114, 44)])
 
-    def test_make_engine_validates_the_requested_backend(self):
-        self.assertIsInstance(make_engine('Tesseract', executable='ocr'), TesseractEngine)
+    def test_make_engine_requires_rapidocr_models(self):
         with patch('markseal.rapidocr_backend.model_files', return_value={}):
-            engine = make_engine('RapidOCR')
+            engine = make_engine()
         self.assertIsInstance(engine, RapidEngine)
         self.assertTrue(engine.single_label)
         with patch('markseal.rapidocr_backend.model_files', side_effect=OSError('missing models')):
             with self.assertRaises(OSError):
-                make_engine('RapidOCR')
-        with patch('markseal.ocr.find_tesseract', return_value=None):
-            with self.assertRaises(OSError):
-                make_engine('Tesseract')
+                make_engine()
 
     def test_area_scan_rescales_adapter_boxes_to_source_pixels(self):
         image = Image.new('RGB', (200, 100), 'white')

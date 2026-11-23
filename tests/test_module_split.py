@@ -15,7 +15,7 @@ class ModuleSplitTests(unittest.TestCase):
     def test_public_launcher_reexports_keep_resolving(self):
         import offline_redactor
         for name in ('IMAGE_SUFFIXES', 'PATTERNS', 'PRESETS', 'FolderImage', 'ScanCancelled',
-                     'apply_redactions', 'detect_regions', 'find_tesseract', 'new_ocr_boxes',
+                     'apply_redactions', 'detect_regions', 'new_ocr_boxes',
                      'output_path', 'pixelate', 'preferences_path', 'read_folder_image',
                      'recognize_regions', 'save_export', 'write_folder_copy',
                      'write_preferences'):

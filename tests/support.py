@@ -20,7 +20,7 @@ from markseal.core import (
 from markseal.review import Review
 from markseal.jobs import JobRunner, progress_line
 from markseal.boxset import BoxSet, image_status
-from markseal.ocr import RapidEngine, TesseractEngine, make_engine
+from markseal.ocr import RapidEngine, make_engine
 from markseal import preferences
 from markseal.preferences import Preferences, PreferencesError
 from markseal import patterns

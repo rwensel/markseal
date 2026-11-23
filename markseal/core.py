@@ -16,8 +16,8 @@ from .export import output_path, save_export, write_folder_copy
 from .images import IMAGE_SUFFIXES, file_stamp, read_folder_image
 from .jobs import ScanCancelled, batch_worker_count
 from .ocr import (
-    RapidEngine, TesseractEngine, cancellable_ocr, find_tesseract, make_engine,
-    read_area_text, recognize_regions, scan_folder_image, text_from_tsv,
+    RapidEngine, make_engine, read_area_text, recognize_regions, scan_folder_image,
+    text_from_tsv,
 )
 from .preferences import preferences_path, write_preferences
 from .redaction import apply_redactions, pixelate

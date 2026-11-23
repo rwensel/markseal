@@ -36,7 +36,6 @@ class SettingsFacadeTests(unittest.TestCase):
             'all_text': False,
             'enhanced': False,
             'color': False,
-            'engine': 'Tesseract',
             'categories': ['Emails'],
             'method': 'Pixelate',
             'output_directory': '',
@@ -48,7 +47,7 @@ class SettingsFacadeTests(unittest.TestCase):
         values.update(overrides)
         return self.settings.applySettings(
             values['sensitivity'], values['confidence'], values['all_text'],
-            values['enhanced'], values['color'], values['engine'],
+            values['enhanced'], values['color'],
             values['categories'], values['method'], values['output_directory'],
             values['template'], values['include_log'], values['parallel_images'],
             values['theme'],
@@ -56,10 +55,10 @@ class SettingsFacadeTests(unittest.TestCase):
 
     def test_facade_exposes_the_settings_surface(self):
         for name in ('categories', 'sensitivity', 'confidence', 'allText',
-                     'enhancedOcr', 'colorOcr', 'showRules', 'ocrEngine',
+                     'enhancedOcr', 'colorOcr', 'showRules',
                      'redactionMethod', 'outputDirectory', 'filenameTemplate',
                      'includeLog', 'parallelImages', 'parallelLimit', 'blockedPatterns',
-                     'palette', 'themeChoices', 'engineNames', 'methodNames',
+                     'palette', 'themeChoices', 'methodNames',
                      'presetNames', 'presetCategories', 'categoryNames'):
             self.assertTrue(hasattr(self.settings, name), name)
         for name in ('applySettings', 'setRedactionMethod', 'requestSettings',

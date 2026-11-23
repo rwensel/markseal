@@ -35,7 +35,7 @@ class SessionState:
         self.jobs = None
 
     def scan_engine(self):
-        return ocr.make_engine(self.preferences.ocr_engine)
+        return ocr.make_engine()
 
     def store_active(self):
         if self.active is None or self.review.image is None:

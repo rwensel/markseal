@@ -23,7 +23,6 @@ class PreferencesTests(unittest.TestCase):
             'all_text': False,
             'enhanced_ocr': False,
             'color_ocr': False,
-            'ocr_engine': 'Tesseract',
             'categories': list(preferences.defaults().categories),
             'method': 'Pixelate',
             'output_directory': '',
@@ -49,7 +48,7 @@ class PreferencesTests(unittest.TestCase):
             path = Path(folder) / 'settings.json'
             stored = Preferences(
                 sensitivity='Balanced', confidence=77, all_text=True, enhanced_ocr=True,
-                color_ocr=True, show_rules=True, ocr_engine='RapidOCR',
+                color_ocr=True, show_rules=True,
                 method='Solid black', output_directory=folder,
                 filename_template='shot-{index}', include_log=False, parallel_images=3,
                 categories=('Emails', 'Secrets'),
@@ -66,7 +65,7 @@ class PreferencesTests(unittest.TestCase):
                          {'parallel_images': 0}, {'parallel_images': 9},
                          {'output_directory': 'relative/folder'},
                          {'filename_template': '   '}, {'filename_template': 'bad/name'},
-                         {'ocr_engine': 'Other'}, {'method': 'Blur'},
+                         {'method': 'Blur'},
                          {'sensitivity': 'Nope'}, {'theme': 'gone'}):
             with self.subTest(override=override):
                 with self.assertRaises(ValueError):
@@ -85,11 +84,10 @@ class PreferencesTests(unittest.TestCase):
     def test_load_clamps_and_ignores_invalid_saved_values(self):
         loaded = preferences.from_document(
             {'parallel_images': 99, 'confidence': 250, 'redaction_method': 'Blur',
-             'ocr_engine': 'Other', 'filename_template': 'bad/name'}, 8)
+             'filename_template': 'bad/name'}, 8)
         self.assertEqual(loaded.parallel_images, 8)
         self.assertEqual(loaded.confidence, 50)
         self.assertEqual(loaded.method, 'Pixelate')
-        self.assertEqual(loaded.ocr_engine, 'Tesseract')
         self.assertEqual(loaded.filename_template, preferences.DEFAULT_TEMPLATE)
 
     def test_legacy_custom_pattern_migrates_once(self):
@@ -120,7 +118,7 @@ class PreferencesTests(unittest.TestCase):
         metrics = preferences.scan_metrics(stored)
         self.assertEqual(metrics['blocked_patterns'], 1)
         self.assertEqual(metrics['builtin_category_count'], len(stored.categories))
-        self.assertEqual(metrics['engine'], 'Tesseract')
+        self.assertEqual(metrics['engine'], 'RapidOCR')
 
     def test_apply_form_keeps_show_rules_and_blocked_patterns(self):
         current = preferences.defaults()
