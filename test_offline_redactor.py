@@ -2,11 +2,13 @@ import unittest
 import subprocess
 import json
 from pathlib import Path
+from queue import Queue
 from tempfile import TemporaryDirectory
-from threading import Barrier, Thread
+from threading import Barrier, Lock, Thread
 from PIL import Image
 from unittest.mock import patch
 from types import SimpleNamespace
+import rapidocr_backend
 from rapidocr_backend import result_to_tsv
 from performance_log import PerformanceRun, stage
 from redactor.core import (
@@ -383,6 +385,35 @@ class RedactionTests(unittest.TestCase):
             self.assertEqual(events[-1]['event'], 'finish')
             self.assertEqual(events[-1]['attempted'], 4)
             self.assertEqual(events[-1]['failed'], 0)
+
+    def test_rapidocr_pool_allows_concurrent_engine_calls(self):
+        active = [0]
+        peak = [0]
+        guard = Lock()
+        barrier = Barrier(2)
+
+        class FakeEngine:
+            def __call__(self, image, **options):
+                with guard:
+                    active[0] += 1
+                    peak[0] = max(peak[0], active[0])
+                barrier.wait()
+                with guard:
+                    active[0] -= 1
+                return SimpleNamespace(boxes=None, txts=None)
+
+        rapidocr_backend._engines = Queue()
+        try:
+            with patch('rapidocr_backend._create_engine', side_effect=lambda: FakeEngine()):
+                threads = [Thread(target=rapidocr_backend.recognize_words,
+                                  args=(Image.new('RGB', (20, 20)),)) for _ in range(2)]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join()
+        finally:
+            rapidocr_backend._engines = Queue()
+        self.assertEqual(peak[0], 2)
 
     def test_performance_log_records_timings_without_exception_message(self):
         with TemporaryDirectory() as folder, patch('performance_log.log_directory', return_value=Path(folder)):

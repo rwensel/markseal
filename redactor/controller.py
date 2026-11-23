@@ -1175,7 +1175,6 @@ class Controller(QObject):
             operation, track_result, finish,
             cancel=cancel, show_image=show_image if follow else None,
             metrics_settings=self._scan_metrics(), rows=self._folder_rows(),
-            workers=1 if self._settings['ocrEngine'] == 'RapidOCR' else None,
         )
 
     @Slot()

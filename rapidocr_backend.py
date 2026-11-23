@@ -3,8 +3,9 @@ import csv
 import io
 import re
 from difflib import SequenceMatcher
-from functools import lru_cache
 from pathlib import Path
+from queue import Empty, Queue
+from threading import Lock
 
 from PIL import Image, ImageOps
 from performance_log import stage
@@ -27,19 +28,39 @@ def model_files():
     return files
 
 
-@lru_cache(maxsize=1)
-def load_engine():
+_engines = Queue()
+_engine_creation = Lock()
+
+
+def _create_engine():
     files = model_files()
     from rapidocr import RapidOCR
 
-    return RapidOCR(params={
-        **{f'{stage}.model_path': str(path) for stage, path in files.items()},
-        'Global.log_level': 'error',
-        'Global.text_score': 0.0,
-        'Global.use_cls': False,
-        'EngineConfig.onnxruntime.intra_op_num_threads': 2,
-        'EngineConfig.onnxruntime.inter_op_num_threads': 1,
-    })
+    with stage('load_rapidocr_engine'):
+        return RapidOCR(params={
+            **{f'{stage}.model_path': str(path) for stage, path in files.items()},
+            'Global.log_level': 'error',
+            'Global.text_score': 0.0,
+            'Global.use_cls': False,
+            'EngineConfig.onnxruntime.intra_op_num_threads': 2,
+            'EngineConfig.onnxruntime.inter_op_num_threads': 1,
+        })
+
+
+def _borrow_engine():
+    try:
+        return _engines.get_nowait()
+    except Empty:
+        pass
+    with _engine_creation:
+        try:
+            return _engines.get_nowait()
+        except Empty:
+            return _create_engine()
+
+
+def _return_engine(engine):
+    _engines.put(engine)
 
 
 def positioned_words(text, confidence, line_polygon, fragments):
@@ -101,9 +122,12 @@ def result_to_tsv(result, size):
 
 
 def recognize_words(image):
-    with stage('load_rapidocr_engine'):
-        engine = load_engine()
-    output = engine(image.convert('RGB'), return_word_box=True, return_single_char_box=True, use_det=True, use_cls=False)
+    engine = _borrow_engine()
+    try:
+        output = engine(image.convert('RGB'), return_word_box=True, return_single_char_box=True,
+                        use_det=True, use_cls=False)
+    finally:
+        _return_engine(engine)
     return result_to_tsv(output, image.size)
 
 
@@ -115,7 +139,11 @@ def recognize_single_label(crop):
     image = image.resize((max(1, round(image.width*factor)), max(1, round(image.height*factor))),
                          Image.Resampling.LANCZOS)
     image = ImageOps.expand(image, border=10, fill=image.getpixel((0, 0)))
-    output = load_engine()(image, return_word_box=False, use_det=False, use_cls=False)
+    engine = _borrow_engine()
+    try:
+        output = engine(image, return_word_box=False, use_det=False, use_cls=False)
+    finally:
+        _return_engine(engine)
     if output.txts and output.scores:
         return output.txts[0].strip(), 100 * output.scores[0]
     return '', 0.0

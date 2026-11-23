@@ -273,7 +273,7 @@ Window {
                             HintText {
                                 Layout.fillWidth: true
                                 text: "Higher values process multiple images at once in folder scans, copying, matching, and export. "
-                                      + "Local OCR can use significant CPU and memory. RapidOCR scans stay serialized."
+                                      + "Local OCR can use significant CPU and memory. RapidOCR keeps a local engine per active worker."
                             }
 
                             ToggleRow {
