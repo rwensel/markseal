@@ -1,131 +1,488 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-22T00:00:00Z",
+  "generatedAt": "2026-11-23T04:02:08Z",
   "title": "Design System: Offline Screenshot Redactor",
   "extensions": {
     "colorMeta": {
-      "viewer-charcoal": {
+      "flap-black": {
+        "role": "neutral",
+        "displayName": "Flap Black",
+        "canonical": "#0B0B0D",
+        "tonalRamp": [
+          "#040405",
+          "#070708",
+          "#09090b",
+          "#0B0B0D",
+          "#414142",
+          "#7b7b7c",
+          "#b6b6b6",
+          "#e2e2e2"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel",
+        "canonical": "#15171A",
+        "tonalRamp": [
+          "#08090a",
+          "#0d0e10",
+          "#121316",
+          "#15171A",
+          "#484a4c",
+          "#818283",
+          "#b9b9ba",
+          "#e3e3e4"
+        ]
+      },
+      "panel-raised": {
+        "role": "neutral",
+        "displayName": "Panel Raised",
+        "canonical": "#1D2024",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#121416",
+          "#181b1e",
+          "#1D2024",
+          "#4f5154",
+          "#858789",
+          "#bbbcbd",
+          "#e4e4e5"
+        ]
+      },
+      "viewer-inset": {
+        "role": "neutral",
+        "displayName": "Viewer Inset",
+        "canonical": "#101215",
+        "tonalRamp": [
+          "#060708",
+          "#0a0b0d",
+          "#0d0f12",
+          "#101215",
+          "#454648",
+          "#7e7f81",
+          "#b7b8b9",
+          "#e2e3e3"
+        ]
+      },
+      "steel-frame": {
+        "role": "neutral",
+        "displayName": "Steel Frame",
+        "canonical": "#2A2D31",
+        "tonalRamp": [
+          "#101113",
+          "#1a1c1e",
+          "#232629",
+          "#2A2D31",
+          "#595b5e",
+          "#8c8e90",
+          "#bfc0c1",
+          "#e5e6e6"
+        ]
+      },
+      "steel-mid": {
+        "role": "neutral",
+        "displayName": "Steel Mid",
+        "canonical": "#585E63",
+        "tonalRamp": [
+          "#212426",
+          "#373a3d",
+          "#4a4f53",
+          "#585E63",
+          "#7d8185",
+          "#a5a8ab",
+          "#cdcfd0",
+          "#ebecec"
+        ]
+      },
+      "steel-light": {
+        "role": "neutral",
+        "displayName": "Steel Light",
+        "canonical": "#A7AAAF",
+        "tonalRamp": [
+          "#3f4142",
+          "#68696c",
+          "#8c8f93",
+          "#A7AAAF",
+          "#babdc1",
+          "#cfd1d4",
+          "#e5e6e7",
+          "#f4f5f5"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#3A3E43",
+        "tonalRamp": [
+          "#161819",
+          "#24262a",
+          "#313438",
+          "#3A3E43",
+          "#65686c",
+          "#959799",
+          "#c4c5c7",
+          "#e7e8e8"
+        ]
+      },
+      "delay-amber": {
         "role": "primary",
-        "displayName": "Viewer Charcoal",
-        "canonical": "#333333",
-        "tonalRamp": ["#262626", "#434343", "#616161", "#7e7e7e", "#9b9b9b", "#b8b8b8", "#d5d5d5", "#f2f2f2"]
+        "displayName": "Delay Amber",
+        "canonical": "#FFB000",
+        "tonalRamp": [
+          "#614300",
+          "#9e6d00",
+          "#d69400",
+          "#FFB000",
+          "#ffc138",
+          "#ffd475",
+          "#ffe7b2",
+          "#fff6e0"
+        ]
       },
-      "selected-green": {
+      "amber-dim": {
         "role": "secondary",
-        "displayName": "Selected Green",
-        "canonical": "#00b050",
-        "tonalRamp": ["#113b24", "#11763f", "#09b859", "#01fa72", "#38fe92", "#78f8b2", "#b6f4d2", "#ebf9f2"]
+        "displayName": "Amber Dim",
+        "canonical": "#3A2E12",
+        "tonalRamp": [
+          "#161107",
+          "#241d0b",
+          "#31270f",
+          "#3A2E12",
+          "#655c46",
+          "#958e7f",
+          "#c4c0b8",
+          "#e7e6e3"
+        ]
       },
-      "excluded-orange": {
+      "cancel-red": {
         "role": "secondary",
-        "displayName": "Excluded Orange",
-        "canonical": "#ff8c00",
-        "tonalRamp": ["#3b2811", "#764811", "#b86909", "#fa8a01", "#fea538", "#f8be78", "#f4d8b6", "#f9f3eb"]
+        "displayName": "Cancel Red",
+        "canonical": "#B00020",
+        "tonalRamp": [
+          "#43000c",
+          "#6d0014",
+          "#94001b",
+          "#B00020",
+          "#c13851",
+          "#d47587",
+          "#e7b2bc",
+          "#f6e0e4"
+        ]
       },
-      "drag-red": {
-        "role": "secondary",
-        "displayName": "Drag Red",
-        "canonical": "#ff0000",
-        "tonalRamp": ["#3b1111", "#761111", "#b80909", "#fa0101", "#fe3838", "#f87878", "#f4b6b6", "#f9ebeb"]
-      },
-      "handle-ink": {
+      "letter-white": {
         "role": "neutral",
-        "displayName": "Handle Ink",
-        "canonical": "#202020",
-        "tonalRamp": ["#262626", "#434343", "#616161", "#7e7e7e", "#9b9b9b", "#b8b8b8", "#d5d5d5", "#f2f2f2"]
+        "displayName": "Letter White",
+        "canonical": "#F2F2F2",
+        "tonalRamp": [
+          "#5c5c5c",
+          "#969696",
+          "#cbcbcb",
+          "#F2F2F2",
+          "#f5f5f5",
+          "#f8f8f8",
+          "#fbfbfb",
+          "#fdfdfd"
+        ]
       },
-      "remove-mark": {
+      "ink": {
         "role": "neutral",
-        "displayName": "Remove Mark",
-        "canonical": "#ffffff",
-        "tonalRamp": ["#262626", "#434343", "#616161", "#7e7e7e", "#9b9b9b", "#b8b8b8", "#d5d5d5", "#f2f2f2"]
+        "displayName": "Ink",
+        "canonical": "#0A0A0B",
+        "tonalRamp": [
+          "#040404",
+          "#060607",
+          "#080809",
+          "#0A0A0B",
+          "#404041",
+          "#7b7b7b",
+          "#b6b6b6",
+          "#e2e2e2"
+        ]
       },
-      "solid-black": {
+      "muted-text": {
         "role": "neutral",
-        "displayName": "Solid Black",
-        "canonical": "#000000",
-        "tonalRamp": ["#262626", "#434343", "#616161", "#7e7e7e", "#9b9b9b", "#b8b8b8", "#d5d5d5", "#f2f2f2"]
+        "displayName": "Muted Text",
+        "canonical": "#8A9096",
+        "tonalRamp": [
+          "#343739",
+          "#56595d",
+          "#74797e",
+          "#8A9096",
+          "#a4a8ad",
+          "#c0c3c6",
+          "#dcdee0",
+          "#f1f2f2"
+        ]
+      },
+      "tile-face": {
+        "role": "neutral",
+        "displayName": "Tile Face",
+        "canonical": "#232629",
+        "tonalRamp": [
+          "#0d0e10",
+          "#161819",
+          "#1d2022",
+          "#232629",
+          "#535658",
+          "#888a8b",
+          "#bdbebf",
+          "#e5e5e5"
+        ]
+      },
+      "tile-top": {
+        "role": "neutral",
+        "displayName": "Tile Top",
+        "canonical": "#2C3034",
+        "tonalRamp": [
+          "#111214",
+          "#1b1e20",
+          "#25282c",
+          "#2C3034",
+          "#5a5e61",
+          "#8d8f91",
+          "#c0c1c2",
+          "#e6e6e7"
+        ]
       }
     },
-    "typographyMeta": {},
-    "shadows": [],
-    "motion": [],
-    "breakpoints": []
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Condensed uppercase labels, numerics, and flip-tile values."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Hints, status lines, dialogs, and settings explanations."
+      }
+    },
+    "shadows": [
+      {
+        "name": "toolbar",
+        "value": "0 7px 18px rgba(0,0,0,0.5)",
+        "purpose": "Lifts the toolbar over the workspace."
+      },
+      {
+        "name": "raised-panel",
+        "value": "0 5px 14px rgba(0,0,0,0.42)",
+        "purpose": "Raised panels and the job-status card."
+      },
+      {
+        "name": "sidebar",
+        "value": "7px 0 16px rgba(0,0,0,0.55)",
+        "purpose": "Separates the folder sidebar from the viewer."
+      },
+      {
+        "name": "screenshot-card",
+        "value": "0 9px 22px rgba(0,0,0,0.6)",
+        "purpose": "Recesses the screenshot card into the viewer."
+      },
+      {
+        "name": "primary-button",
+        "value": "0 3px 10px rgba(255,176,0,0.34)",
+        "purpose": "Amber glow under the active primary action; 0.55 on hover."
+      },
+      {
+        "name": "secondary-button",
+        "value": "0 2px 5px rgba(0,0,0,0.42)",
+        "purpose": "Soft drop under raised steel controls."
+      }
+    ],
+    "motion": [
+      {
+        "name": "flip-tile-in",
+        "value": "110ms ease-in to 90deg",
+        "purpose": "First half of the flip-tile value swap."
+      },
+      {
+        "name": "flip-tile-out",
+        "value": "150ms ease-out from -90deg",
+        "purpose": "Second half of the flip-tile value swap."
+      },
+      {
+        "name": "button-press",
+        "value": "80ms scale to 0.965, 240ms release ring",
+        "purpose": "Tactile press and amber/red release signal."
+      },
+      {
+        "name": "hover-focus",
+        "value": "100-110ms color and border transition",
+        "purpose": "Hover, focus, and dropdown transitions."
+      },
+      {
+        "name": "progress-bar",
+        "value": "140ms width",
+        "purpose": "Determinate job progress in the sidebar."
+      },
+      {
+        "name": "row-activity",
+        "value": "900ms loop",
+        "purpose": "Amber sweep along a running folder row."
+      },
+      {
+        "name": "busy-sweep",
+        "value": "1500ms loop",
+        "purpose": "Single-viewer busy animation across the stage."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "desktop-min",
+        "value": "1080x680"
+      },
+      {
+        "name": "desktop-default",
+        "value": "1360x860"
+      },
+      {
+        "name": "toolbar-wide",
+        "value": "1240px"
+      },
+      {
+        "name": "settings-min",
+        "value": "700x650"
+      }
+    ]
   },
   "components": [
     {
-      "name": "Viewer Field",
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "delay-amber",
+      "description": "The single amber action for the current step: Scan, Confirm, or Save.",
+      "html": "<button class=\"ds-btn-primary\">CONFIRM</button>",
+      "css": ".ds-btn-primary{background:#FFB000;color:#0A0A0B;border:1px solid #FFD37A;border-radius:8px;padding:7px 12px;font-family:'Bahnschrift SemiCondensed','Arial Narrow',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.1px;cursor:pointer;box-shadow:0 3px 8px rgba(255,176,0,0.34);transition:background 110ms,transform 80ms;}.ds-btn-primary:hover{background:#FFC24D;box-shadow:0 3px 10px rgba(255,176,0,0.55);}.ds-btn-primary:active{background:#E6A000;transform:scale(0.965);}.ds-btn-primary:focus-visible{outline:1px solid #FFB000;outline-offset:2px;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "panel-raised",
+      "description": "Raised steel action; disabled states go neutral with no glow.",
+      "html": "<button class=\"ds-btn-secondary\">SCAN IMAGE</button><button class=\"ds-btn-secondary\" disabled>SAVE</button>",
+      "css": ".ds-btn-secondary{background:#1D2024;color:#F2F2F2;border:1px solid #3B4046;border-radius:8px;padding:7px 12px;font-family:'Bahnschrift SemiCondensed','Arial Narrow',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.1px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.42);transition:background 110ms;}.ds-btn-secondary:hover{background:#2A2E33;}.ds-btn-secondary:focus-visible{outline:1px solid #FFB000;outline-offset:2px;}.ds-btn-secondary:disabled{background:#191C1F;color:#8A9096;border-color:#2A2D31;box-shadow:none;cursor:default;}"
+    },
+    {
+      "name": "Method Toggle",
       "kind": "custom",
-      "refersTo": "viewer-charcoal",
-      "description": "The dark image-review canvas; the one large surface the app colors.",
-      "html": "<div class=\"ds-viewer\"></div>",
-      "css": ".ds-viewer{background:#333333;min-height:160px;border:1px solid #1a1a1a;}"
+      "refersTo": "delay-amber",
+      "description": "Two-segment PIXELATE / BLACK switch in the viewer caption; writes the remembered method immediately.",
+      "html": "<div class=\"ds-method\"><span class=\"ds-method-on\">PIXELATE</span><span class=\"ds-method-off\">BLACK</span></div>",
+      "css": ".ds-method{display:inline-flex;gap:2px;padding:2px;width:150px;height:26px;background:#0F1114;border:1px solid #2A2D31;border-radius:5px;font-family:'Bahnschrift SemiCondensed','Arial Narrow',sans-serif;font-size:9px;letter-spacing:0.5px;}.ds-method span{flex:1;display:flex;align-items:center;justify-content:center;border-radius:3px;}.ds-method-on{background:#FFB000;color:#0A0A0B;}.ds-method-off{color:#A7AAAF;}.ds-method-off:hover{background:#1D2024;}"
+    },
+    {
+      "name": "Flip Tile",
+      "kind": "custom",
+      "refersTo": "tile-face",
+      "description": "The signature 78x34 split-flap counter; value above a hinge seam, label below.",
+      "html": "<div class=\"ds-tile\"><b>4</b><span>SELECTED</span></div>",
+      "css": ".ds-tile{position:relative;width:78px;height:34px;background:#232629;border:1px solid #3B4046;border-radius:6px;overflow:hidden;text-align:center;font-family:'Bahnschrift SemiCondensed','Arial Narrow',sans-serif;}.ds-tile:before{content:'';position:absolute;left:1px;right:1px;top:1px;height:1px;background:rgba(255,255,255,0.14);}.ds-tile:after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(0,0,0,0.55);}.ds-tile b{display:block;margin-top:1px;font-size:13px;line-height:15px;letter-spacing:0.8px;color:#FFB000;font-weight:600;}.ds-tile span{display:block;margin-top:2px;font-size:9px;letter-spacing:0.8px;color:#8A9096;}"
+    },
+    {
+      "name": "Folder Row",
+      "kind": "custom",
+      "refersTo": "panel-raised",
+      "description": "48px image row; the active row carries an amber border and left rule, the status line colors by state.",
+      "html": "<div class=\"ds-row ds-row-active\"><span class=\"ds-row-rule\"></span><b>01-repository-review-clean.png</b><em>Not scanned</em></div>",
+      "css": ".ds-row{position:relative;display:flex;flex-direction:column;justify-content:center;height:48px;padding:0 10px 0 14px;border-radius:6px;background:transparent;border:1px solid transparent;font-family:'Segoe UI',system-ui,sans-serif;}.ds-row b{font-size:12px;font-weight:400;color:#A7AAAF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.ds-row em{font-family:'Bahnschrift SemiCondensed','Arial Narrow',sans-serif;font-size:9px;font-style:normal;letter-spacing:0.5px;color:#8A9096;}.ds-row-active{background:#25292E;border-color:#FFB000;}.ds-row-active b{color:#F2F2F2;}.ds-row-active em{color:#FFB000;}.ds-row-rule{position:absolute;left:5px;top:8px;bottom:8px;width:3px;border-radius:1.5px;background:#FFB000;}"
+    },
+    {
+      "name": "Error Banner",
+      "kind": "custom",
+      "refersTo": "cancel-red",
+      "description": "In-shell failure signal at the bottom of the viewer; takes focus, names the problem, offers Retry, Logs, and Dismiss.",
+      "html": "<div class=\"ds-error\" role=\"alert\"><i></i><div><b>OCR UNAVAILABLE</b><p>Tesseract was not found. Install the bundled engine, then retry.</p></div><button>RETRY</button><button class=\"ds-error-ghost\">DISMISS</button></div>",
+      "css": ".ds-error{display:flex;align-items:center;gap:10px;padding:12px;background:#1A1418;border:1px solid #8C1A2E;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.55);font-family:'Segoe UI',system-ui,sans-serif;}.ds-error i{width:8px;height:8px;border-radius:1px;background:#B00020;align-self:flex-start;margin-top:3px;}.ds-error b{display:block;font-family:'Bahnschrift SemiCondensed','Arial Narrow',sans-serif;font-size:10px;letter-spacing:1.1px;color:#F2F2F2;}.ds-error p{margin:2px 0 0;font-size:11px;color:#A7AAAF;}.ds-error button{background:#1D2024;color:#F2F2F2;border:1px solid #3B4046;border-radius:8px;padding:7px 12px;font-family:'Bahnschrift SemiCondensed','Arial Narrow',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.1px;cursor:pointer;}.ds-error-ghost{background:transparent;border-color:transparent;}.ds-error button:hover{background:#2A2E33;}"
     },
     {
       "name": "Redaction Box - Selected",
       "kind": "custom",
-      "refersTo": "selected-green",
-      "description": "A box that will be redacted; green outline marks the selected state.",
+      "refersTo": "delay-amber",
+      "description": "A box that will be applied: 2px amber outline with a faint fill and soft glow.",
       "html": "<div class=\"ds-box-selected\"></div>",
-      "css": ".ds-box-selected{width:180px;height:90px;border:3px solid #00b050;background:transparent;}"
+      "css": ".ds-box-selected{width:180px;height:90px;border:2px solid #FFB000;border-radius:1px;background:rgba(255,176,0,0.05);box-shadow:0 0 0 4px rgba(255,176,0,0.16);}"
     },
     {
       "name": "Redaction Box - Excluded",
       "kind": "custom",
-      "refersTo": "excluded-orange",
-      "description": "A box clicked off; orange outline marks the excluded state.",
+      "refersTo": "cancel-red",
+      "description": "A box clicked off; red outline with a faint tint, never applied.",
       "html": "<div class=\"ds-box-excluded\"></div>",
-      "css": ".ds-box-excluded{width:180px;height:90px;border:3px solid #ff8c00;background:transparent;}"
+      "css": ".ds-box-excluded{width:180px;height:90px;border:2px solid #B00020;border-radius:1px;background:rgba(176,0,32,0.08);}"
     },
     {
-      "name": "Remove-X Handle",
-      "kind": "custom",
-      "refersTo": "handle-ink",
-      "description": "16x16 square at each box's corner; click to remove the box.",
-      "html": "<button class=\"ds-remove-handle\" aria-label=\"Remove box\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M4 4 L12 12 M12 4 L4 12\" stroke=\"#ffffff\" stroke-width=\"2\"/></svg></button>",
-      "css": ".ds-remove-handle{width:16px;height:16px;background:#202020;border:1px solid #ffffff;display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}.ds-remove-handle:hover{background:#333333;}"
-    },
-    {
-      "name": "Toolbar Button",
-      "kind": "button",
-      "description": "OS-native classic Tk button (approximated); primary toolbar actions.",
-      "html": "<button class=\"ds-btn\">Find likely identifiers</button>",
-      "css": ".ds-btn{background:#f0f0f0;color:#000000;border:2px outset #f0f0f0;padding:4px 12px;font-family:system-ui,Segoe UI,sans-serif;font-size:13px;border-radius:0;cursor:pointer;}.ds-btn:hover{background:#e5e5e5;}.ds-btn:active{border-style:inset;}"
-    },
-    {
-      "name": "Settings Tab Bar",
+      "name": "Settings Rail Tab",
       "kind": "nav",
-      "description": "OS-native ttk.Notebook tabs (approximated); Detection, Redaction, Diagnostics.",
-      "html": "<nav class=\"ds-tabs\"><span class=\"ds-tab ds-tab-active\">Detection</span><span class=\"ds-tab\">Redaction</span><span class=\"ds-tab\">Diagnostics</span></nav>",
-      "css": ".ds-tabs{display:flex;gap:2px;border-bottom:1px solid #c0c0c0;font-family:system-ui,Segoe UI,sans-serif;font-size:13px;}.ds-tab{padding:6px 14px;border:1px solid #c0c0c0;border-bottom:none;background:#f0f0f0;color:#000000;cursor:pointer;}.ds-tab-active{background:#ffffff;}"
+      "refersTo": "panel-raised",
+      "description": "38px settings rail row; the active tab gets a raised face and a 3px amber marker.",
+      "html": "<nav class=\"ds-rail\"><span class=\"ds-rail-active\">OCR</span><span>PATTERNS</span><span>OUTPUT</span></nav>",
+      "css": ".ds-rail{display:flex;flex-direction:column;gap:6px;font-family:'Bahnschrift SemiCondensed','Arial Narrow',sans-serif;font-size:11px;letter-spacing:1.1px;}.ds-rail span{position:relative;display:flex;align-items:center;height:38px;padding-left:14px;border-radius:6px;color:#A7AAAF;cursor:pointer;}.ds-rail span:hover{background:#1A1D21;}.ds-rail-active{background:#1D2024;color:#F2F2F2;border:1px solid #3B4046;}.ds-rail-active:before{content:'';position:absolute;left:8px;top:10px;bottom:10px;width:3px;border-radius:1.5px;background:#FFB000;}"
+    },
+    {
+      "name": "Inset Text Field",
+      "kind": "input",
+      "refersTo": "viewer-inset",
+      "description": "34px dark field for output paths and filename templates; amber border on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Source folder / redacted\" />",
+      "css": ".ds-input{width:100%;height:34px;padding:0 10px;background:#0F1114;border:1px solid #2A2D31;border-radius:6px;color:#F2F2F2;font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;outline:none;}.ds-input::placeholder{color:#666C72;}.ds-input:hover{border-color:#585E63;}.ds-input:focus{border-color:#FFB000;}"
     }
   ],
   "narrative": {
-    "northStar": "The Signal Lightbox",
-    "overview": "The interface is a dark, neutral field for reviewing screenshots. Every piece of color on that field is a signal: green marks a box that will be redacted, orange marks one that has been excluded, red marks a box still being drawn. The chrome around the field — toolbar, tabs, settings, file list — stays OS-native and quiet, so the only thing that competes with the screenshot is the state of the redaction itself. The system is deliberately utilitarian. It inherits the host operating system's fonts and controls rather than imposing its own, which keeps the tool feeling like a native utility and removes every decorative decision. Personality is earned in one place: the dark viewer and its three-state color code. Everything else recedes.",
+    "northStar": "The Split-flap Concourse, 2026",
+    "overview": "The review loop is a departure board. Every redaction state is a signal read at a glance, and the interface recedes into layered, mechanical depth: a charcoal/steel shell, a frosted toolbar, raised controls with soft accent glow, a recessed screenshot card, and split-flap tiles with a visible hinge seam. The world lends only what an Operate surface allows: the palette, condensed uppercase lettering, density, depth, and one signature move — the flip tile. The screenshot is always the subject. Navigation and controls stay native desktop conventions.",
     "keyCharacteristics": [
-      "Dark neutral viewer field (#333333) that isolates the screenshot.",
-      "Color used exclusively as redaction state; green = keep/selected, orange = excluded, red = in-progress.",
-      "OS-native chrome; no custom fonts, shadows, or decorations.",
-      "Square, high-contrast marks (3px outlines, white X handles) that read unambiguously over any image."
+      "Layered depth by default: shadows, top highlights, inset fields, never flat rectangles.",
+      "Charcoal/steel shell with amber (#FFB000) for active/selected and red (#B00020) for excluded/cancelled.",
+      "Condensed uppercase grotesque for labels and numerics; neutral grotesque for body copy.",
+      "Split-flap tiles as the signature: dimensional, hinged, and animated on state change."
     ],
     "rules": [
-      { "name": "The Color-Is-Signal Rule", "body": "Color appears on the viewer only to mark redaction state. If a color on the canvas is not green, orange, or red, it is the screenshot, not the interface.", "section": "colors" },
-      { "name": "The Dark Field Rule", "body": "The viewer stays #333333. The field is dark so the screenshot is the subject and the signal colors never fight a white or patterned background.", "section": "colors" },
-      { "name": "The System Voice Rule", "body": "No custom fonts anywhere. Type stays the OS default so the tool reads native and never decorative.", "section": "typography" },
-      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. Any perceived depth is the operating system's own widget chrome, never a custom shadow.", "section": "elevation" },
-      { "name": "The Square Mark Rule", "body": "Redaction marks are square and sharp. No rounded corners, no soft edges — the mark must read as a deliberate selection boundary over any screenshot content.", "section": "shapes" }
+      {
+        "name": "The Depth Rule",
+        "body": "Every surface layers over the one beneath it — a soft shadow, a top highlight, an inset field. A flat rectangle is a defect.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Amber-Is-Action Rule",
+        "body": "Amber marks the active flap, the selected box, and the primary action. Red marks what is cancelled or excluded. No other accent colors.",
+        "section": "colors"
+      },
+      {
+        "name": "The Label-Is-Short Rule",
+        "body": "Uppercase condensed type is for labels, numerics, and state; body copy stays in the neutral grotesque so it remains readable.",
+        "section": "typography"
+      },
+      {
+        "name": "The Layered-By-Default Rule",
+        "body": "Surfaces are lifted at rest. Depth is the base state, not a hover effect.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Signal-Mark Rule",
+        "body": "A redaction box must read as a deliberate boundary over any screenshot: 2px solid signal color, square-ish corners, no decorative fills beyond a faint state tint.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Outer-Boundary Rule",
+        "body": "Suggested or copied boxes fully inside an already selected area are dropped; the selected outer boundary wins, so nested duplicates never stack up.",
+        "section": "layout"
+      },
+      {
+        "name": "The One-Signature Rule",
+        "body": "Motion is reserved for the flip tile and functional feedback: hover, focus, progress, and busy state. Nothing else animates decoratively.",
+        "section": "motion"
+      }
     ],
     "dos": [
-      "Keep the viewer field #333333; it is the one surface the app owns.",
-      "Use green (#00b050) only for a selected box and orange (#ff8c00) only for an excluded box; the color is the state.",
-      "Keep all chrome OS-native; the app adds no custom fonts, shadows, or radii to controls.",
-      "Draw redaction marks square, 3px, high-contrast, and over the image."
+      "Layer every surface with depth — soft shadows, top highlights, inset fields — never flat fills.",
+      "Use amber for selected/active/primary and red for excluded/cancelled; the states must stay instantly legible.",
+      "Keep the screenshot centered and dominant, with the caption strip and signal board as secondary chrome.",
+      "Give every flip tile its hinge seam, top highlight, and value-swap animation."
     ],
     "donts": [
-      "Introduce color on the canvas that is not green, orange, or red; any other color will be read as screenshot content.",
-      "Add custom shadows, rounded corners, or decorative type; the incumbent system has none and stays native.",
-      "Dim or lighten the viewer background; #333333 is the contrast floor for the signal colors."
+      "Flatten the shell or remove elevation.",
+      "Make the amber glow neon or introduce extra accent colors; the palette stays charcoal/steel/amber/red/white.",
+      "Overlay the screenshot with chips that cover its content; captions belong in the strip above the card.",
+      "Use body type for uppercase state labels or condensed caps for paragraphs.",
+      "Read as a cloud or consumer product; this is a local, offline engineering tool."
     ]
   }
 }
