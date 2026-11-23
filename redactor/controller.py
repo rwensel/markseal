@@ -415,8 +415,8 @@ class Controller(QObject):
         return sum(1 for entry in self.entries if entry.reviewed and not entry.saved)
 
     @Property(int, notify=folderChanged)
-    def scannedCount(self):
-        return sum(1 for entry in self.entries if entry.scanned)
+    def folderImageCount(self):
+        return len(self.entries)
 
     @Property(QObject, constant=True)
     def folderModel(self):
@@ -1468,10 +1468,10 @@ class Controller(QObject):
         self.busyChanged.emit()
         self.progressChanged.emit()
         if summary.failures and summary.report_failures:
-            QMessageBox.warning(
-                None, summary.label,
+            self._error(
+                f'{summary.label} issues',
                 f'{len(summary.failures)} of {summary.total} failed. '
-                f'First error:\n{summary.failures[0]}',
+                f'First error: {summary.failures[0]}',
             )
         if summary.complete is not None:
             summary.complete()
@@ -1698,9 +1698,16 @@ class Controller(QObject):
         if target.resolve() == self.review.path.resolve():
             self._error('Choose a different file', 'The original image cannot be overwritten.')
             return
+        include_log = self._preferences.include_log
         trace = PerformanceRun('Saving image', 1, {
-            'method': self._preferences.method, 'coordinate_logs': True,
+            'method': self._preferences.method, 'coordinate_logs': include_log,
         })
+        self._busy = True
+        self.busy_label = 'Saving copy'
+        self.busyChanged.emit()
+        self._set_status('Saving the redacted copy…')
+        QGuiApplication.processEvents()
+        error = None
         try:
             with trace.image(0):
                 job = export.snapshot(
@@ -1708,16 +1715,23 @@ class Controller(QObject):
                     self._preferences.method, image=self.review.image,
                     pasted=self._pasted_image,
                 )
-                export.write_copy(job, include_log=True, overwrite=True)
-            self._info(
-                'Saved',
-                'Saved the redacted PNG and coordinate log. Review before sharing; '
-                'pixelated text can sometimes be recovered.',
-            )
-        except Exception as error:
-            self._error('Save failed', str(error), 'RETRY', self.save)
+                export.write_copy(job, include_log=include_log, overwrite=True)
+        except Exception as exc:
+            error = exc
         finally:
             trace.finish()
+            self._busy = False
+            self.busy_label = ''
+            self.busyChanged.emit()
+        if error is not None:
+            self._error('Save failed', str(error), 'RETRY', self.save)
+            return
+        note = ' and coordinate log' if include_log else ''
+        self._info(
+            'Saved',
+            f'Saved the redacted PNG{note}. Review before sharing; '
+            'pixelated text can sometimes be recovered.',
+        )
 
     def _export_entries(self, pending, individual=False):
         jobs = []

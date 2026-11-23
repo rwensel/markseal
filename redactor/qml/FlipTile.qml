@@ -12,6 +12,8 @@ Item {
 
     implicitWidth: 78
     implicitHeight: 34
+    Accessible.role: Accessible.StaticText
+    Accessible.name: tile.label + ": " + tile.displayValue
 
     onValueChanged: {
         pendingValue = value

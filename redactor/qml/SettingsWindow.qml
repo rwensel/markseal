@@ -11,7 +11,7 @@ Window {
     width: 790
     height: 680
     minimumWidth: 700
-    minimumHeight: 560
+    minimumHeight: 650
     modality: Qt.ApplicationModal
     flags: Qt.Dialog
     transientParent: parentWindow

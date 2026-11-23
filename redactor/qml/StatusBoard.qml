@@ -43,6 +43,8 @@ Item {
             color: Theme.steelLight
             font.family: Backend.bodyFont
             font.pixelSize: 12
+            Accessible.role: Accessible.StaticText
+            Accessible.name: Backend.statusText
         }
 
         FlipTile {

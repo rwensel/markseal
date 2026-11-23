@@ -9,6 +9,18 @@ Item {
     implicitHeight: 84
     visible: Backend.errorText.length > 0
     z: 20
+    activeFocusOnTab: true
+    Accessible.role: Accessible.AlertMessage
+    Accessible.name: Backend.errorText + ". " + Backend.errorDetail
+    Accessible.description: "Error. Tab to Retry, Logs, or Dismiss."
+
+    Connections {
+        target: Backend
+        function onErrorChanged() {
+            if (Backend.errorText.length > 0)
+                banner.forceActiveFocus()
+        }
+    }
 
     Rectangle {
         id: face
@@ -89,5 +101,16 @@ Item {
             variant: "ghost"
             onClicked: Backend.dismissError()
         }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -2
+        radius: 10
+        color: "transparent"
+        border.width: 1
+        border.color: Theme.amber
+        opacity: 0.85
+        visible: banner.activeFocus
     }
 }
