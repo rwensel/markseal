@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Effects
 import QtQuick.Layouts
 import QtQuick.Controls
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Item {
@@ -18,8 +17,8 @@ Item {
         id: background
         anchors.fill: parent
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#191C20" }
-            GradientStop { position: 1.0; color: "#131518" }
+            GradientStop { position: 0.0; color: Theme.sidebarTop }
+            GradientStop { position: 1.0; color: Theme.sidebarBottom }
         }
     }
 
@@ -27,7 +26,7 @@ Item {
         anchors.fill: background
         source: background
         shadowEnabled: true
-        shadowColor: "#000000"
+        shadowColor: Theme.shadow
         shadowOpacity: 0.55
         shadowBlur: 0.8
         shadowHorizontalOffset: 7
@@ -39,7 +38,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         width: 1
-        color: "#000000"
+        color: Theme.shadow
         opacity: 0.9
     }
 
@@ -49,7 +48,7 @@ Item {
         anchors.right: parent.right
         anchors.rightMargin: 1
         width: 1
-        color: "#3B4046"
+        color: Theme.hairline
         opacity: 0.5
     }
 
@@ -65,7 +64,7 @@ Item {
             Text {
                 text: "FOLDER"
                 color: Theme.amber
-                font.family: Backend.displayFont
+                font.family: Theme.displayFont
                 font.pixelSize: 9
                 font.letterSpacing: 1.4
             }
@@ -75,7 +74,7 @@ Item {
                 text: Backend.folderName
                 elide: Text.ElideMiddle
                 color: Theme.white
-                font.family: Backend.displayFont
+                font.family: Theme.displayFont
                 font.pixelSize: 17
                 font.letterSpacing: 0.6
             }
@@ -85,7 +84,7 @@ Item {
                 text: Backend.folderCounts
                 elide: Text.ElideRight
                 color: Theme.steelLight
-                font.family: Backend.bodyFont
+                font.family: Theme.bodyFont
                 font.pixelSize: 11
             }
         }
@@ -208,7 +207,7 @@ Item {
                     Text {
                         text: "JOB STATUS"
                         color: Theme.steelLight
-                        font.family: Backend.displayFont
+                        font.family: Theme.displayFont
                         font.pixelSize: 9
                         font.letterSpacing: 1.2
                     }
@@ -218,7 +217,7 @@ Item {
                     Text {
                         text: Backend.busy ? "RUNNING" : "IDLE"
                         color: Backend.busy ? Theme.amber : Theme.mutedText
-                        font.family: Backend.displayFont
+                        font.family: Theme.displayFont
                         font.pixelSize: 9
                         font.letterSpacing: 1
                     }
@@ -229,7 +228,7 @@ Item {
                     text: Backend.progressText
                     elide: Text.ElideRight
                     color: Theme.white
-                    font.family: Backend.bodyFont
+                    font.family: Theme.bodyFont
                     font.pixelSize: 11
                 }
 
@@ -237,9 +236,9 @@ Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 6
                     radius: 3
-                    color: "#0A0B0C"
+                    color: Theme.inset
                     border.width: 1
-                    border.color: "#2A2D31"
+                    border.color: Theme.buttonBorder
 
                     Rectangle {
                         width: parent.width * (Backend.progressMax > 0
@@ -258,7 +257,7 @@ Item {
                     visible: Backend.busy && text.length > 0
                     elide: Text.ElideRight
                     color: Theme.steelLight
-                    font.family: Backend.bodyFont
+                    font.family: Theme.bodyFont
                     font.pixelSize: 10
                 }
 
@@ -270,7 +269,7 @@ Item {
                     maximumLineCount: 2
                     elide: Text.ElideRight
                     color: Theme.steelLight
-                    font.family: Backend.bodyFont
+                    font.family: Theme.bodyFont
                     font.pixelSize: 10
                 }
 
@@ -295,7 +294,7 @@ Item {
             Text {
                 text: "IMAGES"
                 color: Theme.steelLight
-                font.family: Backend.displayFont
+                font.family: Theme.displayFont
                 font.pixelSize: 9
                 font.letterSpacing: 1.2
             }
@@ -305,7 +304,7 @@ Item {
             Text {
                 text: "CTRL / SHIFT SELECT"
                 color: Theme.mutedText
-                font.family: Backend.displayFont
+                font.family: Theme.displayFont
                 font.pixelSize: 9
                 font.letterSpacing: 0.7
             }
@@ -354,11 +353,11 @@ Item {
                 width: fileList.width - 10
                 height: 48
                 radius: 6
-                color: model.active ? "#25292E"
-                       : model.selected ? "#1D2024"
-                       : (pointer.containsMouse ? "#1A1D21" : "transparent")
+                color: model.active ? Theme.rowActive
+                       : model.selected ? Theme.rowSelected
+                       : (pointer.containsMouse ? Theme.rowHover : "transparent")
                 border.width: model.selected || model.active ? 1 : 0
-                border.color: model.active ? Theme.amber : "#34393F"
+                border.color: model.active ? Theme.amber : Theme.hairline
 
                 Rectangle {
                     anchors.left: parent.left
@@ -385,7 +384,7 @@ Item {
                         text: model.name
                         elide: Text.ElideMiddle
                         color: model.active || model.selected ? Theme.white : Theme.steelLight
-                        font.family: Backend.bodyFont
+                        font.family: Theme.bodyFont
                         font.pixelSize: 12
                     }
 
@@ -401,7 +400,7 @@ Item {
                                : model.reviewed ? Theme.amber
                                : model.scanned ? Theme.white
                                : Theme.mutedText
-                        font.family: Backend.displayFont
+                        font.family: Theme.displayFont
                         font.pixelSize: 9
                         font.letterSpacing: 0.5
                     }
@@ -417,7 +416,7 @@ Item {
                     anchors.bottomMargin: 5
                     height: 2
                     radius: 1
-                    color: "#1AFFB000"
+                    color: Theme.accentSoft
                     visible: model.jobState !== ""
 
                     Rectangle {
