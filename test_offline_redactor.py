@@ -24,6 +24,8 @@ from redactor.boxset import BoxSet, image_status
 from redactor.ocr import RapidEngine, TesseractEngine, make_engine
 from redactor import preferences
 from redactor.preferences import Preferences, PreferencesError
+from redactor import export
+import audit_exports
 
 
 class FakeEngine:
@@ -582,6 +584,98 @@ class RedactionTests(unittest.TestCase):
         rows = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t10\t20\t90\t10\t95\tuser@example.com\n5\t1\t1\t1\t2\t1\t10\t50\t50\t10\t95\tDashboard\n'
         self.assertEqual(detect_regions(rows, (200, 100)), [(6, 16, 104, 34)])
         self.assertEqual(len(detect_regions(rows, (200, 100), all_text=True)), 2)
+
+class ExportPipelineTests(unittest.TestCase):
+    def make_source(self, folder):
+        path = Path(folder) / 'source.png'
+        image = Image.new('RGB', (120, 80), 'white')
+        for x in range(10, 60):
+            for y in range(10, 40):
+                image.putpixel((x, y), (x * 3 % 256, y * 2 % 256, 90))
+        image.save(path)
+        return path
+
+    def test_both_export_paths_write_the_same_log_shape(self):
+        with TemporaryDirectory() as folder:
+            source = self.make_source(folder)
+            with Image.open(source) as handle:
+                image = handle.convert('RGB')
+            boxes = [(10, 10, 40, 30)]
+            file_target = Path(folder) / 'folder.png'
+            memory_target = Path(folder) / 'memory.png'
+            export.write_copy(export.snapshot(source, file_target, boxes, {0}, 'Pixelate'))
+            export.write_copy(export.snapshot(source, memory_target, boxes, {0}, 'Solid black',
+                                              image=image))
+            file_log = json.loads(file_target.with_suffix('.redactions.json')
+                                  .read_text(encoding='utf-8'))
+            memory_log = json.loads(memory_target.with_suffix('.redactions.json')
+                                    .read_text(encoding='utf-8'))
+        self.assertEqual(set(file_log), set(memory_log))
+        self.assertEqual(set(file_log), {
+            'source_filename', 'output_filename', 'image_dimensions',
+            'redaction_rectangles_xyxy', 'created_local_time', 'method', 'note',
+        })
+        self.assertEqual(file_log['source_filename'], 'source.png')
+        self.assertEqual(file_log['output_filename'], 'folder.png')
+        self.assertEqual(file_log['redaction_rectangles_xyxy'], [[10, 10, 40, 30]])
+        self.assertEqual(memory_log['method'], 'Solid black')
+        self.assertEqual(memory_log['note'], export.NOTE)
+
+    def test_pasted_source_adds_the_clipboard_sentence(self):
+        log = export.coordinate_log(Path('pasted-image.png'), Path('out.png'), (10, 10),
+                                    [], 'Pixelate', pasted=True)
+        self.assertTrue(log['note'].endswith(
+            'Pasted from the clipboard; no source file exists.'))
+
+    def test_export_refuses_to_overwrite_and_rolls_back_the_sidecar(self):
+        with TemporaryDirectory() as folder:
+            source = self.make_source(folder)
+            target = Path(folder) / 'copy.png'
+            target.write_bytes(b'original')
+            with self.assertRaises(FileExistsError):
+                export.write_copy(export.snapshot(source, target, [], set(), 'Pixelate'))
+            self.assertEqual(target.read_bytes(), b'original')
+            self.assertFalse(target.with_suffix('.redactions.json').exists())
+            self.assertEqual(sorted(path.name for path in Path(folder).iterdir()),
+                             ['copy.png', 'source.png'])
+
+    def test_include_log_false_writes_no_sidecar(self):
+        with TemporaryDirectory() as folder:
+            source = self.make_source(folder)
+            target = Path(folder) / 'copy.png'
+            export.write_copy(export.snapshot(source, target, [(10, 10, 40, 30)], {0},
+                                              'Solid black'), include_log=False)
+            self.assertTrue(target.is_file())
+            self.assertFalse(target.with_suffix('.redactions.json').exists())
+
+    def test_export_preserves_pixels_outside_selected_boxes_and_audits(self):
+        with TemporaryDirectory() as folder:
+            source = self.make_source(folder)
+            target = Path(folder) / 'copy.png'
+            export.write_copy(export.snapshot(source, target, [(10, 10, 40, 30)], {0},
+                                              'Solid black'))
+            with Image.open(source) as handle:
+                original = handle.convert('RGB')
+            with Image.open(target) as handle:
+                exported = handle.convert('RGB')
+        exact, _ = audit_exports.audit_export(original, exported, [(10, 10, 40, 30)])
+        self.assertTrue(exact)
+        self.assertEqual(original.getpixel((70, 60)), exported.getpixel((70, 60)))
+        self.assertEqual(exported.getpixel((20, 20)), (0, 0, 0))
+
+    def test_snapshot_freezes_the_entry_state(self):
+        job = export.snapshot(Path('source.png'), Path('out.png'), [(1, 1, 5, 5)], {0},
+                              'Pixelate')
+        self.assertEqual(job.boxes, ((1, 1, 5, 5),))
+        self.assertEqual(job.selected, frozenset({0}))
+        self.assertEqual(job.selected_boxes, [(1, 1, 5, 5)])
+
+    def test_output_path_names_and_rejects_unsafe_templates(self):
+        self.assertEqual(export.output_path(Path('out'), '{stem}-{index}', Path('shot.PNG'), 2),
+                         Path('out') / 'shot-2.png')
+        with self.assertRaises(ValueError):
+            export.output_path(Path('out'), 'bad/name', Path('a.png'), 1)
+
 
 class PreferencesTests(unittest.TestCase):
     def form(self, **overrides):

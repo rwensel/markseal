@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 import os
 import re
-from datetime import datetime
 from pathlib import Path
 from queue import Queue
 from threading import Event
@@ -23,6 +22,7 @@ from PySide6.QtWidgets import (
 from performance_log import PerformanceRun, log_directory
 
 from . import core
+from . import export
 from . import preferences
 from .jobs import JobRunner, progress_line
 from .review import Review
@@ -1729,22 +1729,12 @@ class Controller(QObject):
         })
         try:
             with trace.image(0):
-                out = core.apply_redactions(self.review.image, self.review.selected_boxes(),
-                                            self._preferences.method)
-                out.info.clear()
-                log = {
-                    'source_filename': self.review.path.name,
-                    'output_filename': target.name,
-                    'image_dimensions': list(self.review.image.size),
-                    'redaction_rectangles_xyxy': self.review.selected_boxes(),
-                    'created_local_time': datetime.now().isoformat(timespec='seconds'),
-                    'method': self._preferences.method,
-                    'note': ('Automated suggestions can miss identifiers; manual review required. '
-                             'Pixelation may not fully conceal sensitive content.'
-                             + (' Pasted from the clipboard; no source file exists.'
-                                if self._pasted_image else '')),
-                }
-                core.save_export(out, target, log, overwrite=True)
+                job = export.snapshot(
+                    self.review.path, target, self.review.boxes, self.review.selected,
+                    self._preferences.method, image=self.review.image,
+                    pasted=self._pasted_image,
+                )
+                export.write_copy(job, include_log=True, overwrite=True)
             self._info(
                 'Saved',
                 'Saved the redacted PNG and coordinate log. Review before sharing; '
@@ -1799,24 +1789,22 @@ class Controller(QObject):
 
         include_log = self._preferences.include_log
         snapshots = [
-            (core.FolderImage(
-                entry.path, boxes=entry.boxes.copy(), selected=entry.selected.copy(),
-                stamp=entry.stamp, method=entry.method,
-            ), target)
+            (entry, export.snapshot(entry.path, target, entry.boxes, entry.selected,
+                                    entry.method, stamp=entry.stamp))
             for entry, target in jobs
         ]
 
         def operation(job):
-            snapshot, target = job
-            target.parent.mkdir(parents=True, exist_ok=True)
-            core.write_folder_copy(snapshot, target, include_log)
+            entry, snapshot = job
+            snapshot.target.parent.mkdir(parents=True, exist_ok=True)
+            export.write_copy(snapshot, include_log=include_log)
 
         def accept(index, result, error):
             entry, target = jobs[index]
-            snapshot, _ = snapshots[index]
+            snapshot = snapshots[index][1]
             if error:
                 self._set_status(f'{entry.path.name} · {error}')
-            elif entry.reviewed and (entry.boxes, entry.selected, entry.method) == (
+            elif entry.reviewed and (tuple(entry.boxes), entry.selected, entry.method) == (
                     snapshot.boxes, snapshot.selected, snapshot.method):
                 entry.saved = True
                 entry.error = ''

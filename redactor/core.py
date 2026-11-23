@@ -7,14 +7,10 @@ from __future__ import annotations
 import csv
 import io
 import ipaddress
-import json
 import math
-import os
 import re
 import subprocess
-from datetime import datetime
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from time import monotonic
 
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
@@ -24,6 +20,7 @@ from performance_log import stage, timed
 from .boxset import (
     BoxList, FolderImage, new_ocr_boxes, same_region, strip_contained_selected,
 )
+from .export import output_path, save_export, write_folder_copy
 from .jobs import ScanCancelled, batch_worker_count
 from .ocr import (
     RapidEngine, TesseractEngine, cancellable_ocr, find_tesseract, make_engine,
@@ -268,87 +265,6 @@ def read_folder_image(path, expected=None):
     if file_stamp(path) != stamp:
         raise ValueError('Source changed while reading.')
     return image, stamp
-
-
-def output_path(directory, template, source, index):
-    name = template.format(stem=source.stem, ext=source.suffix[1:].lower(), index=index)
-    if not name.lower().endswith('.png'):
-        name += '.png'
-    if (not name[:-4].strip(' .') or re.search(r'[<>:"/\\|?*\x00-\x1f]', name)
-            or name.startswith(' ') or re.fullmatch(r'(?i)(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])', name.split('.')[0].rstrip(' '))):
-        raise ValueError('Enter a valid filename template without folders.')
-    return directory / name
-
-
-def stage_export(target, write):
-    temporary = None
-    try:
-        with NamedTemporaryFile(dir=target.parent, suffix='.redactor-tmp', delete=False) as stream:
-            temporary = Path(stream.name)
-            write(stream)
-        return temporary
-    except BaseException:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-        raise
-
-
-def publish_export(temporary, target, overwrite=False):
-    if overwrite:
-        temporary.replace(target)
-    elif os.name == 'nt':
-        temporary.rename(target)  # On Windows rename fails if target exists.
-    else:
-        os.link(temporary, target)
-
-
-PNG_COMPRESSION = 3
-
-
-def save_export(image, target, log, *, overwrite=False):
-    temporary_files = []
-    published = []
-    try:
-        with stage('encode_png', width=image.width, height=image.height, compression_level=PNG_COMPRESSION):
-            png = stage_export(target, lambda stream: image.save(
-                stream, format='PNG', compress_level=PNG_COMPRESSION))
-            temporary_files.append(png)
-        log_target = target.with_suffix('.redactions.json')
-        if log is not None:
-            with stage('encode_coordinate_log'):
-                sidecar = stage_export(log_target, lambda stream: stream.write(
-                    json.dumps(log, indent=2).encode('utf-8')))
-                temporary_files.append(sidecar)
-        with stage('publish_export'):
-            if log is not None:
-                publish_export(sidecar, log_target, overwrite)
-                published.append(log_target)
-            publish_export(png, target, overwrite)
-    except Exception:
-        if not overwrite:
-            for path in published:
-                path.unlink(missing_ok=True)
-        raise
-    finally:
-        for path in temporary_files:
-            path.unlink(missing_ok=True)
-
-
-def write_folder_copy(entry, target, include_log):
-    image, _ = read_folder_image(entry.path, entry.stamp)
-    boxes = [box for index, box in enumerate(entry.boxes) if index in entry.selected]
-    copy = apply_redactions(image, boxes, entry.method)
-    copy.info.clear()
-    log_path = target.with_suffix('.redactions.json')
-    log = {
-        'source_filename': entry.path.name,
-        'output_filename': target.name,
-        'image_dimensions': list(image.size),
-        'redaction_rectangles_xyxy': boxes,
-        'method': entry.method,
-        'created_local_time': datetime.now().isoformat(timespec='seconds'),
-    }
-    save_export(copy, target, log if include_log else None)
 
 
 def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
