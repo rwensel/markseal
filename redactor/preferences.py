@@ -14,6 +14,7 @@ from tempfile import NamedTemporaryFile
 
 from .detection import PATTERNS, PRESETS
 from .export import output_path
+from . import themes
 
 ENGINE_NAMES = ('Tesseract', 'RapidOCR')
 METHOD_NAMES = ('Pixelate', 'Solid black')
@@ -45,6 +46,7 @@ class Preferences:
     filename_template: str = DEFAULT_TEMPLATE
     include_log: bool = True
     parallel_images: int = 1
+    theme: str = themes.DEFAULT_ID
     categories: tuple = ()
     blocked_patterns: list = field(default_factory=list)
 
@@ -63,6 +65,7 @@ class Preferences:
             'include_log': self.include_log,
             'parallel_images': self.parallel_images,
             'show_rules': self.show_rules,
+            'theme': self.theme,
             'blocked_patterns': [dict(entry) for entry in self.blocked_patterns],
         }
 
@@ -123,6 +126,9 @@ def from_document(document, parallel_limit=MAX_PARALLEL):
     method = document.get('redaction_method')
     if method in METHOD_NAMES:
         preferences.method = method
+    theme = document.get('theme')
+    if isinstance(theme, str) and themes.is_known(theme):
+        preferences.theme = theme
     workers = document.get('parallel_images')
     if type(workers) is int:
         preferences.parallel_images = max(1, min(limit, workers))
@@ -211,6 +217,9 @@ def apply_form(current, form, parallel_limit, source=None):
     method = form['method']
     if method not in METHOD_NAMES:
         raise ValueError('Choose pixelation or solid black.')
+    theme = form.get('theme', current.theme)
+    if not themes.is_known(theme):
+        raise ValueError('Choose a known theme.')
     return Preferences(
         sensitivity=sensitivity,
         confidence=threshold,
@@ -224,6 +233,7 @@ def apply_form(current, form, parallel_limit, source=None):
         filename_template=name,
         include_log=bool(form['include_log']),
         parallel_images=workers,
+        theme=theme,
         categories=_category_names(form['categories']),
         blocked_patterns=[dict(entry) for entry in current.blocked_patterns],
     )

@@ -827,6 +827,7 @@ class PreferencesTests(unittest.TestCase):
             'filename_template': preferences.DEFAULT_TEMPLATE,
             'include_log': True,
             'parallel_images': 1,
+            'theme': themes.DEFAULT_ID,
         }
         values.update(overrides)
         return values
@@ -863,10 +864,20 @@ class PreferencesTests(unittest.TestCase):
                          {'output_directory': 'relative/folder'},
                          {'filename_template': '   '}, {'filename_template': 'bad/name'},
                          {'ocr_engine': 'Other'}, {'method': 'Blur'},
-                         {'sensitivity': 'Nope'}):
+                         {'sensitivity': 'Nope'}, {'theme': 'gone'}):
             with self.subTest(override=override):
                 with self.assertRaises(ValueError):
                     preferences.apply_form(current, self.form(**override), 8)
+
+    def test_theme_round_trips_and_unknown_falls_back(self):
+        stored = preferences.defaults()
+        stored.theme = 'midnight-transit-diagram'
+        self.assertEqual(stored.document()['theme'], 'midnight-transit-diagram')
+        self.assertEqual(preferences.from_document(stored.document()).theme,
+                         'midnight-transit-diagram')
+        self.assertEqual(preferences.from_document({}).theme, themes.DEFAULT_ID)
+        self.assertEqual(preferences.from_document({'theme': 'gone'}).theme,
+                         themes.DEFAULT_ID)
 
     def test_load_clamps_and_ignores_invalid_saved_values(self):
         loaded = preferences.from_document(
