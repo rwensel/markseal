@@ -15,6 +15,7 @@ from performance_log import PerformanceRun, stage
 from redactor.core import (
     PRESETS, FolderImage, apply_redactions, batch_worker_count, detect_regions, new_ocr_boxes,
     pattern_from_text, pixelate, read_area_text, recognize_regions, save_export, text_from_tsv,
+    value_pattern_expression, value_pattern_types,
 )
 from redactor.review import Review
 
@@ -183,6 +184,32 @@ class RedactionTests(unittest.TestCase):
         prefix = pattern_from_text('Crownfern\nCrownfern Analytics')
         self.assertEqual(re.search(prefix, 'Crownfern Analytics', re.IGNORECASE).group(0),
                          'Crownfern Analytics')
+
+    def test_value_type_detection_generates_range_patterns(self):
+        cases = [
+            ('192.0.2.85', 'ipv4', '203.0.113.9', '999.1.1.1'),
+            ('192.0.2.85/32', 'ipv4_cidr', '198.51.100.0/24', '192.0.2.85/33'),
+            ('2001:db8::1', 'ipv6', '::1', 'gggg::1'),
+            ('::ffff:192.0.2.128', 'ipv6', '2001:db8::1', 'gggg::1'),
+            ('2001:db8::1/64', 'ipv6_cidr', '2001:db8:1::/48', '2001:db8::1/129'),
+            ('550e8400-e29b-41d4-a716-446655440000', 'uuid', '123e4567-e89b-12d3-a456-426614174000', 'not-a-uuid'),
+            ('user@example.com', 'email', 'ops@example.org', 'not-an-email'),
+            ('https://example.com/path', 'url', 'http://internal.example', 'example.com'),
+            ('12345678', 'integer', '42', '12.5'),
+            ('deadbeefdeadbeef', 'hex', '0123456789abcdef', 'xyz'),
+            ('aa:bb:cc:dd:ee:ff', 'mac', '00:11:22:33:44:55', 'aa:bb:cc:dd:ee'),
+            ('2026-11-23', 'date', '2027-01-01', '23-11-2026'),
+        ]
+        for text, kind, match, miss in cases:
+            with self.subTest(text=text, kind=kind):
+                self.assertIn(kind, value_pattern_types(text))
+                expression = value_pattern_expression(text, kind)
+                self.assertIsNotNone(re.search(expression, text, re.IGNORECASE))
+                self.assertIsNotNone(re.search(expression, match, re.IGNORECASE))
+                self.assertIsNone(re.search(expression, miss, re.IGNORECASE))
+        self.assertEqual(value_pattern_expression('Crownfern Analytics', 'fixed'),
+                         pattern_from_text('Crownfern Analytics'))
+        self.assertEqual(value_pattern_types('ordinary words'), [])
 
     def test_selected_area_text_can_be_read_and_used_as_a_learned_pattern(self):
         header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'

@@ -28,7 +28,6 @@ Window {
     property bool enhancedValue: false
     property bool colorValue: false
     property string engineValue: "Tesseract"
-    property string patternValue: ""
     property string methodValue: "Pixelate"
     property string outputValue: ""
     property string templateValue: ""
@@ -43,7 +42,6 @@ Window {
         enhancedValue = Backend.enhancedOcr
         colorValue = Backend.colorOcr
         engineValue = Backend.ocrEngine
-        patternValue = Backend.customPattern
         methodValue = Backend.redactionMethod
         outputValue = Backend.outputDirectory
         templateValue = Backend.filenameTemplate
@@ -54,7 +52,6 @@ Window {
         engineCombo.currentIndex = Math.max(0, engineCombo.find(engineValue))
         sensitivityCombo.currentIndex = Math.max(0, sensitivityCombo.find(sensitivityValue))
         methodCombo.currentIndex = Math.max(0, methodCombo.find(methodValue))
-        patternField.text = patternValue
         outputField.text = outputValue
         templateField.text = templateValue
         confidenceSpin.value = confidenceValue
@@ -74,7 +71,7 @@ Window {
         }
         var error = Backend.applySettings(
             sensitivityValue, confidenceValue, allTextValue, enhancedValue, colorValue,
-            engineValue, patternValue, selectedCategories, methodValue,
+            engineValue, selectedCategories, methodValue,
             outputValue, templateValue, includeLogValue, parallelValue
         )
         if (error.length > 0) {
@@ -350,21 +347,10 @@ Window {
                                 }
                             }
 
-                            FieldLabel {
-                                Layout.topMargin: 4
-                                text: "CUSTOM REGULAR EXPRESSION"
-                            }
-
-                            ConcourseTextField {
-                                id: patternField
-                                Layout.fillWidth: true
-                                placeholderText: "Optional Python regular expression"
-                                onTextEdited: settings.patternValue = text
-                            }
-
                             HintText {
                                 Layout.fillWidth: true
-                                text: "Detection changes apply on the next scan. The custom pattern runs alongside the enabled categories."
+                                Layout.topMargin: 4
+                                text: "Detection changes apply on the next scan. Custom expressions are managed under Blocked patterns."
                             }
                         }
                     }
@@ -544,7 +530,7 @@ Window {
                             Text {
                                 Layout.fillWidth: true
                                 text: "Open an image, then select an area to read its text. "
-                                      + "The app generates a regular expression you can review and save."
+                                      + "The app generates a regular expression with fixed-text or detected value-type matching for you to review and save."
                                 wrapMode: Text.WordWrap
                                 color: Theme.steelLight
                                 font.family: Backend.bodyFont
@@ -568,16 +554,23 @@ Window {
                                     }
                                 }
 
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: Backend.hasImage
-                                          ? "The settings window closes; drag around the text in the viewer."
-                                          : "Open an image in the viewer first."
-                                    wrapMode: Text.WordWrap
-                                    color: Theme.mutedText
-                                    font.family: Backend.bodyFont
-                                    font.pixelSize: 10
+                                ConcourseButton {
+                                    text: "ADD PATTERN"
+                                    onClicked: Backend.addBlockedPatternManually()
                                 }
+
+                                Item { Layout.fillWidth: true }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: Backend.hasImage
+                                      ? "The settings window closes; drag around the text in the viewer. Manual patterns can be added any time."
+                                      : "Open an image to learn from an area, or add a pattern manually."
+                                wrapMode: Text.WordWrap
+                                color: Theme.mutedText
+                                font.family: Backend.bodyFont
+                                font.pixelSize: 10
                             }
 
                             FieldLabel {
@@ -588,7 +581,7 @@ Window {
                             Text {
                                 Layout.fillWidth: true
                                 visible: Backend.blockedPatterns.length === 0
-                                text: "No blocked patterns yet. Learn one from an image area and it will be checked on every future scan."
+                                text: "No blocked patterns yet. Learn one from an image area or add an expression manually."
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Backend.bodyFont
@@ -687,7 +680,7 @@ Window {
                             Text {
                                 Layout.fillWidth: true
                                 text: "Each run records elapsed time, gaps between images, per-pass timings, counts, and error types. "
-                                      + "Traces omit filenames, paths, OCR text, and the custom expression."
+                                      + "Traces omit filenames, paths, OCR text, and blocked-pattern expressions."
                                 wrapMode: Text.WordWrap
                                 color: Theme.steelLight
                                 font.family: Backend.bodyFont

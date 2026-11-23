@@ -17,8 +17,8 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDesktopServices, QFontDatabase, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QMessageBox, QPlainTextEdit,
-    QVBoxLayout,
+    QComboBox, QDialog, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QMessageBox,
+    QPlainTextEdit, QVBoxLayout,
 )
 
 from performance_log import PerformanceRun, log_directory
@@ -223,7 +223,6 @@ class Controller(QObject):
             'enhancedOcr': False,
             'colorOcr': False,
             'ocrEngine': 'Tesseract',
-            'customPattern': '',
             'method': 'Pixelate',
             'outputDirectory': '',
             'filenameTemplate': '{stem}_redacted',
@@ -495,7 +494,6 @@ class Controller(QObject):
     enhancedOcr = _setting_property('enhancedOcr', bool, settingsChanged)
     colorOcr = _setting_property('colorOcr', bool, settingsChanged)
     ocrEngine = _setting_property('ocrEngine', str, settingsChanged)
-    customPattern = _setting_property('customPattern', str, settingsChanged)
 
     @Property(str, notify=settingsChanged)
     def redactionMethod(self):
@@ -954,11 +952,8 @@ class Controller(QObject):
         confidence = self._settings['confidence']
         if not 0 <= confidence <= 100:
             raise ValueError('OCR confidence must be between 0 and 100.')
-        custom = self._settings['customPattern'].strip()
-        if custom:
-            re.compile(custom)
         learned = tuple(entry['pattern'] for entry in self._blocked_patterns if entry['enabled'])
-        return self._settings['allText'], set(self._categories), confidence, custom, learned
+        return self._settings['allText'], set(self._categories), confidence, '', learned
 
     def _scan_metrics(self):
         return {
@@ -968,7 +963,6 @@ class Controller(QObject):
             'color_assisted': self._settings['colorOcr'],
             'sensitivity': self._settings['sensitivity'],
             'builtin_category_count': len(self._categories),
-            'custom_pattern_enabled': bool(self._settings['customPattern'].strip()),
             'blocked_patterns': sum(1 for entry in self._blocked_patterns if entry['enabled']),
             'all_text': self._settings['allText'],
         }
@@ -1132,7 +1126,11 @@ class Controller(QObject):
                        complete=complete, report_failures=False)
 
     def _prompt_blocked_pattern(self, text):
-        suggested = core.pattern_from_text(text)
+        kinds = [('fixed', 'Fixed text (exact)')]
+        kinds.extend((kind, core.PATTERN_TYPE_LABELS[kind])
+                     for kind in core.value_pattern_types(text))
+        selected_kind = 'fixed'
+        suggested = core.value_pattern_expression(text, selected_kind)
         while True:
             dialog = QDialog()
             dialog.setWindowTitle('Block this text')
@@ -1143,14 +1141,32 @@ class Controller(QObject):
             recognized.setReadOnly(True)
             recognized.setMaximumHeight(110)
             layout.addWidget(recognized)
+            type_box = None
+            if len(kinds) > 1:
+                layout.addWidget(QLabel('Match type'))
+                type_box = QComboBox()
+                for kind, label in kinds:
+                    type_box.addItem(label, kind)
+                type_box.setCurrentIndex(max(0, type_box.findData(selected_kind)))
+                layout.addWidget(type_box)
             layout.addWidget(QLabel('Regex pattern (case-insensitive)'))
             field = QLineEdit(suggested)
             field.setSelection(0, len(suggested))
             layout.addWidget(field)
-            note = QLabel(
-                'Enabled patterns are matched locally on future scans. '
-                'Edit the expression if the text varies.'
-            )
+            if type_box is not None:
+                def update_type(index):
+                    nonlocal selected_kind
+                    selected_kind = type_box.itemData(index) or 'fixed'
+                    field.setText(core.value_pattern_expression(text, selected_kind))
+                type_box.currentIndexChanged.connect(update_type)
+            note_text = 'Enabled patterns are matched locally on future scans. '
+            if len(kinds) > 1:
+                note_text = ('Fixed text matches only the recognized value; a match type matches any value of that kind. '
+                             'Enabled patterns are matched locally on future scans. '
+                             'Edit the expression for a narrower range.')
+            else:
+                note_text += 'Edit the expression if the text varies.'
+            note = QLabel(note_text)
             note.setWordWrap(True)
             layout.addWidget(note)
             buttons = QDialogButtonBox(
@@ -1174,6 +1190,48 @@ class Controller(QObject):
                 continue
             return pattern
 
+    @Slot()
+    def addBlockedPatternManually(self):
+        label_value = ''
+        pattern_value = ''
+        while True:
+            dialog = QDialog()
+            dialog.setWindowTitle('Add blocked pattern')
+            dialog.setMinimumWidth(580)
+            layout = QVBoxLayout(dialog)
+            layout.addWidget(QLabel('Label (optional)'))
+            label_field = QLineEdit(label_value)
+            label_field.setPlaceholderText('Manual pattern')
+            layout.addWidget(label_field)
+            layout.addWidget(QLabel('Regex pattern (case-insensitive)'))
+            pattern_field = QLineEdit(pattern_value)
+            pattern_field.setPlaceholderText(r'Example: \bsecret-\d+\b')
+            pattern_field.setFocus()
+            layout.addWidget(pattern_field)
+            note = QLabel('Enabled patterns are matched locally on future scans.')
+            note.setWordWrap(True)
+            layout.addWidget(note)
+            buttons = QDialogButtonBox(
+                QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            )
+            buttons.accepted.connect(dialog.accept)
+            buttons.rejected.connect(dialog.reject)
+            layout.addWidget(buttons)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            label_value = label_field.text().strip()
+            pattern_value = pattern_field.text().strip()
+            if not pattern_value:
+                QMessageBox.warning(None, 'Empty pattern', 'Enter a pattern or cancel.')
+                continue
+            try:
+                re.compile(pattern_value)
+            except re.error as error:
+                QMessageBox.warning(None, 'Invalid pattern', str(error))
+                continue
+            self.addBlockedPattern(label_value, pattern_value)
+            return
+
     def _persist_blocked_patterns(self):
         try:
             core.write_preferences(self.preferences_file, self._preference_document())
@@ -1192,9 +1250,6 @@ class Controller(QObject):
         if any(entry['pattern'].casefold() == pattern.casefold()
                for entry in self._blocked_patterns):
             self._set_status('That pattern is already in the blocked list.')
-            return False
-        if len(self._blocked_patterns) >= 100:
-            self._info('Blocked patterns', 'Remove a pattern before adding another.')
             return False
         self._blocked_patterns.append({'text': text.strip(), 'pattern': pattern, 'enabled': True})
         self._persist_blocked_patterns()
@@ -1909,14 +1964,6 @@ class Controller(QObject):
         engine = saved.get('ocr_engine')
         if engine in ('Tesseract', 'RapidOCR'):
             self._settings['ocrEngine'] = engine
-        expression = saved.get('custom_pattern')
-        if isinstance(expression, str):
-            try:
-                re.compile(expression)
-            except re.error:
-                pass
-            else:
-                self._settings['customPattern'] = expression
         method = saved.get('redaction_method')
         if method in ('Pixelate', 'Solid black'):
             self.default_method = method
@@ -1941,7 +1988,20 @@ class Controller(QObject):
                 enabled = entry.get('enabled', True)
                 loaded.append({'text': text.strip(), 'pattern': pattern.strip(),
                                'enabled': enabled if isinstance(enabled, bool) else True})
-            self._blocked_patterns = loaded[:100]
+            self._blocked_patterns = loaded
+        legacy = saved.get('custom_pattern')
+        if isinstance(legacy, str) and legacy.strip():
+            legacy = legacy.strip()
+            try:
+                re.compile(legacy)
+            except re.error:
+                pass
+            else:
+                if not any(entry['pattern'].casefold() == legacy.casefold()
+                           for entry in self._blocked_patterns):
+                    self._blocked_patterns.append({
+                        'text': 'Imported custom pattern', 'pattern': legacy, 'enabled': True,
+                    })
         self._restore_output_preferences(saved)
 
     def _restore_output_preferences(self, saved):
@@ -1975,7 +2035,6 @@ class Controller(QObject):
             'enhanced_ocr': self._settings['enhancedOcr'],
             'color_ocr': self._settings['colorOcr'],
             'ocr_engine': self._settings['ocrEngine'],
-            'custom_pattern': self._settings['customPattern'],
             'categories': [name for name in core.PATTERNS if name in self._categories],
             'redaction_method': method or self._settings['method'],
             'output_directory': self._settings['outputDirectory'],
@@ -2002,9 +2061,9 @@ class Controller(QObject):
         except OSError as error:
             self._set_status(self.status_text + f' Settings could not be saved: {error}')
 
-    @Slot(str, int, bool, bool, bool, str, str, 'QVariantList', str, str, str, bool, int, result=str)
+    @Slot(str, int, bool, bool, bool, str, 'QVariantList', str, str, str, bool, int, result=str)
     def applySettings(self, sensitivity, confidence, all_text, enhanced, color, engine,
-                      pattern, categories, method, output_directory, template, include_log,
+                      categories, method, output_directory, template, include_log,
                       parallel_images):
         try:
             threshold = int(confidence)
@@ -2013,8 +2072,6 @@ class Controller(QObject):
             workers = int(parallel_images)
             if not 1 <= workers <= self.parallel_limit:
                 raise ValueError(f'Parallel image jobs must be between 1 and {self.parallel_limit}.')
-            expression = pattern.strip()
-            re.compile(expression)
             chosen = Path(output_directory.strip()) if output_directory.strip() else None
             if chosen is not None and not chosen.is_absolute():
                 raise ValueError('Choose an absolute output folder.')
@@ -2032,7 +2089,6 @@ class Controller(QObject):
                 'enhanced_ocr': enhanced,
                 'color_ocr': color,
                 'ocr_engine': engine,
-                'custom_pattern': expression,
                 'categories': selected,
                 'redaction_method': method if method_changed else self.default_method,
                 'output_directory': str(chosen) if chosen is not None else '',
@@ -2054,7 +2110,6 @@ class Controller(QObject):
             'enhancedOcr': enhanced,
             'colorOcr': color,
             'ocrEngine': engine,
-            'customPattern': expression,
             'parallelImages': workers,
         })
         self._categories = set(selected)

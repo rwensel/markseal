@@ -1,6 +1,7 @@
 """Read-only checks for exported copies and their coordinate logs."""
 import argparse
 import json
+import re
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw
@@ -36,20 +37,40 @@ def main():
     parser.add_argument('exports', type=Path)
     parser.add_argument('--ocr', action='store_true', help='Run local RapidOCR Broad passes on originals and exports.')
     parser.add_argument('--use-app-pattern', action='store_true',
-                        help='Also test the saved custom expression without printing it.')
+                        help='Also test enabled blocked patterns without printing them.')
     args = parser.parse_args()
-    custom = ''
+    patterns = ()
     if args.use_app_pattern:
         if not args.ocr:
             parser.error('--use-app-pattern requires --ocr')
         from offline_redactor import preferences_path
         try:
             saved = json.loads(preferences_path().read_text(encoding='utf-8'))
-            custom = saved.get('custom_pattern', '')
         except (OSError, ValueError, AttributeError):
             parser.error('No readable app settings found')
-        if not isinstance(custom, str) or not custom:
-            parser.error('Set a custom expression in the app first')
+        candidates = []
+        blocked = saved.get('blocked_patterns')
+        if isinstance(blocked, list):
+            for entry in blocked:
+                if not isinstance(entry, dict) or entry.get('enabled', True) is False:
+                    continue
+                pattern = entry.get('pattern')
+                if isinstance(pattern, str) and pattern.strip():
+                    candidates.append(pattern.strip())
+        legacy = saved.get('custom_pattern')
+        if isinstance(legacy, str) and legacy.strip():
+            candidates.append(legacy.strip())
+        valid = []
+        for pattern in candidates:
+            try:
+                re.compile(pattern)
+            except re.error:
+                continue
+            if pattern not in valid:
+                valid.append(pattern)
+        patterns = tuple(valid)
+        if not patterns:
+            parser.error('Add or enable a blocked pattern in the app first')
     for path in sorted(args.exports.glob('*.png')):
         item = {'export': path.name}
         try:
@@ -73,7 +94,7 @@ def main():
                         masked_percent=round(100*mask.histogram()[255]/(mask.width*mask.height), 3))
             if args.ocr:
                 from offline_redactor import PRESETS, recognize_regions
-                settings = (False, PRESETS['Broad'], 40, custom)
+                settings = (False, PRESETS['Broad'], 40, '', patterns)
                 suggested = recognize_regions(original, None, settings)
                 item['ocr_candidates'] = classify_coverage(mask, suggested)
                 residual = recognize_regions(exported, None, settings)

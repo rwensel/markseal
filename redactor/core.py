@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import csv
 import io
+import ipaddress
 import json
 import math
 import os
@@ -673,6 +674,79 @@ def pattern_from_text(text):
         patterns.append(body)
     patterns.sort(key=len, reverse=True)
     return patterns[0] if len(patterns) == 1 else '(?:' + '|'.join(patterns) + ')'
+
+
+_IPV4_OCTET = r'(?:25[0-5]|2[0-4]\d|1?\d?\d)'
+_IPV4_ADDRESS = rf'(?:{_IPV4_OCTET}\.){{3}}{_IPV4_OCTET}'
+_IPV6_ADDRESS = (
+    r'(?:'
+    r'(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|'
+    r'(?:[0-9A-Fa-f]{1,4}:){1,7}:|'
+    r'(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|'
+    r'(?:[0-9A-Fa-f]{1,4}:){1,5}(?::[0-9A-Fa-f]{1,4}){1,2}|'
+    r'(?:[0-9A-Fa-f]{1,4}:){1,4}(?::[0-9A-Fa-f]{1,4}){1,3}|'
+    r'(?:[0-9A-Fa-f]{1,4}:){1,3}(?::[0-9A-Fa-f]{1,4}){1,4}|'
+    r'(?:[0-9A-Fa-f]{1,4}:){1,2}(?::[0-9A-Fa-f]{1,4}){1,5}|'
+    r'[0-9A-Fa-f]{1,4}:(?::[0-9A-Fa-f]{1,4}){1,6}|'
+    r':(?::[0-9A-Fa-f]{1,4}){1,7}|'
+    r'::|'
+    rf'::(?:ffff(?::0{{1,4}})?:)?{_IPV4_ADDRESS}'
+    r')'
+)
+PATTERN_TYPE_LABELS = {
+    'ipv4': 'Any IPv4 address',
+    'ipv4_cidr': 'Any IPv4 CIDR range',
+    'ipv6': 'Any IPv6 address',
+    'ipv6_cidr': 'Any IPv6 CIDR range',
+    'integer': 'Any integer',
+    'uuid': 'Any UUID',
+    'email': 'Any email address',
+    'url': 'Any URL',
+    'hex': 'Any long hex token',
+    'mac': 'Any MAC address',
+    'date': 'Any ISO date',
+}
+PATTERN_TYPE_EXPRESSIONS = {
+    'ipv4': rf'(?<![\w.]){_IPV4_ADDRESS}(?![\w.])',
+    'ipv4_cidr': rf'(?<![\w.]){_IPV4_ADDRESS}/(?:3[0-2]|[12]?\d)(?![\w.])',
+    'ipv6': rf'(?<![0-9A-Za-z:]){_IPV6_ADDRESS}(?![0-9A-Za-z:])',
+    'ipv6_cidr': rf'(?<![0-9A-Za-z:]){_IPV6_ADDRESS}/(?:12[0-8]|1[01]\d|[1-9]?\d)(?![0-9A-Za-z:])',
+    'integer': r'(?<![\w.])[-+]?\d+(?![\w.])',
+    'uuid': r'\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\b',
+    'email': r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b',
+    'url': r'(?<![\w])https?://[^\s"\'<>]+',
+    'hex': r'\b[0-9A-Fa-f]{8,64}\b',
+    'mac': r'\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b',
+    'date': r'\b\d{4}-\d{2}-\d{2}\b',
+}
+
+
+def value_pattern_types(text):
+    value = text.strip()
+    if not value:
+        return []
+    kinds = []
+    try:
+        if '/' in value:
+            network = ipaddress.ip_network(value, strict=False)
+            kinds.append('ipv4_cidr' if network.version == 4 else 'ipv6_cidr')
+        else:
+            address = ipaddress.ip_address(value)
+            kinds.append('ipv4' if address.version == 4 else 'ipv6')
+    except ValueError:
+        pass
+    for kind, expression in PATTERN_TYPE_EXPRESSIONS.items():
+        if kind in ('ipv4', 'ipv4_cidr', 'ipv6', 'ipv6_cidr'):
+            continue
+        if re.fullmatch(expression, value):
+            kinds.append(kind)
+    return kinds
+
+
+def value_pattern_expression(text, kind):
+    if kind == 'fixed':
+        return pattern_from_text(text)
+    return PATTERN_TYPE_EXPRESSIONS.get(kind, pattern_from_text(text))
 
 
 def strip_contained_selected(boxes, selected):
