@@ -39,6 +39,7 @@ Window {
             Layout.leftMargin: 12
             Layout.rightMargin: 12
             Layout.topMargin: 6
+            Layout.bottomMargin: 8
         }
 
         RowLayout {
