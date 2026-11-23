@@ -22,7 +22,7 @@ class ModuleSplitTests(unittest.TestCase):
             self.assertTrue(hasattr(offline_redactor, name), name)
 
     def test_each_concept_lives_in_its_sibling_module(self):
-        from redactor import detection, images, ocr, redaction
+        from markseal import detection, images, ocr, redaction
         self.assertIs(detection.detect_regions, core.detect_regions)
         self.assertIs(detection.pattern_from_text, core.pattern_from_text)
         self.assertIs(redaction.pixelate, core.pixelate)
@@ -49,7 +49,7 @@ class ModuleSplitTests(unittest.TestCase):
         self.assertEqual(len(created), 2)
 
     def test_controller_is_only_the_qml_shell(self):
-        from redactor.controller import Controller
+        from markseal.controller import Controller
 
         def declared(cls):
             meta = cls.staticMetaObject
@@ -72,8 +72,8 @@ class ModuleSplitTests(unittest.TestCase):
         })
 
     def test_facade_modules_do_not_import_the_controller(self):
-        import redactor.facades
-        package = Path(redactor.facades.__file__).resolve().parent
+        import markseal.facades
+        package = Path(markseal.facades.__file__).resolve().parent
         modules = sorted(path for path in package.glob('*.py') if path.name != '__init__.py')
         self.assertEqual(
             [path.stem for path in modules],
@@ -85,7 +85,7 @@ class ModuleSplitTests(unittest.TestCase):
                 if isinstance(node, ast.ImportFrom):
                     module = node.module or ''
                     self.assertNotEqual(module, 'controller', f'{path.name} imports controller')
-                    self.assertNotEqual(module, 'redactor.controller',
+                    self.assertNotEqual(module, 'markseal.controller',
                                         f'{path.name} imports controller')
                 elif isinstance(node, ast.Import):
                     for alias in node.names:

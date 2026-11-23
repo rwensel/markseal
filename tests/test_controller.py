@@ -15,8 +15,8 @@ from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonInstance
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
 
-import redactor
-from redactor.controller import Controller, DisplayImageProvider
+import markseal
+from markseal.controller import Controller, DisplayImageProvider
 from tests.support import FakeEngine
 
 TSV = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
@@ -95,7 +95,7 @@ class ControllerTests(unittest.TestCase):
         self.assertTrue(self.controller.review.confirmed)
 
         target = Path(self.temporary.name) / 'screenshot_redacted.png'
-        with patch('redactor.facades.review.QFileDialog.getSaveFileName',
+        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
                    return_value=(str(target), 'PNG image (*.png)')):
             self.controller.review.save_single()
 
@@ -111,7 +111,7 @@ class ControllerTests(unittest.TestCase):
         qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', self.controller)
         engine = QQmlApplicationEngine()
         engine.addImageProvider('redactor', DisplayImageProvider(self.controller))
-        main_qml = Path(redactor.__file__).resolve().parent / 'qml' / 'Main.qml'
+        main_qml = Path(markseal.__file__).resolve().parent / 'qml' / 'Main.qml'
         messages = []
         previous = qInstallMessageHandler(
             lambda mode, context, message: messages.append(message)

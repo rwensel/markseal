@@ -1,5 +1,5 @@
-"""Offline image redactor. Requires Python 3, Pillow, and PySide6. No network calls."""
-from redactor.core import (
+"""Offline image markseal. Requires Python 3, Pillow, and PySide6. No network calls."""
+from markseal.core import (
     IMAGE_SUFFIXES,
     PATTERNS,
     PRESETS,
@@ -18,8 +18,8 @@ from redactor.core import (
     write_folder_copy,
     write_preferences,
 )
-from redactor.review import Review
-from redactor.app import main
+from markseal.review import Review
+from markseal.app import main
 
 if __name__ == '__main__':
     raise SystemExit(main())

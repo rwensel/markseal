@@ -1,4 +1,4 @@
-"""Shared imports and fakes for the redactor test suite."""
+"""Shared imports and fakes for the Markseal test suite."""
 import subprocess
 import json
 import re
@@ -9,26 +9,26 @@ from threading import Barrier, Event, Lock, Thread
 from PIL import Image
 from unittest.mock import patch
 from types import SimpleNamespace
-from redactor import rapidocr_backend
-from redactor.rapidocr_backend import result_to_tsv
-from redactor.performance_log import PerformanceRun, stage
-from redactor.core import (
+from markseal import rapidocr_backend
+from markseal.rapidocr_backend import result_to_tsv
+from markseal.performance_log import PerformanceRun, stage
+from markseal.core import (
     PRESETS, BoxList, FolderImage, apply_redactions, batch_worker_count, detect_regions,
     new_ocr_boxes, pattern_from_text, pixelate, read_area_text, recognize_regions, save_export,
     scan_folder_image, text_from_tsv, value_pattern_expression, value_pattern_types,
 )
-from redactor.review import Review
-from redactor.jobs import JobRunner, progress_line
-from redactor.boxset import BoxSet, image_status
-from redactor.ocr import RapidEngine, TesseractEngine, make_engine
-from redactor import preferences
-from redactor.preferences import Preferences, PreferencesError
-from redactor import patterns
-from redactor import themes
-from redactor import export
-from redactor import core
-from redactor.viewport import Viewport
-from redactor import audit_exports
+from markseal.review import Review
+from markseal.jobs import JobRunner, progress_line
+from markseal.boxset import BoxSet, image_status
+from markseal.ocr import RapidEngine, TesseractEngine, make_engine
+from markseal import preferences
+from markseal.preferences import Preferences, PreferencesError
+from markseal import patterns
+from markseal import themes
+from markseal import export
+from markseal import core
+from markseal.viewport import Viewport
+from markseal import audit_exports
 
 
 

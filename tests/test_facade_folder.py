@@ -11,8 +11,8 @@ from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
-from redactor.controller import Controller
-from redactor.ui.models import FolderModel
+from markseal.controller import Controller
+from markseal.ui.models import FolderModel
 
 
 class FolderFacadeTests(unittest.TestCase):

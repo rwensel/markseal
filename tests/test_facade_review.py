@@ -11,8 +11,8 @@ from unittest.mock import Mock
 from PIL import Image
 from PySide6.QtWidgets import QApplication
 
-from redactor.boxset import FolderImage
-from redactor.controller import Controller
+from markseal.boxset import FolderImage
+from markseal.controller import Controller
 
 
 class RecordingBatch:

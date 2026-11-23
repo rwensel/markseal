@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 
 from PySide6.QtWidgets import QApplication
 
-from redactor.controller import Controller
+from markseal.controller import Controller
 
 
 class SeamTests(unittest.TestCase):

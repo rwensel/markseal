@@ -1,6 +1,6 @@
 """One owner for settings defaults, the persisted document and validation.
 
-The document uses snake_case keys; the QML form and ``redactor.audit_exports``
+The document uses snake_case keys; the QML form and ``markseal.audit_exports``
 are adapters that read this one schema.
 """
 from __future__ import annotations

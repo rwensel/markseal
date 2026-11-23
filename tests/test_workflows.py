@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from redactor import workflows
+from markseal import workflows
 from tests.support import BoxList, FolderImage
 
 

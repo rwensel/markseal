@@ -12,8 +12,8 @@ from PIL import Image
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtWidgets import QApplication
 
-from redactor.boxset import BoxList
-from redactor.controller import Controller
+from markseal.boxset import BoxList
+from markseal.controller import Controller
 from tests.support import FakeEngine
 
 TSV = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'

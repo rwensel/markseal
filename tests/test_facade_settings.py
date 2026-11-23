@@ -10,9 +10,9 @@ from tempfile import TemporaryDirectory
 
 from PySide6.QtWidgets import QApplication
 
-from redactor import themes
-from redactor.boxset import FolderImage
-from redactor.controller import Controller
+from markseal import themes
+from markseal.boxset import FolderImage
+from markseal.controller import Controller
 
 
 class SettingsFacadeTests(unittest.TestCase):

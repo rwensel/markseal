@@ -28,7 +28,7 @@ class OcrPipelineTests(unittest.TestCase):
     def test_recognizer_reports_progress_stages(self):
         image = Image.new('RGB', (120, 80), 'white')
         stages = []
-        with patch('redactor.ocr.detect_regions', return_value=[]):
+        with patch('markseal.ocr.detect_regions', return_value=[]):
             recognize_regions(image, FakeEngine('tsv'), (False,), progress=stages.append)
         self.assertIn('Recognizing text', stages)
 
@@ -43,7 +43,7 @@ class OcrPipelineTests(unittest.TestCase):
         self.assertEqual(text_from_tsv(tsv), 'Crownfern Analytics\npass 42')
         image = Image.new('RGB', (240, 90), 'white')
         engine = TesseractEngine('ocr')
-        with patch('redactor.ocr.subprocess.run',
+        with patch('markseal.ocr.subprocess.run',
                    return_value=SimpleNamespace(stdout=tsv.encode('utf-8'))) as run:
             self.assertEqual(read_area_text(image, engine, (10, 10, 200, 70)),
                              'Crownfern Analytics\npass 42')
@@ -57,7 +57,7 @@ class OcrPipelineTests(unittest.TestCase):
         incomplete = []
         box = (10, 10, 70, 35)
         engine = FakeEngine(outcomes=['tsv', subprocess.TimeoutExpired('ocr', 15)])
-        with patch('redactor.ocr.detect_regions', return_value=[box]):
+        with patch('markseal.ocr.detect_regions', return_value=[box]):
             result = recognize_regions(image, engine, (False,), enhanced=True, incomplete=incomplete)
         self.assertEqual(result, [box])
         self.assertEqual(incomplete, ['enhanced OCR timed out'])
@@ -108,7 +108,7 @@ class OcrPipelineTests(unittest.TestCase):
                '1\t1\t1\t1\t100\t80\t80\t40\t95\tBFE\n')
         engine = FakeEngine(outcomes=['', '', tsv])
         engine.single_label = True
-        with patch('redactor.ocr_preprocess.small_text_tiles', return_value=[((500, 300, 1100, 700), tile)]):
+        with patch('markseal.ocr_preprocess.small_text_tiles', return_value=[((500, 300, 1100, 700), tile)]):
             self.assertEqual(recognize_regions(image, engine, settings, enhanced=True), [(548, 338, 592, 362)])
 
     def test_model_places_matched_word_even_if_other_characters_lack_boxes(self):
@@ -127,7 +127,7 @@ class OcrPipelineTests(unittest.TestCase):
 
     def test_strikethrough_pass_reduces_stroke_without_moving_pixels(self):
         from PIL import ImageDraw
-        from redactor.ocr_preprocess import strike_reduced_variant
+        from markseal.ocr_preprocess import strike_reduced_variant
 
         image = Image.new('RGB', (320, 100), 'white')
         draw = ImageDraw.Draw(image)
@@ -147,9 +147,9 @@ class OcrAdapterTests(unittest.TestCase):
         image = Image.new('RGB', (1200, 800), 'white')
         settings = (False, {'Emails'}, 40, '')
         engine = FakeEngine(outcomes=['', ''])
-        with patch('redactor.ocr_preprocess.strike_reduced_variant', return_value=None), \
-             patch('redactor.ocr_preprocess.small_text_tiles', return_value=[]), \
-             patch('redactor.ocr_preprocess.color_ocr_variants', return_value=[]):
+        with patch('markseal.ocr_preprocess.strike_reduced_variant', return_value=None), \
+             patch('markseal.ocr_preprocess.small_text_tiles', return_value=[]), \
+             patch('markseal.ocr_preprocess.color_ocr_variants', return_value=[]):
             recognize_regions(image, engine, settings, enhanced=True, color_assisted=True)
         self.assertEqual([call['psm'] for call in engine.calls], [None, '11'])
 
@@ -158,24 +158,24 @@ class OcrAdapterTests(unittest.TestCase):
                '1\t1\t1\t1\t10\t20\t100\t20\t95\ta@example.com\n')
         image = Image.new('RGB', (300, 100), 'white')
         settings = (False, {'Emails'}, 50, '')
-        with patch('redactor.ocr.subprocess.run',
+        with patch('markseal.ocr.subprocess.run',
                    return_value=SimpleNamespace(stdout=tsv.encode('utf-8'))):
             tesseract = recognize_regions(image, TesseractEngine('ocr'), settings)
-        with patch('redactor.rapidocr_backend.recognize_words', return_value=tsv):
+        with patch('markseal.rapidocr_backend.recognize_words', return_value=tsv):
             rapid = recognize_regions(image, RapidEngine(), settings)
         self.assertEqual(tesseract, rapid)
         self.assertEqual(tesseract, [(6, 16, 114, 44)])
 
     def test_make_engine_validates_the_requested_backend(self):
         self.assertIsInstance(make_engine('Tesseract', executable='ocr'), TesseractEngine)
-        with patch('redactor.rapidocr_backend.model_files', return_value={}):
+        with patch('markseal.rapidocr_backend.model_files', return_value={}):
             engine = make_engine('RapidOCR')
         self.assertIsInstance(engine, RapidEngine)
         self.assertTrue(engine.single_label)
-        with patch('redactor.rapidocr_backend.model_files', side_effect=OSError('missing models')):
+        with patch('markseal.rapidocr_backend.model_files', side_effect=OSError('missing models')):
             with self.assertRaises(OSError):
                 make_engine('RapidOCR')
-        with patch('redactor.ocr.find_tesseract', return_value=None):
+        with patch('markseal.ocr.find_tesseract', return_value=None):
             with self.assertRaises(OSError):
                 make_engine('Tesseract')
 

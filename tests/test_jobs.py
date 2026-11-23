@@ -19,7 +19,7 @@ class JobRunnerTests(unittest.TestCase):
     def setUp(self):
         self.temporary = TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.log_patch = patch('redactor.performance_log.log_directory',
+        self.log_patch = patch('markseal.performance_log.log_directory',
                                return_value=Path(self.temporary.name))
         self.log_patch.start()
         self.addCleanup(self.log_patch.stop)

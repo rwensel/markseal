@@ -27,7 +27,7 @@ class PerformanceTests(unittest.TestCase):
         self.assertEqual(batch_worker_count(2, 0, 8), 1)
 
     def test_parallel_performance_traces_remain_valid_jsonl(self):
-        with TemporaryDirectory() as folder, patch('redactor.performance_log.log_directory', return_value=Path(folder)):
+        with TemporaryDirectory() as folder, patch('markseal.performance_log.log_directory', return_value=Path(folder)):
             run = PerformanceRun('Scanning', 4)
             barrier = Barrier(4)
 
@@ -66,7 +66,7 @@ class PerformanceTests(unittest.TestCase):
                 return SimpleNamespace(boxes=None, txts=None)
 
         pool = rapidocr_backend.EnginePool(lambda: FakeEngine())
-        with patch('redactor.rapidocr_backend._pool', pool):
+        with patch('markseal.rapidocr_backend._pool', pool):
             threads = [Thread(target=rapidocr_backend.recognize_words,
                               args=(Image.new('RGB', (20, 20)),)) for _ in range(2)]
             for thread in threads:
@@ -76,7 +76,7 @@ class PerformanceTests(unittest.TestCase):
         self.assertEqual(peak[0], 2)
 
     def test_performance_log_records_timings_without_exception_message(self):
-        with TemporaryDirectory() as folder, patch('redactor.performance_log.log_directory', return_value=Path(folder)):
+        with TemporaryDirectory() as folder, patch('markseal.performance_log.log_directory', return_value=Path(folder)):
             run = PerformanceRun('Scanning', 1)
             with self.assertRaises(OSError), run.image(0), stage('OCR'):
                 raise OSError('private filename')

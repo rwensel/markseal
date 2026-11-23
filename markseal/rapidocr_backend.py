@@ -1,4 +1,4 @@
-"""Adapt locally bundled RapidOCR polygons to the redactor's OCR word format."""
+"""Adapt locally bundled RapidOCR polygons to Markseal's OCR word format."""
 import csv
 import io
 import re

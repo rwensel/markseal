@@ -1,1 +1,1 @@
-"""Test suite for the offline screenshot redactor."""
+"""Test suite for the offline screenshot markseal."""

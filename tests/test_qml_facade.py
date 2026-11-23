@@ -11,8 +11,8 @@ from tempfile import TemporaryDirectory
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QApplication
 
-import redactor
-from redactor.controller import Controller
+import markseal
+from markseal.controller import Controller
 
 REFERENCE = re.compile(r'Backend\.([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)')
 CONNECTIONS = re.compile(r'Connections\s*\{')
@@ -21,7 +21,7 @@ HANDLER = re.compile(r'function\s+on([A-Z]\w*)\s*\(')
 
 
 def qml_files():
-    return sorted((Path(redactor.__file__).resolve().parent / 'qml').glob('*.qml'))
+    return sorted((Path(markseal.__file__).resolve().parent / 'qml').glob('*.qml'))
 
 
 def member_names(obj):
