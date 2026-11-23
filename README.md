@@ -57,6 +57,10 @@ Open **Settings → Blocked patterns**. Click **Learn from image area**; the Set
 
 Patterns are matched case-insensitively. With **Fixed text**, the expression keeps the recognized words literal and allows flexible whitespace between them; it does not generalize numbers or token values. With a match type, the expression matches any value of that kind. Edit the expression if you need a narrower range. The recognized label and pattern are stored in the local settings file and are not added to performance traces. If an older settings file contains a custom expression, it is imported into this list and enabled on first launch. Reopen Settings to review or manage the list after learning a pattern.
 
+## Capture a region
+
+Click **CAPTURE** in the toolbar to dim the screen and drag a rectangle. On release the selected region is captured and loaded as an in-memory image you can scan, review, and save like any other screenshot; nothing is written to disk until you save. Press **Esc** to cancel.
+
 ## Redaction method
 
 Use the **METHOD** toggle in the viewer caption to switch between **Pixelate**, **Black**, **Blur**, and **Erase** without opening Settings; the same choice is available under **Settings → Redaction**. The choice is saved immediately and applies to the confirmed preview, the copied image, and the saved PNG. The method applies across the folder and is remembered across app restarts. Changing it returns reviewed folder images to review before export. Solid black removes image detail inside the chosen boxes and is the safest for sensitive information; blur and erase look softer but can be less final. Pixels outside selected rectangles are preserved in the PNG. Camera metadata is omitted from saved copies.

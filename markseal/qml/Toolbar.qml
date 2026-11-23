@@ -8,6 +8,7 @@ Item {
     id: toolbar
     implicitHeight: 70
     signal settingsClicked()
+    signal captureClicked()
 
     readonly property bool wide: width >= 1240
     readonly property bool canScan: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
@@ -144,6 +145,15 @@ Item {
             visible: toolbar.wide
             enabled: !Backend.batch.busy
             onClicked: Backend.pasteImage()
+        }
+
+        ConcourseButton {
+            text: "CAPTURE"
+            compact: true
+            tip: "Capture a region of the screen"
+            visible: toolbar.wide
+            enabled: !Backend.batch.busy
+            onClicked: toolbar.captureClicked()
         }
 
         Rectangle {

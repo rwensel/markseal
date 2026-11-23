@@ -83,7 +83,7 @@ def save_export(image, target, log, *, overwrite=False):
 def coordinate_log(source, target, dimensions, boxes, method, *, note=NOTE, pasted=False):
     message = note
     if pasted:
-        message += ' Pasted from the clipboard; no source file exists.'
+        message += ' No source file exists; this copy came from an in-memory image (paste or screen capture).'
     return {
         'source_filename': Path(source).name,
         'output_filename': Path(target).name,

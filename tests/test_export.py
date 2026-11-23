@@ -48,11 +48,11 @@ class ExportPipelineTests(unittest.TestCase):
         self.assertEqual(memory_log['method'], 'Solid black')
         self.assertEqual(memory_log['note'], export.NOTE)
 
-    def test_pasted_source_adds_the_clipboard_sentence(self):
+    def test_pasted_source_adds_the_in_memory_sentence(self):
         log = export.coordinate_log(Path('pasted-image.png'), Path('out.png'), (10, 10),
                                     [], 'Pixelate', pasted=True)
         self.assertTrue(log['note'].endswith(
-            'Pasted from the clipboard; no source file exists.'))
+            'No source file exists; this copy came from an in-memory image (paste or screen capture).'))
 
     def test_export_refuses_to_overwrite_and_rolls_back_the_sidecar(self):
         with TemporaryDirectory() as folder:

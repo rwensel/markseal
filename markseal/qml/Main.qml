@@ -31,6 +31,7 @@ Window {
             Layout.fillWidth: true
             Layout.preferredHeight: 70
             onSettingsClicked: settingsWindow.openSettings()
+            onCaptureClicked: captureRegion.open()
         }
 
         UpdateBanner {
@@ -66,6 +67,10 @@ Window {
     SettingsWindow {
         id: settingsWindow
         parentWindow: root
+    }
+
+    CaptureRegion {
+        id: captureRegion
     }
 
     DropArea {

@@ -11,6 +11,7 @@ from unittest.mock import patch
 from PIL import Image
 
 from PySide6.QtCore import QEventLoop, QTimer, QUrl, qInstallMessageHandler
+from PySide6.QtGui import QImage
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonInstance
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
@@ -71,6 +72,14 @@ class ControllerTests(unittest.TestCase):
         loop.exec()
         self.controller.batch.busyChanged.disconnect(finished)
         self.assertFalse(self.controller.batch.busy, 'background job did not finish')
+
+    def test_capture_region_loads_a_pasted_image(self):
+        qimage = QImage(40, 30, QImage.Format.Format_RGB32)
+        qimage.fill(0xFFFFFFFF)
+        with patch.object(self.controller, '_grab_screen_region', return_value=qimage):
+            self.controller.captureRegion(10, 10, 40, 30)
+        self.assertTrue(self.controller.session.pasted_image)
+        self.assertIsNotNone(self.controller.session.review.image)
 
     def test_scan_review_and_export_round_trip(self):
         source = self.open_image()

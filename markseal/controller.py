@@ -17,6 +17,16 @@ from .facades.alerts import box_hint
 from .ui.models import DisplayImageProvider
 
 
+def _pil_from_qimage(qimage):
+    buffer = QBuffer()
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    qimage.save(buffer, 'PNG')
+    raw = bytes(buffer.data())
+    buffer.close()
+    with Image.open(io.BytesIO(raw)) as source:
+        return source.convert('RGB')
+
+
 class Controller(QObject):
     statusChanged = Signal()
     errorChanged = Signal()
@@ -223,3 +233,20 @@ class Controller(QObject):
             return
         image, path, pasted = loaded
         self._present_image(image, path, pasted=pasted)
+
+    def _grab_screen_region(self, x, y, width, height):
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return None
+        pixmap = screen.grabWindow(0, int(x), int(y), int(width), int(height))
+        return None if pixmap.isNull() else pixmap.toImage()
+
+    @Slot(int, int, int, int)
+    def captureRegion(self, x, y, width, height):
+        if not self._prepare_image_open():
+            return
+        qimage = self._grab_screen_region(x, y, width, height)
+        if qimage is None or qimage.isNull():
+            self.alerts.set_status('Screen capture is unavailable on this display.')
+            return
+        self._present_image(_pil_from_qimage(qimage), Path('captured-region.png'), pasted=True)

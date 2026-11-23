@@ -68,7 +68,7 @@ class ModuleSplitTests(unittest.TestCase):
         self.assertEqual(methods - base_methods, {
             'statusChanged', 'errorChanged',
             'dismissError', 'runErrorAction',
-            'openImage', 'openFolder', 'openDropped', 'pasteImage',
+            'openImage', 'openFolder', 'openDropped', 'pasteImage', 'captureRegion',
         })
 
     def test_facade_modules_do_not_import_the_controller(self):
