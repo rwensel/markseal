@@ -29,6 +29,7 @@ from . import preferences
 from . import redaction
 from .jobs import JobRunner, progress_line
 from .review import Review
+from .themes import Palette, pick_font
 
 
 INITIAL_STATUS = (
@@ -36,13 +37,6 @@ INITIAL_STATUS = (
     'red = excluded. Confirm to apply.'
 )
 
-
-def _pick_font(candidates, fallback):
-    available = set(QFontDatabase.families())
-    for name in candidates:
-        if name in available:
-            return name
-    return fallback
 
 
 class DisplayImageProvider(QQuickImageProvider):
@@ -172,6 +166,7 @@ def _preference_property(name, kind, notify):
 class Controller(QObject):
     statusChanged = Signal()
     errorChanged = Signal()
+    themeChanged = Signal()
     imageChanged = Signal()
     imageRevisionChanged = Signal()
     reviewChanged = Signal()
@@ -220,14 +215,16 @@ class Controller(QObject):
         self._runner = JobRunner(self.parallel_limit)
         self._folder_model = FolderModel()
         self._preferences = preferences.defaults()
-        self.display_font = _pick_font(
+        self._palette = Palette(self)
+        available_fonts = set(QFontDatabase.families())
+        self.display_font = pick_font(
             ['Bahnschrift Condensed', 'Bahnschrift SemiCondensed', 'Avenir Next Condensed',
              'Roboto Condensed', 'DejaVu Sans Condensed', 'Noto Sans'],
-            'Segoe UI',
+            'Segoe UI', available_fonts,
         )
-        self.body_font = _pick_font(
+        self.body_font = pick_font(
             ['Inter', 'Segoe UI Variable Text', 'Segoe UI', 'Helvetica Neue', 'Noto Sans'],
-            'Sans Serif',
+            'Sans Serif', available_fonts,
         )
         self._job_timer = QTimer(self)
         self._job_timer.setInterval(100)
@@ -491,6 +488,14 @@ class Controller(QObject):
         if self.scan_stage != text:
             self.scan_stage = text
             self.scanStageChanged.emit()
+
+    @Property(str, notify=themeChanged)
+    def themeName(self):
+        return self._preferences.theme
+
+    @Property(QObject, constant=True)
+    def palette(self):
+        return self._palette
 
     @Property(str, constant=True)
     def displayFont(self):
@@ -1818,6 +1823,7 @@ class Controller(QObject):
         path = Path(directory) if directory else None
         self.output_directory_override = path
         self.output_directory = path or (self.folder / 'redacted' if self.folder else None)
+        self._palette.set_theme(self._preferences.theme)
 
     @Slot(bool)
     def setShowRules(self, enabled):
