@@ -423,7 +423,7 @@ Item {
                 anchors.topMargin: 52
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Math.min(stage.width - 40, 460)
-                height: 74
+                height: 64
                 radius: 8
                 color: "#E61D2024"
                 border.width: 1
@@ -432,7 +432,6 @@ Item {
                 Row {
                     anchors.fill: parent
                     anchors.margins: 10
-                    anchors.bottomMargin: 18
                     spacing: 10
 
                     Rectangle {
@@ -482,31 +481,6 @@ Item {
                             color: Theme.steelLight
                             font.family: Backend.bodyFont
                             font.pixelSize: 10
-                        }
-                    }
-                }
-
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.margins: 10
-                    height: 2
-                    radius: 1
-                    color: "#2A2D31"
-
-                    Rectangle {
-                        width: 96
-                        height: 2
-                        radius: 1
-                        color: Theme.amber
-
-                        NumberAnimation on x {
-                            from: -96
-                            to: parent.width - 96
-                            duration: 1100
-                            loops: Animation.Infinite
-                            running: Backend.busy
                         }
                     }
                 }

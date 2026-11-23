@@ -157,7 +157,7 @@ def _setting_property(name, kind, notify):
     def setter(self, value):
         if self._settings[name] != value:
             self._settings[name] = value
-            notify.emit()
+            self.settingsChanged.emit()
 
     return Property(kind, getter, setter, notify=notify)
 
