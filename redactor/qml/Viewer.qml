@@ -7,6 +7,16 @@ import Redactor 1.0
 Item {
     id: viewer
     property int hoveredBox: -1
+    readonly property string captureTitle: Backend.captureMode === "area" ? "AREA SCAN"
+                                          : Backend.captureMode === "anchor" ? "ANCHOR MATCH"
+                                          : Backend.captureMode === "learn" ? "LEARN PATTERN" : ""
+    readonly property string captureInstruction: Backend.captureMode === "area"
+                                                 ? "Drag a tight box around the text."
+                                                 : Backend.captureMode === "anchor"
+                                                   ? "Drag around a stable cue near the boxes."
+                                                   : Backend.captureMode === "learn"
+                                                     ? "Drag around the text to block."
+                                                     : ""
 
     Connections {
         target: Backend
@@ -466,32 +476,82 @@ Item {
             }
 
             Rectangle {
-                z: 5
+                z: 4
                 visible: Backend.hasImage && Backend.captureMode !== "none"
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.margins: 12
-                height: 22
-                radius: 4
-                width: Math.min(stage.width - 24, hintText.implicitWidth + 18)
-                color: "#8C0B0D10"
+                anchors.fill: parent
+                color: "transparent"
+                border.width: 2
+                border.color: Theme.amber
+                opacity: 0.65
+            }
 
-                Text {
-                    id: hintText
-                    anchors.centerIn: parent
-                    width: parent.width - 14
-                    text: Backend.captureMode === "area"
-                          ? "AREA SCAN / DRAG AROUND TEXT / ESC CANCELS"
-                          : Backend.captureMode === "anchor"
-                            ? "ANCHOR MATCH / DRAG AROUND A STABLE CUE / ESC CANCELS"
-                            : Backend.captureMode === "learn"
-                              ? "LEARN PATTERN / DRAG AROUND TEXT / ESC CANCELS"
-                              : "SCROLL ZOOM / RIGHT-DRAG PAN / CLICK TOGGLE / DRAG TO ADD"
-                    elide: Text.ElideRight
-                    color: Backend.captureMode !== "none" ? Theme.amber : Theme.steelLight
-                    font.family: Backend.displayFont
-                    font.pixelSize: 9
-                    font.letterSpacing: 0.7
+            Rectangle {
+                id: captureBanner
+                z: 7
+                visible: Backend.hasImage && Backend.captureMode !== "none"
+                anchors.top: parent.top
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.topMargin: 14
+                width: Math.min(stage.width - 32, 640)
+                height: 58
+                radius: 7
+                color: "#F00B0D10"
+                border.width: 1
+                border.color: Theme.amber
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: {}
+                }
+
+                Rectangle {
+                    width: 3
+                    height: parent.height - 18
+                    anchors.left: parent.left
+                    anchors.leftMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    radius: 1.5
+                    color: Theme.amber
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 10
+                    spacing: 12
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: 2
+
+                        Text {
+                            text: viewer.captureTitle
+                            color: Theme.amber
+                            font.family: Backend.displayFont
+                            font.pixelSize: 11
+                            font.letterSpacing: 1.2
+                            font.weight: Font.DemiBold
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: viewer.captureInstruction + " Esc cancels."
+                            color: Theme.white
+                            font.family: Backend.bodyFont
+                            font.pixelSize: 11
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    ConcourseButton {
+                        Layout.alignment: Qt.AlignVCenter
+                        Layout.preferredHeight: 30
+                        text: "CANCEL"
+                        compact: true
+                        onClicked: Backend.cancelCapture()
+                    }
                 }
             }
 
