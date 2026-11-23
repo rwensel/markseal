@@ -285,9 +285,48 @@ Item {
                 y: Backend.dragY
                 width: Backend.dragWidth
                 height: Backend.dragHeight
-                color: "#12FFFFFF"
-                border.width: 1
-                border.color: Theme.white
+                color: Theme.amberFill
+                radius: 2
+
+                Canvas {
+                    anchors.fill: parent
+                    onPaint: {
+                        var ctx = getContext("2d");
+                        ctx.reset();
+                        var x = 2;
+                        var y = 2;
+                        var w = width - 4;
+                        var h = height - 4;
+                        if (w <= 0 || h <= 0)
+                            return;
+                        ctx.strokeStyle = "#B0000000";
+                        ctx.lineWidth = 4;
+                        ctx.setLineDash([]);
+                        ctx.strokeRect(x, y, w, h);
+                        ctx.strokeStyle = Theme.amber;
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([8, 5]);
+                        ctx.strokeRect(x, y, w, h);
+                    }
+                    onWidthChanged: requestPaint()
+                    onHeightChanged: requestPaint()
+                }
+
+                Repeater {
+                    model: [[0, 0], [1, 0], [0, 1], [1, 1]]
+
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: 9
+                        height: 9
+                        visible: parent.width > 18 && parent.height > 18
+                        x: modelData[0] ? parent.width - width : 0
+                        y: modelData[1] ? parent.height - height : 0
+                        color: Theme.amber
+                        border.width: 1
+                        border.color: "#B0000000"
+                    }
+                }
             }
 
             Item {
