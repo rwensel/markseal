@@ -33,6 +33,13 @@ Window {
             onSettingsClicked: settingsWindow.openSettings()
         }
 
+        UpdateBanner {
+            Layout.fillWidth: true
+            Layout.leftMargin: 12
+            Layout.rightMargin: 12
+            Layout.topMargin: 6
+        }
+
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true

@@ -6,8 +6,9 @@ from .folder import FolderFacade
 from .review import ReviewFacade
 from .settings import SettingsFacade
 from .state import Facades, SessionState
+from .updates import UpdateFacade
 
 __all__ = [
     'Alerts', 'BatchFacade', 'Facades', 'FolderFacade', 'JobCenter', 'ReviewFacade',
-    'SessionState', 'SettingsFacade',
+    'SessionState', 'SettingsFacade', 'UpdateFacade',
 ]

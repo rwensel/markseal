@@ -146,6 +146,34 @@ class SettingsFacade(QObject):
         self.alerts.set_status('Rule labels on. Hover a box or select one to inspect its rule.'
                                if enabled else 'Rule labels hidden.')
 
+    @Property(bool, notify=settingsChanged)
+    def checkForUpdates(self):
+        return self.session.preferences.check_for_updates
+
+    @Property(bool, notify=settingsChanged)
+    def downloadAutomatically(self):
+        return self.session.preferences.download_updates_automatically
+
+    @Slot(bool)
+    def setCheckForUpdates(self, enabled):
+        self.session.preferences.check_for_updates = bool(enabled)
+        self.settingsChanged.emit()
+        self._persist_settings()
+
+    @Slot(bool)
+    def setDownloadAutomatically(self, enabled):
+        self.session.preferences.download_updates_automatically = bool(enabled)
+        self.settingsChanged.emit()
+        self._persist_settings()
+
+    def _persist_settings(self):
+        try:
+            preferences.write_preferences(self.session.preference_file, self.session.preferences)
+        except OSError as error:
+            self.alerts.set_status(
+                self.alerts.status_text + f' Settings could not be saved: {error}'
+            )
+
     @Slot(str)
     def setRedactionMethod(self, method):
         if self.session.jobs.busy or method not in ('Pixelate', 'Solid black') \

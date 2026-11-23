@@ -187,11 +187,18 @@ Window {
                     onClicked: settings.tab = "appearance"
                 }
 
+                RailTab {
+                    Layout.fillWidth: true
+                    text: "UPDATES"
+                    active: settings.tab === "updates"
+                    onClicked: settings.tab = "updates"
+                }
+
                 Item { Layout.fillHeight: true }
 
                 Text {
                     Layout.fillWidth: true
-                    text: "NO NETWORK CALLS"
+                    text: "NO NETWORK UNLESS UPDATES ARE ON"
                     color: Theme.steelMid
                     font.family: Theme.displayFont
                     font.pixelSize: 9
@@ -212,7 +219,8 @@ Window {
                                   : settings.tab === "patterns" ? 1
                                   : settings.tab === "redaction" ? 2
                                   : settings.tab === "output" ? 3
-                                  : settings.tab === "blocked" ? 4 : 5
+                                  : settings.tab === "blocked" ? 4
+                                  : settings.tab === "appearance" ? 5 : 6
 
                     Flickable {
                         id: engineFlick
@@ -870,6 +878,61 @@ Window {
                                         onClicked: Backend.settings.previewThemeById(modelData.id)
                                     }
                                 }
+                            }
+
+                            Item { Layout.fillHeight: true }
+                        }
+                    }
+
+                    Flickable {
+                        id: updatesFlick
+                        clip: true
+                        contentWidth: width
+                        contentHeight: updatesPage.implicitHeight
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        ColumnLayout {
+                            id: updatesPage
+                            width: updatesFlick.width
+                            spacing: 10
+
+                            FieldLabel { text: "UPDATES" }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Off by default. When enabled, the app fetches a public release manifest and shows the notes. "
+                                      + "It sends no data about you or your screenshots."
+                                wrapMode: Text.WordWrap
+                                color: Theme.mutedText
+                                font.family: Theme.bodyFont
+                                font.pixelSize: 11
+                            }
+
+                            ToggleRow {
+                                Layout.fillWidth: true
+                                label: "Check for updates"
+                                checked: Backend.settings.checkForUpdates
+                                onToggled: function(next) { Backend.settings.setCheckForUpdates(next) }
+                            }
+
+                            ToggleRow {
+                                Layout.fillWidth: true
+                                label: "Download updates automatically"
+                                checked: Backend.settings.downloadAutomatically
+                                onToggled: function(next) { Backend.settings.setDownloadAutomatically(next) }
+                            }
+
+                            ConcourseButton {
+                                Layout.preferredHeight: 32
+                                text: "CHECK NOW"
+                                compact: true
+                                enabled: !Backend.updates.busy
+                                onClicked: Backend.updates.check()
+                            }
+
+                            HintText {
+                                Layout.fillWidth: true
+                                text: "Current version " + Backend.updates.currentVersion
                             }
 
                             Item { Layout.fillHeight: true }

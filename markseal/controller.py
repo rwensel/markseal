@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QFileDialog
 from . import images
 from .facades import (
     Alerts, BatchFacade, FolderFacade, JobCenter, ReviewFacade, SessionState,
-    SettingsFacade,
+    SettingsFacade, UpdateFacade,
 )
 from .facades.alerts import box_hint
 from .ui.models import DisplayImageProvider
@@ -32,6 +32,7 @@ class Controller(QObject):
         self._review = ReviewFacade(self.session, self.alerts, self)
         self._folder = FolderFacade(self.session, self.alerts, self)
         self._batch = BatchFacade(self.session, self.alerts, self)
+        self._updates = UpdateFacade(self.session, self.alerts, self)
         self.session.facades.settings = self._settings
         self.session.facades.review = self._review
         self.session.facades.folder = self._folder
@@ -51,6 +52,7 @@ class Controller(QObject):
         self._folder.selectionChanged.connect(self._review.selection_changed)
         self.jobs.before_start = self._review.cancel_capture
         self._settings.load_preferences()
+        self._updates.check()
         if not self.alerts.status_text:
             self.alerts.set_status(box_hint(self.session.preferences.theme))
 
@@ -69,6 +71,10 @@ class Controller(QObject):
     @Property(QObject, constant=True)
     def batch(self):
         return self._batch
+
+    @Property(QObject, constant=True)
+    def updates(self):
+        return self._updates
 
     def display_qimage(self):
         return self._review.display_qimage()

@@ -74,7 +74,11 @@ Pixelation changes only marked rectangles, using coarse blocks, but it can leave
 
 ## Sharing
 
-**Copy image** puts the confirmed, redacted preview on the local clipboard so you can paste it into chat, a ticket, documentation, or a sharing service you already use. **Save** writes a PNG and, when that option is enabled, a coordinate log. The application itself makes no network calls and has no direct upload integrations; sharing always happens through your own clipboard or file workflow.
+**Copy image** puts the confirmed, redacted preview on the local clipboard so you can paste it into chat, a ticket, documentation, or a sharing service you already use. **Save** writes a PNG and, when that option is enabled, a coordinate log. The application makes no network calls by default and has no direct upload integrations; sharing always happens through your own clipboard or file workflow.
+
+## Updates
+
+Updates are off by default. **Settings → Updates** has two switches: **Check for updates** and **Download updates automatically**. When checking is on, the app fetches a small public release manifest (the newest version, its notes, and the installer's SHA-256) and, if a newer version exists, shows a soft banner. **NOTES** reveals the changelist; **UPDATE** downloads the installer, verifies its checksum, and opens the OS installer; **LATER** dismisses it. The check sends no data about you or your screenshots, and nothing installs without your click.
 
 ## Themes
 
