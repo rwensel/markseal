@@ -22,10 +22,30 @@ DEFAULT_TEMPLATE = '{stem}_redacted'
 MAX_PARALLEL = 16
 
 
-def preferences_path():
+APP_DIRECTORY = 'Markseal'
+LEGACY_DIRECTORY = 'OfflineScreenshotRedactor'
+
+
+def _base_directory():
     local = os.environ.get('LOCALAPPDATA')
-    base = Path(local) if local else Path.home() / '.config'
-    return base / 'OfflineScreenshotRedactor' / 'settings.json'
+    return Path(local) if local else Path.home() / '.config'
+
+
+def preferences_path():
+    return _base_directory() / APP_DIRECTORY / 'settings.json'
+
+
+def migrate_legacy_settings():
+    """Copy settings from the pre-rename directory once, if the new one is absent."""
+    current = preferences_path()
+    legacy = _base_directory() / LEGACY_DIRECTORY / 'settings.json'
+    if current.exists() or not legacy.is_file():
+        return
+    try:
+        current.parent.mkdir(parents=True, exist_ok=True)
+        current.write_bytes(legacy.read_bytes())
+    except OSError:
+        pass
 
 
 class PreferencesError(ValueError):
@@ -161,6 +181,8 @@ def from_document(document, parallel_limit=MAX_PARALLEL):
 
 def load(path, parallel_limit=MAX_PARALLEL):
     path = Path(path)
+    if path == preferences_path():
+        migrate_legacy_settings()
     try:
         document = json.loads(path.read_text(encoding='utf-8'))
     except FileNotFoundError:

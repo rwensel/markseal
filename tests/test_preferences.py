@@ -1,5 +1,7 @@
 """Settings defaults, persistence, and validation."""
+import os
 import unittest
+from unittest.mock import patch
 
 from tests.support import (
     PRESETS,
@@ -148,3 +150,29 @@ class PreferencesTests(unittest.TestCase):
             ])
             preferences.write_preferences(path, stored)
             self.assertEqual(preferences.enabled_blocked_patterns(path), ('a+',))
+
+    def test_migrates_legacy_settings_directory(self):
+        with TemporaryDirectory() as folder:
+            legacy = Path(folder) / 'OfflineScreenshotRedactor' / 'settings.json'
+            legacy.parent.mkdir(parents=True)
+            legacy.write_text(json.dumps({'confidence': 71}), encoding='utf-8')
+            current = Path(folder) / 'Markseal' / 'settings.json'
+            with patch.dict(os.environ, {'LOCALAPPDATA': folder}):
+                preferences.migrate_legacy_settings()
+            self.assertTrue(current.is_file())
+            self.assertEqual(json.loads(current.read_text(encoding='utf-8')),
+                             {'confidence': 71})
+            current.write_text(json.dumps({'confidence': 12}), encoding='utf-8')
+            with patch.dict(os.environ, {'LOCALAPPDATA': folder}):
+                preferences.migrate_legacy_settings()
+            self.assertEqual(json.loads(current.read_text(encoding='utf-8')),
+                             {'confidence': 12})
+
+    def test_load_migrates_legacy_settings_at_startup(self):
+        with TemporaryDirectory() as folder:
+            legacy = Path(folder) / 'OfflineScreenshotRedactor' / 'settings.json'
+            legacy.parent.mkdir(parents=True)
+            legacy.write_text(json.dumps({'confidence': 71}), encoding='utf-8')
+            with patch.dict(os.environ, {'LOCALAPPDATA': folder}):
+                loaded = preferences.load(preferences.preferences_path())
+            self.assertEqual(loaded.confidence, 71)

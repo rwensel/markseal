@@ -15,7 +15,7 @@ _current = ContextVar('redactor_metrics', default=None)
 
 def log_directory():
     local = os.environ.get('LOCALAPPDATA')
-    return (Path(local) if local else Path.home() / '.config') / 'OfflineScreenshotRedactor' / 'performance'
+    return (Path(local) if local else Path.home() / '.config') / 'Markseal' / 'performance'
 
 
 def now_ms():
