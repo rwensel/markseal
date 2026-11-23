@@ -23,7 +23,6 @@ Window {
         showFullScreen()
         raise()
         requestActivate()
-        captureArea.forceActiveFocus()
     }
 
     function commit() {
@@ -74,11 +73,8 @@ Window {
     }
 
     MouseArea {
-        id: captureArea
         anchors.fill: parent
-        focus: true
         cursorShape: Qt.CrossCursor
-        Keys.onEscapePressed: overlay.visible = false
         onPressed: function(mouse) {
             overlay.startX = mouse.x
             overlay.startY = mouse.y

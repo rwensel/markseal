@@ -203,6 +203,14 @@ Window {
 
     Shortcut {
         sequence: "Escape"
-        onActivated: Backend.review.cancelCapture()
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (captureRegion.visible)
+                captureRegion.visible = false
+            else if (settingsWindow.visible)
+                settingsWindow.closeSettings()
+            else
+                Backend.review.cancelCapture()
+        }
     }
 }

@@ -93,11 +93,6 @@ Window {
         closeSettings()
     }
 
-    Shortcut {
-        sequence: "Escape"
-        onActivated: settings.closeSettings()
-    }
-
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
@@ -110,7 +105,6 @@ Window {
         anchors.fill: parent
         anchors.margins: 20
         spacing: 14
-        Keys.onEscapePressed: settings.closeSettings()
 
         ColumnLayout {
             Layout.fillWidth: true
