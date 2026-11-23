@@ -59,6 +59,20 @@ to read them from Vault KV v2. Set `VAULT_ADDR`, then authenticate with
 `VAULT_TOKEN` or AppRole (`VAULT_ROLE_ID` + `VAULT_SECRET_ID`); use `VAULT_CACERT`
 for a private CA, or `VAULT_SKIP_VERIFY=1` for an internal endpoint.
 
+## One command
+
+Copy `packaging\.release.env.example` to `packaging\.release.env` and fill in
+`VAULT_ADDR`, `VAULT_ROLE_ID`, and `VAULT_SECRET_ID`. The file is gitignored.
+
+```
+powershell -ExecutionPolicy Bypass -File packaging\release.ps1 -Notes "Initial release."
+```
+
+It reads the version from `markseal/__init__.py`, runs the tests and the PyInstaller +
+Inno build, publishes the installer and manifest to R2 through Vault AppRole, and prints
+the manifest URL. `-DryRun` prints the upload plan without contacting Vault or R2, and
+`-SkipBuild` reuses an existing `dist\Markseal-Setup.exe`.
+
 ## Verifying a build
 
 Launch the built app and complete one scan offline; the bundled RapidOCR models
