@@ -54,6 +54,11 @@ policy; the manifest is written to `stable/latest.json` with a 60-second cache s
 a release appears quickly. Drop `--dry-run` to upload. Both are served from the
 `updates.staginglane.app` custom domain on the bucket; no server runs.
 
+Instead of exporting `R2_*` variables, pass `--vault-path secret/prod/markseal/r2`
+to read them from Vault KV v2. Set `VAULT_ADDR`, then authenticate with
+`VAULT_TOKEN` or AppRole (`VAULT_ROLE_ID` + `VAULT_SECRET_ID`); use `VAULT_CACERT`
+for a private CA, or `VAULT_SKIP_VERIFY=1` for an internal endpoint.
+
 ## Verifying a build
 
 Launch the built app and complete one scan offline; the bundled RapidOCR models
