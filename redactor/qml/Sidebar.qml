@@ -9,7 +9,7 @@ Item {
     implicitWidth: 336
     property bool showBatch: false
     readonly property int batchReady: Backend.folderMode
-                                      ? 1 + (Backend.selectedCount > 0
+                                      ? 1 + (Backend.review.selectedCount > 0
                                              && Backend.folderImageCount > 1 ? 2 : 0)
                                       : 0
 
@@ -166,8 +166,8 @@ Item {
                 text: "COPY BOXES TO MATCHING"
                 compact: true
                 tip: "Copy this image's boxes to every image of the same size"
-                enabled: Backend.hasImage && Backend.folderImageCount > 1
-                         && Backend.selectedCount > 0 && !Backend.busy
+                enabled: Backend.review.hasImage && Backend.folderImageCount > 1
+                         && Backend.review.selectedCount > 0 && !Backend.busy
                 onClicked: Backend.copyBoxesToFolder()
             }
 
@@ -178,9 +178,9 @@ Item {
                 text: "MATCH BY ANCHOR"
                 compact: true
                 tip: "Place this image's boxes on shifted captures of the same screen"
-                enabled: Backend.hasImage && Backend.folderImageCount > 1
-                         && Backend.selectedCount > 0 && !Backend.busy
-                onClicked: Backend.beginAnchorCapture()
+                enabled: Backend.review.hasImage && Backend.folderImageCount > 1
+                         && Backend.review.selectedCount > 0 && !Backend.busy
+                onClicked: Backend.review.beginAnchorCapture()
             }
         }
 

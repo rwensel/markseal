@@ -11,8 +11,8 @@ Window {
     minimumHeight: 680
     visible: true
     color: Theme.bg
-    title: Backend.imageName.length > 0
-           ? Backend.imageName + " - Offline Screenshot Redactor"
+    title: Backend.review.imageName.length > 0
+           ? Backend.review.imageName + " - Offline Screenshot Redactor"
            : "Offline Screenshot Redactor"
 
     Rectangle {
@@ -130,61 +130,61 @@ Window {
 
     Shortcut {
         sequence: "Ctrl+C"
-        onActivated: Backend.copyRedacted()
+        onActivated: Backend.review.copyRedacted()
     }
 
     Shortcut {
         sequence: "Ctrl+F"
-        onActivated: Backend.find()
+        onActivated: Backend.review.find()
     }
 
     Shortcut {
         sequence: "Ctrl+="
-        onActivated: Backend.zoomStep(1)
+        onActivated: Backend.review.zoomStep(1)
     }
 
     Shortcut {
         sequence: "Ctrl+Shift+="
-        onActivated: Backend.zoomStep(1)
+        onActivated: Backend.review.zoomStep(1)
     }
 
     Shortcut {
         sequence: "Ctrl+-"
-        onActivated: Backend.zoomStep(-1)
+        onActivated: Backend.review.zoomStep(-1)
     }
 
     Shortcut {
         sequence: "Ctrl+0"
-        onActivated: Backend.zoomFit()
+        onActivated: Backend.review.zoomFit()
     }
 
     Shortcut {
         sequence: "Ctrl+A"
-        onActivated: Backend.selectAllBoxes()
+        onActivated: Backend.review.selectAllBoxes()
     }
 
     Shortcut {
         sequence: "Ctrl+Shift+A"
-        onActivated: Backend.selectNoBoxes()
+        onActivated: Backend.review.selectNoBoxes()
     }
 
     Shortcut {
         sequence: "Ctrl+Z"
-        onActivated: Backend.undo()
+        onActivated: Backend.review.undo()
     }
 
     Shortcut {
         sequence: "Ctrl+Return"
-        onActivated: Backend.confirmSelection()
+        onActivated: Backend.review.confirmSelection()
     }
 
     Shortcut {
         sequence: "Ctrl+S"
-        onActivated: Backend.save()
+        onActivated: Backend.review.save()
     }
 
     Shortcut {
         sequence: "Escape"
-        onActivated: Backend.cancelCapture()
+        onActivated: Backend.review.cancelCapture()
     }
 }

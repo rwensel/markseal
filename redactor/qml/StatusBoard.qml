@@ -47,27 +47,27 @@ Item {
         }
 
         FlipTile {
-            value: String(Backend.selectedCount)
+            value: String(Backend.review.selectedCount)
             label: "SELECTED"
             accent: Theme.amber
         }
 
         FlipTile {
-            value: String(Backend.excludedCount)
+            value: String(Backend.review.excludedCount)
             label: "EXCLUDED"
             accent: Theme.red
         }
 
         FlipTile {
-            value: String(Backend.totalBoxes)
+            value: String(Backend.review.totalBoxes)
             label: "TOTAL"
             accent: Theme.steelLight
         }
 
         FlipTile {
-            value: Backend.confirmed ? "APPLIED" : "PENDING"
+            value: Backend.review.confirmed ? "APPLIED" : "PENDING"
             label: "STATE"
-            accent: Backend.confirmed ? Theme.amber : Theme.steelMid
+            accent: Backend.review.confirmed ? Theme.amber : Theme.steelMid
         }
     }
 }

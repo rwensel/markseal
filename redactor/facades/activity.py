@@ -74,6 +74,14 @@ class JobCenter(QObject):
             self._scan_stage = text
             self.scanStageChanged.emit()
 
+    def reset_progress(self, detail=''):
+        self._progress_text = 'Ready'
+        self._progress_value = 0
+        self._progress_max = 1
+        self._progress_detail = detail
+        self._progress_current = ''
+        self.progressChanged.emit()
+
     def begin_manual(self, label):
         self._busy = True
         self._busy_label = label

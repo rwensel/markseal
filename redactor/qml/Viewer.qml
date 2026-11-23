@@ -8,33 +8,33 @@ Item {
     id: viewer
     property int hoveredBox: -1
     property int keyboardBox: -1
-    readonly property string captureTitle: Backend.captureMode === "area" ? "SCAN AREA"
-                                          : Backend.captureMode === "anchor" ? "ANCHOR MATCH"
-                                          : Backend.captureMode === "learn" ? "LEARN PATTERN" : ""
-    readonly property string captureInstruction: Backend.captureMode === "area"
+    readonly property string captureTitle: Backend.review.captureMode === "area" ? "SCAN AREA"
+                                          : Backend.review.captureMode === "anchor" ? "ANCHOR MATCH"
+                                          : Backend.review.captureMode === "learn" ? "LEARN PATTERN" : ""
+    readonly property string captureInstruction: Backend.review.captureMode === "area"
                                                  ? "Drag a tight box around the text."
-                                                 : Backend.captureMode === "anchor"
+                                                 : Backend.review.captureMode === "anchor"
                                                    ? "Drag around a stable cue near the boxes."
-                                                   : Backend.captureMode === "learn"
+                                                   : Backend.review.captureMode === "learn"
                                                      ? "Drag around the text to block."
                                                      : ""
 
     Connections {
-        target: Backend
+        target: Backend.review
         function onImageChanged() { viewer.hoveredBox = -1; viewer.keyboardBox = -1 }
         function onReviewChanged() {
-            if (viewer.keyboardBox >= Backend.totalBoxes)
-                viewer.keyboardBox = Backend.totalBoxes - 1
+            if (viewer.keyboardBox >= Backend.review.totalBoxes)
+                viewer.keyboardBox = Backend.review.totalBoxes - 1
         }
     }
 
     function stepBox(delta) {
-        if (Backend.totalBoxes === 0)
+        if (Backend.review.totalBoxes === 0)
             return
         if (keyboardBox < 0)
             keyboardBox = 0
         else
-            keyboardBox = (keyboardBox + delta + Backend.totalBoxes) % Backend.totalBoxes
+            keyboardBox = (keyboardBox + delta + Backend.review.totalBoxes) % Backend.review.totalBoxes
     }
 
     Rectangle {
@@ -55,11 +55,11 @@ Item {
         anchors.topMargin: 15
         height: 26
         spacing: 10
-        visible: Backend.hasImage
+        visible: Backend.review.hasImage
 
         Text {
             Layout.fillWidth: true
-            text: Backend.imageName
+            text: Backend.review.imageName
             elide: Text.ElideMiddle
             color: Theme.white
             font.family: Theme.bodyFont
@@ -67,7 +67,7 @@ Item {
         }
 
         Text {
-            text: Backend.imageSizeText
+            text: Backend.review.imageSizeText
             color: Theme.steelLight
             font.family: Theme.displayFont
             font.pixelSize: 9
@@ -108,7 +108,7 @@ Item {
 
         Text {
             id: zoomText
-            text: Math.round(Backend.viewScale * 100) + "%"
+            text: Math.round(Backend.review.viewScale * 100) + "%"
             color: Theme.white
             font.family: Theme.displayFont
             font.pixelSize: 10
@@ -133,26 +133,26 @@ Item {
             Layout.preferredWidth: 1
             Layout.preferredHeight: 12
             color: Theme.hairline
-            visible: Backend.confirmed
+            visible: Backend.review.confirmed
         }
 
         ConcourseButton {
             Layout.preferredHeight: 26
             text: "REVISE"
             compact: true
-            visible: Backend.confirmed
+            visible: Backend.review.confirmed
             tip: "Return to editing the boxes"
-            onClicked: Backend.editBoxes()
+            onClicked: Backend.review.editBoxes()
         }
 
         ConcourseButton {
             Layout.preferredHeight: 26
             text: "COPY IMAGE"
             compact: true
-            visible: Backend.confirmed
+            visible: Backend.review.confirmed
             tip: "Copy the redacted image to the clipboard (Ctrl+C)"
             enabled: !Backend.busy
-            onClicked: Backend.copyRedacted()
+            onClicked: Backend.review.copyRedacted()
         }
     }
 
@@ -160,7 +160,7 @@ Item {
         id: frame
         anchors.fill: parent
         anchors.margins: 20
-        anchors.topMargin: Backend.hasImage ? 54 : 20
+        anchors.topMargin: Backend.review.hasImage ? 54 : 20
 
         Rectangle {
             id: cardBackground
@@ -211,49 +211,49 @@ Item {
             Accessible.name: "Screenshot review area"
             Accessible.description: "Arrow keys move between boxes, Space includes or excludes, Delete removes, Shift with arrows pans, Ctrl+Enter confirms."
 
-            onWidthChanged: Backend.setViewSize(width, height)
-            onHeightChanged: Backend.setViewSize(width, height)
-            Component.onCompleted: Backend.setViewSize(width, height)
+            onWidthChanged: Backend.review.setViewSize(width, height)
+            onHeightChanged: Backend.review.setViewSize(width, height)
+            Component.onCompleted: Backend.review.setViewSize(width, height)
             onActiveFocusChanged: {
-                if (activeFocus && keyboardBox < 0 && Backend.totalBoxes > 0)
+                if (activeFocus && keyboardBox < 0 && Backend.review.totalBoxes > 0)
                     keyboardBox = 0
             }
 
             Keys.onLeftPressed: function(event) {
                 if (event.modifiers & Qt.ShiftModifier)
-                    Backend.panStep(60, 0)
+                    Backend.review.panStep(60, 0)
                 else
                     stepBox(-1)
             }
             Keys.onUpPressed: function(event) {
                 if (event.modifiers & Qt.ShiftModifier)
-                    Backend.panStep(0, 60)
+                    Backend.review.panStep(0, 60)
                 else
                     stepBox(-1)
             }
             Keys.onRightPressed: function(event) {
                 if (event.modifiers & Qt.ShiftModifier)
-                    Backend.panStep(-60, 0)
+                    Backend.review.panStep(-60, 0)
                 else
                     stepBox(1)
             }
             Keys.onDownPressed: function(event) {
                 if (event.modifiers & Qt.ShiftModifier)
-                    Backend.panStep(0, -60)
+                    Backend.review.panStep(0, -60)
                 else
                     stepBox(1)
             }
             Keys.onSpacePressed: {
                 if (keyboardBox >= 0) {
-                    Backend.toggleBox(keyboardBox)
+                    Backend.review.toggleBox(keyboardBox)
                     event.accepted = true
                 }
             }
             Keys.onDeletePressed: {
                 if (keyboardBox >= 0) {
                     var removed = keyboardBox
-                    Backend.removeBox(removed)
-                    viewer.keyboardBox = Math.min(removed, Backend.totalBoxes - 1)
+                    Backend.review.removeBox(removed)
+                    viewer.keyboardBox = Math.min(removed, Backend.review.totalBoxes - 1)
                     event.accepted = true
                 }
             }
@@ -261,12 +261,12 @@ Item {
             Image {
                 id: screenshot
                 z: 0
-                visible: Backend.hasImage
-                x: Backend.viewOffsetX
-                y: Backend.viewOffsetY
-                width: Math.max(1, Backend.imageWidth * Backend.viewScale)
-                height: Math.max(1, Backend.imageHeight * Backend.viewScale)
-                source: Backend.hasImage ? "image://redactor/view/" + Backend.imageRevision : ""
+                visible: Backend.review.hasImage
+                x: Backend.review.viewOffsetX
+                y: Backend.review.viewOffsetY
+                width: Math.max(1, Backend.review.imageWidth * Backend.review.viewScale)
+                height: Math.max(1, Backend.review.imageHeight * Backend.review.viewScale)
+                source: Backend.review.hasImage ? "image://redactor/view/" + Backend.review.imageRevision : ""
                 fillMode: Image.Stretch
                 smooth: true
                 mipmap: true
@@ -280,52 +280,52 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                cursorShape: Backend.panning ? Qt.ClosedHandCursor : Qt.CrossCursor
+                cursorShape: Backend.review.panning ? Qt.ClosedHandCursor : Qt.CrossCursor
 
                 onPressed: function(mouse) {
                     stage.forceActiveFocus()
                     if (mouse.button === Qt.RightButton) {
-                        Backend.beginPan(mouse.x, mouse.y)
+                        Backend.review.beginPan(mouse.x, mouse.y)
                     } else {
-                        Backend.press(mouse.x, mouse.y)
+                        Backend.review.press(mouse.x, mouse.y)
                     }
                 }
 
                 onPositionChanged: function(mouse) {
                     if (mouse.buttons & Qt.RightButton) {
-                        Backend.movePan(mouse.x, mouse.y)
+                        Backend.review.movePan(mouse.x, mouse.y)
                     } else if (mouse.buttons & Qt.LeftButton) {
-                        Backend.move(mouse.x, mouse.y)
+                        Backend.review.move(mouse.x, mouse.y)
                     }
                 }
 
                 onReleased: function(mouse) {
                     if (mouse.button === Qt.RightButton) {
-                        Backend.endPan()
+                        Backend.review.endPan()
                     } else {
-                        Backend.release(mouse.x, mouse.y)
+                        Backend.review.release(mouse.x, mouse.y)
                     }
                 }
 
                 onWheel: function(wheel) {
-                    Backend.zoomAt(wheel.x, wheel.y, wheel.angleDelta.y)
+                    Backend.review.zoomAt(wheel.x, wheel.y, wheel.angleDelta.y)
                 }
             }
 
             Repeater {
                 id: boxRepeater
-                model: Backend.boxes
+                model: Backend.review.boxes
                 onCountChanged: viewer.hoveredBox = -1
 
                 delegate: Item {
                     id: box
                     property var boxData: modelData
                     z: 2
-                    x: boxData.x1 * Backend.viewScale + Backend.viewOffsetX
-                    y: boxData.y1 * Backend.viewScale + Backend.viewOffsetY
-                    width: Math.max(1, (boxData.x2 - boxData.x1) * Backend.viewScale)
-                    height: Math.max(1, (boxData.y2 - boxData.y1) * Backend.viewScale)
-                    visible: Backend.hasImage && !Backend.confirmed
+                    x: boxData.x1 * Backend.review.viewScale + Backend.review.viewOffsetX
+                    y: boxData.y1 * Backend.review.viewScale + Backend.review.viewOffsetY
+                    width: Math.max(1, (boxData.x2 - boxData.x1) * Backend.review.viewScale)
+                    height: Math.max(1, (boxData.y2 - boxData.y1) * Backend.review.viewScale)
+                    visible: Backend.review.hasImage && !Backend.review.confirmed
 
                     HoverHandler {
                         onHoveredChanged: {
@@ -369,7 +369,7 @@ Item {
                         z: 5
                         visible: Backend.settings.showRules && (viewer.hoveredBox !== -1
                                  ? viewer.hoveredBox === index
-                                 : (box.boxData.selected && Backend.selectedCount === 1))
+                                 : (box.boxData.selected && Backend.review.selectedCount === 1))
                         width: Math.min(Math.max(80, ruleText.implicitWidth + 12), stage.width - 8)
                         height: 19
                         radius: 3
@@ -435,7 +435,7 @@ Item {
                             anchors.margins: -4
                             acceptedButtons: Qt.LeftButton
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: Backend.removeBox(index)
+                            onClicked: Backend.review.removeBox(index)
                         }
                     }
                 }
@@ -452,8 +452,8 @@ Item {
                 color: Theme.panel
                 border.width: 1
                 border.color: Theme.buttonBorder
-                visible: stage.activeFocus && Backend.totalBoxes > 0 && !Backend.confirmed
-                         && Backend.captureMode === "none" && !Backend.busy
+                visible: stage.activeFocus && Backend.review.totalBoxes > 0 && !Backend.review.confirmed
+                         && Backend.review.captureMode === "none" && !Backend.busy
 
                 Text {
                     id: keyHint
@@ -478,13 +478,13 @@ Item {
 
             Rectangle {
                 z: 3
-                visible: Backend.dragActive
-                         && Backend.dragWidth > 0
-                         && Backend.dragHeight > 0
-                x: Backend.dragX
-                y: Backend.dragY
-                width: Backend.dragWidth
-                height: Backend.dragHeight
+                visible: Backend.review.dragActive
+                         && Backend.review.dragWidth > 0
+                         && Backend.review.dragHeight > 0
+                x: Backend.review.dragX
+                y: Backend.review.dragY
+                width: Backend.review.dragWidth
+                height: Backend.review.dragHeight
                 color: Theme.amberFill
                 radius: 2
 
@@ -532,7 +532,7 @@ Item {
             Item {
                 z: 4
                 anchors.fill: parent
-                visible: !Backend.hasImage
+                visible: !Backend.review.hasImage
 
                 Column {
                     anchors.centerIn: parent
@@ -621,7 +621,7 @@ Item {
 
             Rectangle {
                 z: 4
-                visible: Backend.hasImage && Backend.captureMode !== "none"
+                visible: Backend.review.hasImage && Backend.review.captureMode !== "none"
                 anchors.fill: parent
                 color: "transparent"
                 border.width: 2
@@ -632,7 +632,7 @@ Item {
             Rectangle {
                 id: captureBanner
                 z: 7
-                visible: Backend.hasImage && Backend.captureMode !== "none"
+                visible: Backend.review.hasImage && Backend.review.captureMode !== "none"
                 anchors.top: parent.top
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.topMargin: 14
@@ -694,7 +694,7 @@ Item {
                         Layout.preferredHeight: 30
                         text: "CANCEL"
                         compact: true
-                        onClicked: Backend.cancelCapture()
+                        onClicked: Backend.review.cancelCapture()
                     }
                 }
             }

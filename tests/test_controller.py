@@ -75,29 +75,29 @@ class ControllerTests(unittest.TestCase):
     def test_scan_review_and_export_round_trip(self):
         source = self.open_image()
         engine = FakeEngine(tsv=TSV)
-        with patch.object(Controller, '_scan_engine', return_value=engine):
-            self.controller._start_single_scan()
+        with patch.object(self.controller.session, 'scan_engine', return_value=engine):
+            self.controller.review.start_single_scan()
             self.wait_for_jobs()
 
         self.assertEqual(self.errors, [])
-        self.assertEqual(self.controller.totalBoxes, 1)
-        self.assertEqual(self.controller.selectedCount, 1)
+        self.assertEqual(self.controller.review.totalBoxes, 1)
+        self.assertEqual(self.controller.review.selectedCount, 1)
         self.assertEqual(self.controller.session.review.rules[
                              self.controller.session.review.boxes[0]],
                          ('Emails',))
 
-        self.controller.toggleBox(0)
-        self.assertEqual(self.controller.selectedCount, 0)
-        self.assertFalse(self.controller.confirmed)
-        self.controller.toggleBox(0)
+        self.controller.review.toggleBox(0)
+        self.assertEqual(self.controller.review.selectedCount, 0)
+        self.assertFalse(self.controller.review.confirmed)
+        self.controller.review.toggleBox(0)
         self.controller.settings.setRedactionMethod('Solid black')
-        self.controller.confirmSelection()
-        self.assertTrue(self.controller.confirmed)
+        self.controller.review.confirmSelection()
+        self.assertTrue(self.controller.review.confirmed)
 
         target = Path(self.temporary.name) / 'screenshot_redacted.png'
-        with patch('redactor.controller.QFileDialog.getSaveFileName',
+        with patch('redactor.facades.review.QFileDialog.getSaveFileName',
                    return_value=(str(target), 'PNG image (*.png)')):
-            self.controller._save_single()
+            self.controller.review.save_single()
 
         self.assertEqual(self.errors, [])
         self.assertTrue(target.is_file())

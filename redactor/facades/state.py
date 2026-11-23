@@ -38,6 +38,16 @@ class SessionState:
     def scan_engine(self):
         return ocr.make_engine(self.preferences.ocr_engine)
 
+    def store_active(self):
+        if self.active is None or self.review.image is None:
+            return
+        if not 0 <= self.active < len(self.entries):
+            return
+        entry = self.entries[self.active]
+        if entry.reviewed and not self.review.confirmed:
+            entry.saved = False
+        entry.reviewed = self.review.confirmed
+
     def scan_settings(self):
         return preferences.scan_settings(self.preferences)
 

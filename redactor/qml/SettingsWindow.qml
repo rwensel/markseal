@@ -711,11 +711,11 @@ Window {
                                 ConcourseButton {
                                     text: "LEARN FROM SCAN AREA"
                                     variant: "primary"
-                                    enabled: Backend.hasImage && !Backend.busy
+                                    enabled: Backend.review.hasImage && !Backend.busy
                                     onClicked: {
                                         if (settings.tryApply()) {
                                             settings.visible = false
-                                            Backend.beginLearnPattern()
+                                            Backend.review.beginLearnPattern()
                                         }
                                     }
                                 }
@@ -730,7 +730,7 @@ Window {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: Backend.hasImage
+                                text: Backend.review.hasImage
                                       ? "The settings window closes; drag around the text in the viewer. Manual patterns can be added any time."
                                       : "Open an image to learn from a scan area, or add a pattern manually."
                                 wrapMode: Text.WordWrap

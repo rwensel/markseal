@@ -10,8 +10,8 @@ Item {
     signal settingsClicked()
 
     readonly property bool wide: width >= 1240
-    readonly property bool canScan: Backend.hasImage && !Backend.busy && !Backend.confirmed
-    readonly property bool canConfirm: Backend.hasImage && !Backend.busy && !Backend.confirmed
+    readonly property bool canScan: Backend.review.hasImage && !Backend.busy && !Backend.review.confirmed
+    readonly property bool canConfirm: Backend.review.hasImage && !Backend.busy && !Backend.review.confirmed
 
     Shortcut {
         sequence: "Alt+M"
@@ -155,10 +155,10 @@ Item {
         ConcourseButton {
             text: "SCAN IMAGE"
             compact: true
-            variant: toolbar.canScan && Backend.totalBoxes === 0 ? "primary" : "secondary"
+            variant: toolbar.canScan && Backend.review.totalBoxes === 0 ? "primary" : "secondary"
             tip: "Find identifiers in this image (Ctrl+F)"
             enabled: toolbar.canScan
-            onClicked: Backend.find()
+            onClicked: Backend.review.find()
         }
 
         ConcourseButton {
@@ -167,7 +167,7 @@ Item {
             tip: "Drag around one area to scan just that text"
             visible: toolbar.wide
             enabled: toolbar.canScan
-            onClicked: Backend.beginScanArea()
+            onClicked: Backend.review.beginScanArea()
         }
 
         Rectangle {
@@ -180,8 +180,8 @@ Item {
             text: "UNDO"
             compact: true
             tip: "Undo the last box (Ctrl+Z)"
-            enabled: Backend.hasImage && Backend.totalBoxes > 0
-            onClicked: Backend.undo()
+            enabled: Backend.review.hasImage && Backend.review.totalBoxes > 0
+            onClicked: Backend.review.undo()
         }
 
         ConcourseButton {
@@ -189,8 +189,8 @@ Item {
             compact: true
             tip: "Remove every box from this image"
             visible: toolbar.wide
-            enabled: Backend.hasImage && Backend.totalBoxes > 0
-            onClicked: Backend.clearBoxes()
+            enabled: Backend.review.hasImage && Backend.review.totalBoxes > 0
+            onClicked: Backend.review.clearBoxes()
         }
 
         ConcourseButton {
@@ -206,23 +206,23 @@ Item {
         Item { Layout.fillWidth: true }
 
         ConcourseButton {
-            text: Backend.confirmLabel
+            text: Backend.review.confirmLabel
             compact: true
-            variant: toolbar.canConfirm && Backend.totalBoxes > 0 ? "primary" : "secondary"
-            tip: Backend.confirmLabel.indexOf(" ") > 0
+            variant: toolbar.canConfirm && Backend.review.totalBoxes > 0 ? "primary" : "secondary"
+            tip: Backend.review.confirmLabel.indexOf(" ") > 0
                  ? "Apply the boxes to every selected image"
                  : "Apply the selected boxes (Ctrl+Enter)"
             enabled: toolbar.canConfirm
-            onClicked: Backend.confirmSelection()
+            onClicked: Backend.review.confirmSelection()
         }
 
         ConcourseButton {
             text: "SAVE"
             compact: true
-            variant: Backend.confirmed ? "primary" : "secondary"
+            variant: Backend.review.confirmed ? "primary" : "secondary"
             tip: "Save the confirmed PNG copy and coordinate log (Ctrl+S)"
-            enabled: Backend.hasImage && !Backend.busy && Backend.confirmed
-            onClicked: Backend.save()
+            enabled: Backend.review.hasImage && !Backend.busy && Backend.review.confirmed
+            onClicked: Backend.review.save()
         }
 
         ConcourseButton {
@@ -252,12 +252,12 @@ Item {
         MenuAction {
             text: "Scan a region"
             enabled: toolbar.canScan && !Backend.busy
-            onTriggered: Backend.beginScanArea()
+            onTriggered: Backend.review.beginScanArea()
         }
         MenuAction {
             text: "Clear all boxes"
-            enabled: Backend.hasImage && Backend.totalBoxes > 0 && !Backend.busy
-            onTriggered: Backend.clearBoxes()
+            enabled: Backend.review.hasImage && Backend.review.totalBoxes > 0 && !Backend.busy
+            onTriggered: Backend.review.clearBoxes()
         }
     }
 }
