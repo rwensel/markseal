@@ -24,6 +24,7 @@ from redactor.ocr import RapidEngine, TesseractEngine, make_engine
 from redactor import preferences
 from redactor.preferences import Preferences, PreferencesError
 from redactor import patterns
+from redactor import themes
 from redactor import export
 from redactor import core
 from redactor.viewport import Viewport
@@ -1316,6 +1317,53 @@ class JobRunnerTests(unittest.TestCase):
         self.assertFalse(runner.busy)
         self.assertFalse(runner.start('Second', [], operation,
                                       lambda index, result, error: None))
+
+
+class ThemeTests(unittest.TestCase):
+    def test_theme_ids_are_the_six_curated_worlds(self):
+        self.assertEqual(themes.THEME_IDS, (
+            'split-flap-concourse', 'timetable-slide-rack', 'jet-age-ticket-wallet',
+            'centre-rail-reference', 'crouwel-grid-specimen', 'midnight-transit-diagram',
+        ))
+        self.assertEqual(themes.DEFAULT_ID, 'split-flap-concourse')
+
+    def test_every_theme_resolves_every_required_token(self):
+        for theme_id in themes.THEME_IDS:
+            tokens = themes.resolve(theme_id)
+            self.assertEqual(set(tokens), set(themes.REQUIRED_TOKENS), theme_id)
+            for key in ('bg', 'panel', 'amber', 'red', 'dangerText', 'shadow'):
+                self.assertRegex(tokens[key], r'^#[0-9a-fA-F]{6,8}$', f'{theme_id}.{key}')
+            self.assertTrue(tokens['displayFont'])
+            self.assertTrue(tokens['bodyFont'])
+            self.assertTrue(tokens['selectedSignalName'])
+            self.assertTrue(tokens['excludedSignalName'])
+
+    def test_unknown_theme_falls_back_to_default(self):
+        self.assertEqual(themes.resolve('nope'), themes.resolve(themes.DEFAULT_ID))
+        self.assertFalse(themes.is_known('nope'))
+
+    def test_contrast_report_is_empty_for_every_theme(self):
+        for theme_id in themes.THEME_IDS:
+            self.assertEqual(themes.contrast_report(theme_id), [], theme_id)
+
+    def test_signals_are_distinct_for_every_theme(self):
+        for theme_id in themes.THEME_IDS:
+            tokens = themes.resolve(theme_id)
+            selected = themes.relative_luminance(tokens['amber'])
+            excluded = themes.relative_luminance(tokens['red'])
+            self.assertGreaterEqual(abs(selected - excluded), 0.08, theme_id)
+
+    def test_resolution_is_deterministic(self):
+        self.assertEqual(themes.resolve('midnight-transit-diagram'),
+                         themes.resolve('midnight-transit-diagram'))
+
+
+class ThemePaletteTests(unittest.TestCase):
+    def test_pick_font_uses_the_first_available_family(self):
+        self.assertEqual(
+            themes.pick_font(['Missing', 'Second'], 'Fallback', {'Second', 'Fallback'}),
+            'Second')
+        self.assertEqual(themes.pick_font(['Missing'], 'Fallback', {'Fallback'}), 'Fallback')
 
 
 if __name__ == '__main__': unittest.main()
