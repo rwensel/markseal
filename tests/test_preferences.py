@@ -64,6 +64,14 @@ class PreferencesTests(unittest.TestCase):
             loaded = preferences.from_document({'redaction_method': method})
             self.assertEqual(loaded.method, method)
 
+    def test_apply_form_preserves_update_preferences(self):
+        current = preferences.defaults()
+        current.check_for_updates = True
+        current.download_updates_automatically = True
+        updated = preferences.apply_form(current, self.form(), 16)
+        self.assertTrue(updated.check_for_updates)
+        self.assertTrue(updated.download_updates_automatically)
+
     def test_invalid_settings_are_rejected_before_writing(self):
         current = preferences.defaults()
         for override in ({'confidence': 101}, {'confidence': -1},
