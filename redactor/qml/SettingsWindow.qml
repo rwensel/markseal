@@ -635,6 +635,12 @@ Window {
                                             }
 
                                             ConcourseButton {
+                                                text: "EDIT"
+                                                compact: true
+                                                onClicked: Backend.renameBlockedPattern(index)
+                                            }
+
+                                            ConcourseButton {
                                                 text: "REMOVE"
                                                 compact: true
                                                 variant: "danger"

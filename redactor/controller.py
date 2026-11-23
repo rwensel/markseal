@@ -1245,6 +1245,40 @@ class Controller(QObject):
             self.addBlockedPattern(label_value, pattern_value)
             return
 
+    @Slot(int)
+    def renameBlockedPattern(self, index):
+        if not 0 <= index < len(self._blocked_patterns):
+            return
+        entry = self._blocked_patterns[index]
+        dialog = QDialog()
+        dialog.setWindowTitle('Rename blocked pattern')
+        dialog.setMinimumWidth(520)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel('Pattern name'))
+        field = QLineEdit(entry.get('text', ''))
+        field.setPlaceholderText('Manual pattern')
+        field.selectAll()
+        field.setFocus()
+        layout.addWidget(field)
+        note = QLabel('Used in the rule label for future scans. Leave blank for "Manual pattern".')
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        name = field.text().strip()
+        if name == entry.get('text', ''):
+            return
+        entry['text'] = name
+        self._persist_blocked_patterns()
+        self.blockedPatternsChanged.emit()
+        self._set_status('Blocked pattern renamed.')
+
     def _persist_blocked_patterns(self):
         try:
             core.write_preferences(self.preferences_file, self._preference_document())
