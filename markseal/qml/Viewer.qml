@@ -154,6 +154,16 @@ Item {
             enabled: !Backend.batch.busy
             onClicked: Backend.review.copyRedacted()
         }
+
+        ConcourseButton {
+            Layout.preferredHeight: 26
+            text: "VERIFY"
+            compact: true
+            visible: Backend.review.confirmed
+            tip: "Prove pixels outside the redactions are unchanged"
+            enabled: !Backend.batch.busy
+            onClicked: Backend.review.verifyCurrent()
+        }
     }
 
     Item {

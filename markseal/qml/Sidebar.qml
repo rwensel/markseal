@@ -142,9 +142,9 @@ Item {
                 variant: "secondary"
                 compact: true
                 tip: sidebar.batchReady > 0
-                     ? "Rescan all, copy boxes, and match by anchor; "
+                     ? "Rescan all, copy boxes, match by anchor, and verify exports; "
                        + sidebar.batchReady + " can run now"
-                     : "Rescan all, copy boxes, and match by anchor"
+                     : "Rescan all, copy boxes, match by anchor, and verify exports"
                 onClicked: sidebar.showBatch = !sidebar.showBatch
             }
 
@@ -181,6 +181,17 @@ Item {
                 enabled: Backend.review.hasImage && Backend.folder.folderImageCount > 1
                          && Backend.review.selectedCount > 0 && !Backend.batch.busy
                 onClicked: Backend.review.beginAnchorCapture()
+            }
+
+            ConcourseButton {
+                Layout.fillWidth: true
+                Layout.columnSpan: 2
+                visible: sidebar.showBatch
+                text: "VERIFY EXPORTS"
+                compact: true
+                tip: "Check that pixels outside the redactions are unchanged"
+                enabled: !Backend.batch.busy && Backend.folder.savedCount > 0
+                onClicked: Backend.batch.verifyReviewed()
             }
         }
 
