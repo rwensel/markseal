@@ -18,11 +18,15 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from performance_log import PerformanceRun, log_directory
 
-from . import core
+from . import boxset
+from . import detection
 from . import dialogs
 from . import export
+from . import images
+from . import ocr
 from . import patterns
 from . import preferences
+from . import redaction
 from .jobs import JobRunner, progress_line
 from .review import Review
 
@@ -191,7 +195,7 @@ class Controller(QObject):
         self.folder = None
         self.output_directory = None
         self.output_directory_override = None
-        self.preferences_file = Path(preferences_file) if preferences_file else core.preferences_path()
+        self.preferences_file = Path(preferences_file) if preferences_file else preferences.preferences_path()
         self.parallel_limit = max(1, min(16, os.cpu_count() or 4))
         self._pasted_image = False
         self._busy = False
@@ -243,7 +247,7 @@ class Controller(QObject):
     def _refresh_display(self):
         image = self.review.image
         if image is not None and self.review.confirmed:
-            image = core.apply_redactions(image, self.review.selected_boxes(), self._preferences.method)
+            image = redaction.apply_redactions(image, self.review.selected_boxes(), self._preferences.method)
         if image is None:
             self._display_qimage = QImage()
         else:
@@ -451,11 +455,11 @@ class Controller(QObject):
 
     @Property(list, constant=True)
     def categoryNames(self):
-        return list(core.PATTERNS)
+        return list(detection.PATTERNS)
 
     @Property(list, constant=True)
     def presetNames(self):
-        return [*core.PRESETS, 'Custom']
+        return [*detection.PRESETS, 'Custom']
 
     @Property(list, constant=True)
     def engineNames(self):
@@ -467,8 +471,8 @@ class Controller(QObject):
 
     @Property(dict, constant=True)
     def presetCategories(self):
-        return {name: [category for category in core.PATTERNS if category in values]
-                for name, values in core.PRESETS.items()}
+        return {name: [category for category in detection.PATTERNS if category in values]
+                for name, values in detection.PRESETS.items()}
 
     @Property(list, notify=settingsChanged)
     def categories(self):
@@ -587,7 +591,7 @@ class Controller(QObject):
         try:
             paths = sorted(
                 (path for path in chosen.iterdir()
-                 if path.suffix.lower() in core.IMAGE_SUFFIXES and path.is_file()),
+                 if path.suffix.lower() in images.IMAGE_SUFFIXES and path.is_file()),
                 key=lambda path: (path.name.casefold(), path.name),
             )
         except OSError as error:
@@ -602,7 +606,7 @@ class Controller(QObject):
         self._cancel_capture()
         self.folder = chosen
         self.output_directory = self.output_directory_override or chosen / 'redacted'
-        self.entries = [core.FolderImage(path, method=self._preferences.method) for path in paths]
+        self.entries = [boxset.FolderImage(path, method=self._preferences.method) for path in paths]
         self.active = None
         self.row_selection = {0}
         self.row_anchor = 0
@@ -627,7 +631,7 @@ class Controller(QObject):
             if url.isLocalFile():
                 paths.append(Path(url.toLocalFile()))
         images = [path for path in paths
-                  if path.is_file() and path.suffix.lower() in core.IMAGE_SUFFIXES]
+                  if path.is_file() and path.suffix.lower() in images.IMAGE_SUFFIXES]
         if images:
             if not self._prepare_image_open():
                 return
@@ -652,7 +656,7 @@ class Controller(QObject):
             for url in data.urls():
                 if url.isLocalFile():
                     path = Path(url.toLocalFile())
-                    if path.is_file() and path.suffix.lower() in core.IMAGE_SUFFIXES:
+                    if path.is_file() and path.suffix.lower() in images.IMAGE_SUFFIXES:
                         with Image.open(path) as source:
                             return source.convert('RGB'), path, False
         if data.hasImage():
@@ -707,7 +711,7 @@ class Controller(QObject):
         self.review.confirmed = entry.reviewed
         self.review.viewport.clear()
         try:
-            image, entry.stamp = core.read_folder_image(entry.path, entry.stamp)
+            image, entry.stamp = images.read_folder_image(entry.path, entry.stamp)
         except (OSError, ValueError, Image.DecompressionBombError) as error:
             self.review.image = None
             entry.error = 'Open failed'
@@ -892,7 +896,7 @@ class Controller(QObject):
             self._store_active()
             self._emit_review()
             self._set_status(
-                f'{len(self.review.selected)} areas applied in preview. '
+                f'{len(self.review.selected)} boxes applied in preview. '
                 'Save, or click to change your selection.'
             )
 
@@ -911,7 +915,7 @@ class Controller(QObject):
             self._emit_view()
 
     def _scan_engine(self):
-        return core.make_engine(self._preferences.ocr_engine)
+        return ocr.make_engine(self._preferences.ocr_engine)
 
     def _scan_settings(self):
         return preferences.scan_settings(self._preferences)
@@ -946,7 +950,7 @@ class Controller(QObject):
 
         def operation(job):
             incomplete = []
-            found = core.recognize_regions(
+            found = ocr.recognize_regions(
                 self.review.image, engine, settings, self._preferences.enhanced_ocr,
                 color_assisted=self._preferences.color_ocr, incomplete=incomplete,
                 area=area, progress=stages.put,
@@ -1048,7 +1052,7 @@ class Controller(QObject):
         info = {'text': '', 'error': None}
 
         def operation(job):
-            return core.read_area_text(self.review.image, engine, area)
+            return ocr.read_area_text(self.review.image, engine, area)
 
         def accept(index, result, error):
             if error is not None:
@@ -1190,7 +1194,7 @@ class Controller(QObject):
 
         def operation(job):
             path, stamp = job
-            return core.scan_folder_image(
+            return ocr.scan_folder_image(
                 path, stamp, engine, settings, enhanced, cancel,
                 color_assisted=color_assisted, area=area,
             )
@@ -1213,7 +1217,7 @@ class Controller(QObject):
                 count = entry.add_suggestions(found, incomplete)
                 changed = True
             else:
-                added = core.new_ocr_boxes(found, entry.boxes)
+                added = boxset.new_ocr_boxes(found, entry.boxes)
                 count = len(added)
                 changed = entry.add_shared_boxes(added, found.rules, source='Area OCR')
             if self.active is not None and entry is self.entries[self.active] and self.review.image is not None:
@@ -1384,12 +1388,12 @@ class Controller(QObject):
 
         def operation(job):
             path, expected = job
-            stamp = core.file_stamp(path)
+            stamp = images.file_stamp(path)
             if expected is not None and stamp != expected:
                 raise ValueError(f'{path.name} changed. Reopen the folder before copying boxes.')
             with Image.open(path) as image:
                 matches = image.size == size
-            if core.file_stamp(path) != stamp:
+            if images.file_stamp(path) != stamp:
                 raise ValueError(f'{path.name} changed while reading.')
             return stamp, matches
 
@@ -1451,7 +1455,7 @@ class Controller(QObject):
 
         def operation(job):
             path, expected = job
-            image, stamp = core.read_folder_image(path, expected)
+            image, stamp = images.read_folder_image(path, expected)
             match = locate_anchor(image, patch)
             placed = relocate_boxes(boxes, anchor, match, image.size) if match else []
             return stamp, placed
@@ -1545,7 +1549,7 @@ class Controller(QObject):
         QGuiApplication.clipboard().setImage(self._display_qimage.copy())
         if self.review.selected:
             self._set_status(
-                f'Copied the redacted image with {len(self.review.selected)} area(s) to the clipboard.'
+                f'Copied the redacted image with {len(self.review.selected)} box(es) to the clipboard.'
             )
         else:
             self._set_status('Copied the unredacted image to the clipboard.')
@@ -1612,7 +1616,7 @@ class Controller(QObject):
         targets = set()
         try:
             for index, entry in pending:
-                target = core.output_path(
+                target = export.output_path(
                     self.output_directory, self._preferences.filename_template,
                     entry.path, index + 1
                 )
