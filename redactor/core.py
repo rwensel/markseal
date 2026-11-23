@@ -144,13 +144,29 @@ def credential_boxes(lines, size, min_confidence):
     return result
 
 
+def _learned_pattern_rules(learned_patterns):
+    for item in learned_patterns:
+        if isinstance(item, str):
+            if item:
+                yield 'Blocked pattern', item
+            continue
+        if not isinstance(item, (tuple, list)) or len(item) != 2:
+            continue
+        label, pattern = item
+        if isinstance(pattern, str) and pattern:
+            yield str(label or 'Blocked pattern'), pattern
+
+
 @timed('match_patterns')
 def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0, custom_pattern='',
-                   learned_patterns=()):
+                   learned_patterns=(), rules=None):
     categories = set(PATTERNS) if categories is None else categories
-    expressions = [re.compile(PATTERNS[name], re.IGNORECASE) for name in PATTERNS if name in categories]
-    if custom_pattern: expressions.append(re.compile(custom_pattern, re.IGNORECASE))
-    expressions.extend(re.compile(pattern, re.IGNORECASE) for pattern in learned_patterns if pattern)
+    expressions = [(name, re.compile(PATTERNS[name], re.IGNORECASE))
+                   for name in PATTERNS if name in categories]
+    if custom_pattern:
+        expressions.append(('Custom pattern', re.compile(custom_pattern, re.IGNORECASE)))
+    expressions.extend((label, re.compile(pattern, re.IGNORECASE))
+                       for label, pattern in _learned_pattern_rules(learned_patterns))
     lines = {}
     for row in csv.DictReader(io.StringIO(tsv), delimiter='\t'):
         word = row.get('text', '').strip()
@@ -163,15 +179,17 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
         if width <= 0 or height <= 0: continue
         lines.setdefault(key, []).append((word, left, top, left+width, top+height, confidence))
     boxes = []
+    box_rules = {}
     assignments = []
     for words in lines.values():
         text = ' '.join(word[0] for word in words)
         spans = []
         if all_text:
-            spans = [(0, len(text))]
+            spans = [(0, len(text), 'All text')]
         else:
-            for expression in expressions:
-                spans.extend((m.start(), m.end()) for m in expression.finditer(text) if m.end() > m.start())
+            for label, expression in expressions:
+                spans.extend((m.start(), m.end(), label)
+                             for m in expression.finditer(text) if m.end() > m.start())
         fields = [(match.span('value'), []) for match in SECRET_ASSIGNMENT.finditer(text)] if (
             not all_text and 'Secrets' in categories) else []
         offset = 0
@@ -180,9 +198,19 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
             for (left, right), field_words in fields:
                 if start < right and end > left:
                     field_words.append((x1, y1, x2, y2, confidence))
-            if confidence >= min_confidence and any(start < right and end > left for left, right in spans):
+            matched = []
+            if confidence >= min_confidence:
+                for left, right, label in spans:
+                    if start < right and end > left and label not in matched:
+                        matched.append(label)
+            if matched:
                 box = (max(0,x1-4), max(0,y1-4), min(size[0],x2+4), min(size[1],y2+4))
-                if box not in boxes: boxes.append(box)
+                if box not in box_rules:
+                    box_rules[box] = []
+                    boxes.append(box)
+                for label in matched:
+                    if label not in box_rules[box]:
+                        box_rules[box].append(label)
             offset = end + 1
         for _, field_words in fields:
             if field_words and max(word[4] for word in field_words) >= min_confidence:
@@ -191,10 +219,19 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
                                     min(size[0], max(x2)+4), min(size[1], max(y2)+4)))
     if not all_text and 'Secrets' in categories:
         credentials = credential_boxes(lines.values(), size, min_confidence)
-        for left, top, right, bottom in assignments + credentials:
-            boxes = [box for box in boxes if not
-                     (left <= box[0] and top <= box[1] and box[2] <= right and box[3] <= bottom)]
-            boxes.append((left, top, right, bottom))
+        for source in (assignments, credentials):
+            for left, top, right, bottom in source:
+                covered = [box for box in boxes if
+                           (left <= box[0] and top <= box[1] and box[2] <= right and box[3] <= bottom)]
+                for box in covered:
+                    boxes.remove(box)
+                    box_rules.pop(box, None)
+                box = (left, top, right, bottom)
+                boxes.append(box)
+                box_rules[box] = ['Secrets']
+    if rules is not None:
+        rules.clear()
+        rules.update({box: tuple(labels) for box, labels in box_rules.items()})
     return boxes
 
 
@@ -247,6 +284,7 @@ def batch_worker_count(requested, job_count, limit):
 class FolderImage:
     path: Path
     boxes: list = field(default_factory=list)
+    rules: dict = field(default_factory=dict)
     selected: set = field(default_factory=set)
     scanned: bool = False
     incomplete_ocr: tuple = ()
@@ -272,8 +310,9 @@ class FolderImage:
             return 'Boxes added · review needed'
         return 'Not checked'
 
-    def add_shared_boxes(self, boxes):
+    def add_shared_boxes(self, boxes, rules=None, source='Copied box'):
         indices = {box: index for index, box in enumerate(self.boxes)}
+        rule_values = rules or {}
         changed = False
         for box in boxes:
             index = indices.get(box)
@@ -281,12 +320,18 @@ class FolderImage:
                 index = len(self.boxes)
                 self.boxes.append(box)
                 indices[box] = index
+                self.rules.setdefault(box, tuple(rule_values.get(box, ()) or (source,)))
+            elif box not in self.rules:
+                self.rules[box] = tuple(rule_values.get(box, ()) or (source,))
             if index not in self.selected:
                 self.selected.add(index)
                 changed = True
         kept, kept_selected = strip_contained_selected(self.boxes, self.selected)
         if kept != self.boxes:
             self.boxes[:] = kept
+            for box in list(self.rules):
+                if box not in self.boxes:
+                    del self.rules[box]
             self.selected.clear()
             self.selected.update(kept_selected)
             changed = True
@@ -294,9 +339,11 @@ class FolderImage:
             self.reviewed = self.saved = False
         return changed
 
-    def add_suggestions(self, found, incomplete=()):
+    def add_suggestions(self, found, incomplete=(), rules=None):
+        if rules is None:
+            rules = getattr(found, 'rules', {})
         added = new_ocr_boxes(found, self.boxes)
-        self.add_shared_boxes(added)
+        self.add_shared_boxes(added, rules, source='OCR suggestion')
         self.scanned = True
         self.incomplete_ocr = tuple(incomplete)
         self.reviewed = self.saved = False
@@ -457,8 +504,9 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
         learned = settings[4] if len(settings) > 4 else ()
         expressions = []
         if pattern:
-            expressions.append(re.compile(pattern, re.IGNORECASE))
-        expressions.extend(re.compile(value, re.IGNORECASE) for value in learned if value)
+            expressions.append(('Custom pattern', re.compile(pattern, re.IGNORECASE)))
+        expressions.extend((label, re.compile(value, re.IGNORECASE))
+                           for label, value in _learned_pattern_rules(learned))
         if (not boxes and executable is None and not all_text and expressions
                 and crop.height <= 180 and crop.width <= min(600, 6*crop.height)):
             if cancel is not None and cancel.is_set():
@@ -468,13 +516,18 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
             text, score = recognize_single_label(crop)
             if cancel is not None and cancel.is_set():
                 raise ScanCancelled
-            if (text and score >= confidence
-                    and any(expression.fullmatch(text) for expression in expressions)):
-                return [area]
+            if text and score >= confidence:
+                matched = tuple(label for label, expression in expressions
+                                if expression.fullmatch(text))
+                if matched:
+                    return BoxList([area], {area: matched})
         sx, sy = crop.width/enlarged.width, crop.height/enlarged.height
-        return [(left+math.floor(x1*sx), top+math.floor(y1*sy),
-                 min(right, left+math.ceil(x2*sx)), min(bottom, top+math.ceil(y2*sy)))
-                for x1, y1, x2, y2 in boxes]
+        mapped = [(left+math.floor(x1*sx), top+math.floor(y1*sy),
+                   min(right, left+math.ceil(x2*sx)), min(bottom, top+math.ceil(y2*sy)))
+                  for x1, y1, x2, y2 in boxes]
+        mapped_rules = {destination: boxes.rules.get(source, ())
+                        for source, destination in zip(boxes, mapped)}
+        return BoxList(mapped, mapped_rules)
     # Tesseract processes run serially. Limiting OpenMP threads avoids
     # oversubscription on machines where parallel OCR runs slower.
     environment = {**os.environ, 'OMP_THREAD_LIMIT': '1'}
@@ -485,12 +538,13 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
 
     def run(source, extra_options=(), timeout=120):
         check_cancel()
+        detected = {}
         if executable is None:
             from rapidocr_backend import recognize_words
             with stage('rapidocr_inference', width=source.width, height=source.height):
                 tsv = recognize_words(source)
             check_cancel()
-            return detect_regions(tsv, source.size, *settings)
+            return detect_regions(tsv, source.size, *settings, rules=detected), detected
         data = io.BytesIO()
         with stage('ocr_input_encoding', width=source.width, height=source.height):
             source.save(data, format='PNG')
@@ -504,19 +558,22 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
         else:
             with stage('tesseract_inference'):
                 stdout = cancellable_ocr(command, data.getvalue(), flags, cancel, timeout=timeout, env=environment)
-        return detect_regions(stdout.decode('utf-8', errors='replace'), source.size, *settings)
+        return detect_regions(stdout.decode('utf-8', errors='replace'), source.size,
+                              *settings, rules=detected), detected
 
     try:
         with stage('standard_ocr_pass') as timing:
             report('Recognizing text')
-            boxes = new_ocr_boxes(run(image, ('--psm', area_layout) if area_layout else ()))
+            found, pass_rules = run(image, ('--psm', area_layout) if area_layout else ())
+            boxes = new_ocr_boxes(found)
+            rules = {box: pass_rules.get(box, ()) for box in boxes}
             if timing is not None:
                 timing['new_suggestions'] = len(boxes)
     except subprocess.TimeoutExpired as error:
         raise TimeoutError('Standard OCR timed out. Try a smaller photo or mark redactions manually.') from error
 
     if not (enhanced or color_assisted):
-        return boxes
+        return BoxList(boxes, rules)
 
     check_cancel()
     working = image.copy()
@@ -535,7 +592,7 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
             return False
         try:
             with stage('additional_ocr_pass', pass_name=name) as timing:
-                found = run(source, ('--psm', area_layout or '11'), timeout=min(15, remaining))
+                found, found_rules = run(source, ('--psm', area_layout or '11'), timeout=min(15, remaining))
         except subprocess.TimeoutExpired:
             note_incomplete(f'{name} timed out')
             return True
@@ -551,6 +608,9 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
                          min(right, left+math.ceil(x2*scale_x)), min(bottom, top+math.ceil(y2*scale_y)))
             if not any(same_region(candidate, existing) for existing in boxes):
                 boxes.append(candidate)
+                labels = found_rules.get((x1, y1, x2, y2), ())
+                if labels:
+                    rules[candidate] = labels
         if timing is not None:
             timing['new_suggestions'] = len(boxes) - previous_count
         return True
@@ -562,20 +622,20 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
         with stage('strikethrough_preprocess'):
             strike_reduced = strike_reduced_variant(working)
         if strike_reduced is not None and not add_pass(strike_reduced, 'strikethrough recovery'):
-            return boxes
+            return BoxList(boxes, rules)
 
     if enhanced:
         report('Enhancing image')
         with stage('grayscale_preprocess'):
             contrast = ImageOps.autocontrast(ImageOps.grayscale(working).filter(ImageFilter.MedianFilter(3)), cutoff=1)
         if not add_pass(contrast, 'enhanced OCR'):
-            return boxes
+            return BoxList(boxes, rules)
         if executable is None and area_layout is None:
             from ocr_preprocess import small_text_tiles
             for index, (bounds, tile) in enumerate(small_text_tiles(image), 1):
                 report(f'Reading small-text section {index}')
                 if not add_pass(tile, f'small-text section {index}', bounds):
-                    return boxes
+                    return BoxList(boxes, rules)
     if color_assisted:
         check_cancel()
         from ocr_preprocess import color_ocr_variants
@@ -585,7 +645,7 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
             report(f'Color pass {index} of {len(variants)}')
             if not add_pass(variant, f'color pass {index}'):
                 break
-    return boxes
+    return BoxList(boxes, rules)
 
 
 def same_region(first, second):
@@ -619,6 +679,12 @@ def new_ocr_boxes(candidates, existing=()):
             added.append(box)
             kept.append(box)
     return added
+
+
+class BoxList(list):
+    def __init__(self, iterable=(), rules=None):
+        super().__init__(iterable)
+        self.rules = {box: tuple(labels) for box, labels in (rules or {}).items() if labels}
 
 
 def text_from_tsv(tsv):

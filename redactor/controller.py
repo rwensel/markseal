@@ -222,6 +222,7 @@ class Controller(QObject):
             'allText': False,
             'enhancedOcr': False,
             'colorOcr': False,
+            'showRules': False,
             'ocrEngine': 'Tesseract',
             'method': 'Pixelate',
             'outputDirectory': '',
@@ -326,11 +327,16 @@ class Controller(QObject):
 
     @Property(list, notify=reviewChanged)
     def boxes(self):
-        return [
-            {'x1': box[0], 'y1': box[1], 'x2': box[2], 'y2': box[3],
-             'selected': index in self.review.selected}
-            for index, box in enumerate(self.review.boxes)
-        ]
+        boxes = []
+        for index, box in enumerate(self.review.boxes):
+            labels = tuple(self.review.rules.get(box, ())) or ('Manual box',)
+            label = labels[0] if len(labels) == 1 else f'{labels[0]} +{len(labels) - 1}'
+            boxes.append({
+                'x1': box[0], 'y1': box[1], 'x2': box[2], 'y2': box[3],
+                'selected': index in self.review.selected,
+                'rules': list(labels), 'ruleLabel': label,
+            })
+        return boxes
 
     @Property(int, notify=reviewChanged)
     def selectedCount(self):
@@ -493,6 +499,7 @@ class Controller(QObject):
     allText = _setting_property('allText', bool, settingsChanged)
     enhancedOcr = _setting_property('enhancedOcr', bool, settingsChanged)
     colorOcr = _setting_property('colorOcr', bool, settingsChanged)
+    showRules = _setting_property('showRules', bool, settingsChanged)
     ocrEngine = _setting_property('ocrEngine', str, settingsChanged)
 
     @Property(str, notify=settingsChanged)
@@ -707,6 +714,7 @@ class Controller(QObject):
             entry.saved = False
         entry.reviewed = self.review.confirmed
         entry.boxes = self.review.boxes
+        entry.rules = self.review.rules
         entry.selected = self.review.selected
 
     def _show_folder_image(self, index):
@@ -719,6 +727,7 @@ class Controller(QObject):
         self._pasted_image = False
         self.review.path = entry.path
         self.review.boxes = entry.boxes
+        self.review.rules = entry.rules
         self.review.selected = entry.selected
         self.review.confirmed = entry.reviewed
         self.review.zoom = 1.0
@@ -952,7 +961,11 @@ class Controller(QObject):
         confidence = self._settings['confidence']
         if not 0 <= confidence <= 100:
             raise ValueError('OCR confidence must be between 0 and 100.')
-        learned = tuple(entry['pattern'] for entry in self._blocked_patterns if entry['enabled'])
+        learned = tuple(
+            (f'Blocked pattern: {entry["text"]}' if entry['text'] else 'Blocked pattern',
+             entry['pattern'])
+            for entry in self._blocked_patterns if entry['enabled']
+        )
         return self._settings['allText'], set(self._categories), confidence, '', learned
 
     def _scan_metrics(self):
@@ -1353,7 +1366,7 @@ class Controller(QObject):
             else:
                 added = core.new_ocr_boxes(found, entry.boxes)
                 count = len(added)
-                changed = entry.add_shared_boxes(added)
+                changed = entry.add_shared_boxes(added, found.rules, source='Area OCR')
             if self.active is not None and entry is self.entries[self.active] and self.review.image is not None:
                 if changed:
                     self.review.confirmed = False
@@ -1652,7 +1665,7 @@ class Controller(QObject):
                 skipped += 1
                 return
             entry.stamp = stamp
-            if not entry.add_shared_boxes(boxes):
+            if not entry.add_shared_boxes(boxes, source='Copied box'):
                 unchanged += 1
                 return
             applied += 1
@@ -1716,7 +1729,7 @@ class Controller(QObject):
                 return
             entry.stamp = stamp
             matched += 1
-            if entry.add_shared_boxes(placed) and self.active is not None and self.entries[self.active] is entry:
+            if entry.add_shared_boxes(placed, source='Anchor match') and self.active is not None and self.entries[self.active] is entry:
                 self.review.confirmed = False
                 self._refresh_display()
                 self._emit_review()
@@ -1958,7 +1971,7 @@ class Controller(QObject):
         if type(threshold) is int and 0 <= threshold <= 100:
             self._settings['confidence'] = threshold
         for key, name in (('all_text', 'allText'), ('enhanced_ocr', 'enhancedOcr'),
-                          ('color_ocr', 'colorOcr')):
+                          ('color_ocr', 'colorOcr'), ('show_rules', 'showRules')):
             if isinstance(saved.get(key), bool):
                 self._settings[name] = saved[key]
         engine = saved.get('ocr_engine')
@@ -2041,8 +2054,24 @@ class Controller(QObject):
             'filename_template': self._settings['filenameTemplate'],
             'include_log': self._settings['includeLog'],
             'parallel_images': self._settings['parallelImages'],
+            'show_rules': self._settings['showRules'],
             'blocked_patterns': [dict(entry) for entry in self._blocked_patterns],
         }
+
+    @Slot(bool)
+    def setShowRules(self, enabled):
+        enabled = bool(enabled)
+        if self._settings['showRules'] == enabled:
+            return
+        self._settings['showRules'] = enabled
+        self.settingsChanged.emit()
+        try:
+            core.write_preferences(self.preferences_file, self._preference_document())
+        except OSError as error:
+            self._set_status(self.status_text + f' Settings could not be saved: {error}')
+            return
+        self._set_status('Rule labels on. Hover a box or select one to inspect its rule.'
+                         if enabled else 'Rule labels hidden.')
 
     @Slot(str)
     def setRedactionMethod(self, method):
@@ -2095,6 +2124,7 @@ class Controller(QObject):
                 'filename_template': name,
                 'include_log': include_log,
                 'parallel_images': workers,
+                'show_rules': self._settings['showRules'],
                 'blocked_patterns': [dict(entry) for entry in self._blocked_patterns],
             }
             core.write_preferences(self.preferences_file, preferences)

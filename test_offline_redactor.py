@@ -13,9 +13,9 @@ import rapidocr_backend
 from rapidocr_backend import result_to_tsv
 from performance_log import PerformanceRun, stage
 from redactor.core import (
-    PRESETS, FolderImage, apply_redactions, batch_worker_count, detect_regions, new_ocr_boxes,
-    pattern_from_text, pixelate, read_area_text, recognize_regions, save_export, text_from_tsv,
-    value_pattern_expression, value_pattern_types,
+    PRESETS, BoxList, FolderImage, apply_redactions, batch_worker_count, detect_regions,
+    new_ocr_boxes, pattern_from_text, pixelate, read_area_text, recognize_regions, save_export,
+    text_from_tsv, value_pattern_expression, value_pattern_types,
 )
 from redactor.review import Review
 
@@ -185,6 +185,61 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(re.search(prefix, 'Crownfern Analytics', re.IGNORECASE).group(0),
                          'Crownfern Analytics')
 
+    def test_scan_and_review_keep_rule_labels_and_manual_provenance(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        tsv = header + '1\t1\t1\t1\t10\t20\t100\t20\t95\ta@example.com\n'
+        rules = {}
+        boxes = detect_regions(tsv, (300, 100), categories={'Emails'}, rules=rules)
+        self.assertEqual(rules[boxes[0]], ('Emails',))
+        combined = {}
+        detect_regions(tsv, (300, 100), categories={'Emails'},
+                       learned_patterns=[('Blocked pattern: email', r'.+')], rules=combined)
+        self.assertEqual(set(combined[boxes[0]]), {'Emails', 'Blocked pattern: email'})
+
+        learned_tsv = header + '1\t1\t1\t1\t10\t20\t80\t20\t95\tContact\n'
+        learned_rules = {}
+        learned_boxes = detect_regions(
+            learned_tsv, (300, 100), categories=set(),
+            learned_patterns=[('Blocked pattern: Contact', r'\bContact\b')], rules=learned_rules,
+        )
+        self.assertEqual(learned_rules[learned_boxes[0]], ('Blocked pattern: Contact',))
+
+        all_rules = {}
+        all_boxes = detect_regions(tsv, (300, 100), all_text=True, categories=set(), rules=all_rules)
+        self.assertEqual(all_rules[all_boxes[0]], ('All text',))
+
+        image = Image.new('RGB', (120, 80), 'white')
+        result = BoxList([(10, 10, 40, 30)], {(10, 10, 40, 30): ('Emails',)})
+        review = Review()
+        review.load(image, Path('rules.png'))
+        review.set_view_size(120, 80)
+        review.add_suggestions(result)
+        self.assertEqual(review.rules, {(10, 10, 40, 30): ('Emails',)})
+        review.press(50, 50)
+        review.release(80, 70)
+        manual = review.boxes[-1]
+        self.assertEqual(review.rules[manual], ('Manual box',))
+        review.undo()
+        self.assertNotIn(manual, review.rules)
+
+        inner = (20, 20, 60, 40)
+        outer = (10, 10, 120, 60)
+        review.boxes = [inner]
+        review.selected = {0}
+        review.confirmed = True
+        review.rules = {inner: ('Manual box',)}
+        review.add_suggestions(BoxList([outer], {outer: ('Secrets',)}))
+        self.assertEqual(review.rules, {outer: ('Secrets',)})
+
+        entry = FolderImage(Path('rules.png'))
+        entry.add_shared_boxes([(1, 1, 5, 5)], source='Anchor match')
+        self.assertEqual(entry.rules[(1, 1, 5, 5)], ('Anchor match',))
+        entry.add_suggestions(BoxList([(10, 10, 20, 20)], {(10, 10, 20, 20): ('URLs',)}))
+        self.assertEqual(entry.rules[(10, 10, 20, 20)], ('URLs',))
+        copied = FolderImage(Path('copied.png'))
+        copied.add_shared_boxes([(2, 2, 4, 4)], source='Copied box')
+        self.assertEqual(copied.rules[(2, 2, 4, 4)], ('Copied box',))
+
     def test_value_type_detection_generates_range_patterns(self):
         cases = [
             ('192.0.2.85', 'ipv4', '203.0.113.9', '999.1.1.1'),
@@ -302,10 +357,12 @@ class RedactionTests(unittest.TestCase):
                 with self.subTest(text=text, confidence=confidence):
                     with patch('rapidocr_backend.recognize_single_label', return_value=(text, confidence)):
                         self.assertEqual(recognize_regions(image, None, settings, area=area), expected)
-        learned = (False, set(), 40, '', (r'\b(?:CRE|DOD)\b',))
+        learned = (False, set(), 40, '', (('Blocked pattern: CRE', r'\b(?:CRE|DOD)\b'),))
         with patch('rapidocr_backend.recognize_words', return_value=''), \
              patch('rapidocr_backend.recognize_single_label', return_value=('CRE', 95)):
-            self.assertEqual(recognize_regions(image, None, learned, area=area), [area])
+            result = recognize_regions(image, None, learned, area=area)
+            self.assertEqual(result, [area])
+            self.assertEqual(result.rules[area], ('Blocked pattern: CRE',))
 
     def test_nested_ocr_duplicates_are_suppressed_without_merging_neighbors(self):
         tight = (1154, 1103, 1221, 1159)

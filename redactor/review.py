@@ -13,6 +13,7 @@ class Review:
     image: Image.Image | None = None
     path: Path | None = None
     boxes: list = field(default_factory=list)
+    rules: dict = field(default_factory=dict)
     selected: set = field(default_factory=set)
     confirmed: bool = False
     zoom: float = 1.0
@@ -28,6 +29,7 @@ class Review:
         self.image = image
         self.path = Path(path)
         self.boxes = []
+        self.rules.clear()
         self.selected = set()
         self.confirmed = False
         self.zoom = 1.0
@@ -129,6 +131,7 @@ class Review:
         y1, y2 = sorted((top, bottom))
         if x2 > x1 and y2 > y1:
             self.boxes.append((x1, y1, x2, y2))
+            self.rules[(x1, y1, x2, y2)] = ('Manual box',)
             self.selected.add(len(self.boxes) - 1)
             self.confirmed = False
             return 'add'
@@ -137,7 +140,8 @@ class Review:
     def remove_box(self, index):
         if not 0 <= index < len(self.boxes):
             return False
-        self.boxes.pop(index)
+        removed = self.boxes.pop(index)
+        self.rules.pop(removed, None)
         self.selected = {i if i < index else i - 1 for i in self.selected if i != index}
         self.confirmed = False
         return True
@@ -146,7 +150,8 @@ class Review:
         if not self.boxes:
             return False
         self.selected.discard(len(self.boxes) - 1)
-        self.boxes.pop()
+        removed = self.boxes.pop()
+        self.rules.pop(removed, None)
         self.confirmed = False
         return True
 
@@ -154,6 +159,7 @@ class Review:
         if not self.boxes:
             return False
         self.boxes.clear()
+        self.rules.clear()
         self.selected.clear()
         self.confirmed = False
         return True
@@ -161,15 +167,22 @@ class Review:
     def selected_boxes(self):
         return [box for index, box in enumerate(self.boxes) if index in self.selected]
 
-    def add_suggestions(self, found):
+    def add_suggestions(self, found, rules=None):
+        if rules is None:
+            rules = getattr(found, 'rules', {})
         before_boxes = list(self.boxes)
         before_selected = {self.boxes[index] for index in self.selected}
         added = new_ocr_boxes(found, self.boxes)
+        for box in added:
+            self.rules.setdefault(box, tuple(rules.get(box, ()) or ('OCR suggestion',)))
         first = len(self.boxes)
         self.boxes.extend(added)
         self.selected.update(range(first, len(self.boxes)))
         kept, kept_selected = strip_contained_selected(self.boxes, self.selected)
         self.boxes[:] = kept
+        for box in list(self.rules):
+            if box not in self.boxes:
+                del self.rules[box]
         self.selected.clear()
         self.selected.update(kept_selected)
         selected_boxes = {box for index, box in enumerate(self.boxes) if index in self.selected}

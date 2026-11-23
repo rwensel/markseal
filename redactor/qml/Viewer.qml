@@ -6,6 +6,12 @@ import Redactor 1.0
 
 Item {
     id: viewer
+    property int hoveredBox: -1
+
+    Connections {
+        target: Backend
+        function onImageChanged() { viewer.hoveredBox = -1 }
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -65,6 +71,14 @@ Item {
             onSelected: function(method) {
                 Backend.setRedactionMethod(method)
             }
+        }
+
+        ConcourseButton {
+            Layout.preferredHeight: 26
+            text: "RULES"
+            compact: true
+            variant: Backend.showRules ? "primary" : "secondary"
+            onClicked: Backend.setShowRules(!Backend.showRules)
         }
 
         Text {
@@ -140,6 +154,7 @@ Item {
 
         Item {
             id: stage
+            objectName: "stage"
             anchors.fill: parent
             anchors.margins: 6
             clip: true
@@ -202,7 +217,9 @@ Item {
             }
 
             Repeater {
+                id: boxRepeater
                 model: Backend.boxes
+                onCountChanged: viewer.hoveredBox = -1
 
                 delegate: Item {
                     id: box
@@ -213,6 +230,15 @@ Item {
                     width: Math.max(1, (boxData.x2 - boxData.x1) * Backend.viewScale)
                     height: Math.max(1, (boxData.y2 - boxData.y1) * Backend.viewScale)
                     visible: Backend.hasImage && !Backend.confirmed
+
+                    HoverHandler {
+                        onHoveredChanged: {
+                            if (hovered)
+                                viewer.hoveredBox = index
+                            else if (viewer.hoveredBox === index)
+                                viewer.hoveredBox = -1
+                        }
+                    }
 
                     Rectangle {
                         anchors.fill: parent
@@ -230,6 +256,38 @@ Item {
                         color: box.boxData.selected ? "#0CFFB000" : "#14B00020"
                         border.width: 2
                         border.color: box.boxData.selected ? Theme.amber : Theme.red
+                    }
+
+                    Rectangle {
+                        id: ruleTag
+                        z: 5
+                        visible: Backend.showRules && (viewer.hoveredBox !== -1
+                                 ? viewer.hoveredBox === index
+                                 : (box.boxData.selected && Backend.selectedCount === 1))
+                        width: Math.min(Math.max(80, ruleText.implicitWidth + 12), stage.width - 8)
+                        height: 19
+                        radius: 3
+                        color: "#E61A1C20"
+                        border.width: 1
+                        border.color: Theme.amber
+                        x: Math.max(4 - box.x, Math.min(stage.width - box.x - width - 4, 0))
+                        y: box.y - height - 4 < 4 ? 4 : -height - 4
+
+                        Text {
+                            id: ruleText
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.leftMargin: 6
+                            anchors.rightMargin: 6
+                            text: box.boxData.ruleLabel
+                            textFormat: Text.PlainText
+                            elide: Text.ElideRight
+                            color: Theme.amber
+                            font.family: Backend.displayFont
+                            font.pixelSize: 9
+                            font.letterSpacing: 0.5
+                        }
                     }
 
                     Item {
