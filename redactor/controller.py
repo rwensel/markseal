@@ -29,13 +29,15 @@ from . import preferences
 from . import redaction
 from .jobs import JobRunner, progress_line
 from .review import Review
+from . import themes
 from .themes import Palette
 
 
-INITIAL_STATUS = (
-    'Click a box or use arrows; Space includes or excludes. Amber = selected; '
-    'red = excluded. Confirm to apply.'
-)
+def box_hint(theme_id):
+    entry = themes.spec(theme_id)
+    return (f'Click a box or use arrows; Space includes or excludes. '
+            f'{entry.selected_name.capitalize()} = selected; {entry.excluded_name} = excluded. '
+            'Confirm to apply.')
 
 
 
@@ -199,7 +201,7 @@ class Controller(QObject):
         self.capture = 'none'
         self.drag = None
         self._panning = False
-        self.status_text = INITIAL_STATUS
+        self.status_text = ''
         self.progress_text = 'Ready'
         self.progress_value = 0
         self.progress_max = 1
@@ -215,11 +217,14 @@ class Controller(QObject):
         self._runner = JobRunner(self.parallel_limit)
         self._folder_model = FolderModel()
         self._preferences = preferences.defaults()
+        self._preview_theme = self._preferences.theme
         self._palette = Palette(self)
         self._job_timer = QTimer(self)
         self._job_timer.setInterval(100)
         self._job_timer.timeout.connect(self._poll_jobs)
         self.load_preferences()
+        if not self.status_text:
+            self.status_text = box_hint(self._preferences.theme)
 
     def display_qimage(self):
         return self._display_qimage
@@ -227,6 +232,11 @@ class Controller(QObject):
     def _set_status(self, text):
         self.status_text = text
         self.statusChanged.emit()
+
+    def _set_hint_theme(self, theme_id):
+        if self.status_text in {box_hint(name) for name in themes.THEME_IDS}:
+            self.status_text = box_hint(theme_id)
+            self.statusChanged.emit()
 
     def _pil_to_qimage(self, image):
         if image.mode != 'RGB':
@@ -482,6 +492,30 @@ class Controller(QObject):
     @Property(str, notify=themeChanged)
     def themeName(self):
         return self._preferences.theme
+
+    @Property(str, notify=themeChanged)
+    def previewTheme(self):
+        return self._preview_theme
+
+    @Property('QVariantList', constant=True)
+    def themeChoices(self):
+        choices = []
+        for theme_id in themes.THEME_IDS:
+            entry = themes.spec(theme_id)
+            tokens = themes.resolve(theme_id)
+            choices.append({
+                'id': theme_id,
+                'name': entry.name,
+                'tagline': entry.tagline,
+                'swatches': {
+                    'bg': tokens['bg'],
+                    'surface': tokens['panelRaised'],
+                    'accent': tokens['amber'],
+                    'white': tokens['white'],
+                    'muted': tokens['mutedText'],
+                },
+            })
+        return choices
 
     @Property(QObject, constant=True)
     def palette(self):
@@ -1805,7 +1839,10 @@ class Controller(QObject):
         path = Path(directory) if directory else None
         self.output_directory_override = path
         self.output_directory = path or (self.folder / 'redacted' if self.folder else None)
+        self._preview_theme = self._preferences.theme
         self._palette.set_theme(self._preferences.theme)
+        self._set_hint_theme(self._preferences.theme)
+        self.themeChanged.emit()
 
     @Slot(bool)
     def setShowRules(self, enabled):
@@ -1838,10 +1875,10 @@ class Controller(QObject):
         except OSError as error:
             self._set_status(self.status_text + f' Settings could not be saved: {error}')
 
-    @Slot(str, int, bool, bool, bool, str, 'QVariantList', str, str, str, bool, int, result=str)
+    @Slot(str, int, bool, bool, bool, str, 'QVariantList', str, str, str, bool, int, str, result=str)
     def applySettings(self, sensitivity, confidence, all_text, enhanced, color, engine,
                       categories, method, output_directory, template, include_log,
-                      parallel_images):
+                      parallel_images, theme):
         try:
             updated = preferences.apply_form(
                 self._preferences,
@@ -1858,6 +1895,7 @@ class Controller(QObject):
                     'filename_template': template,
                     'include_log': include_log,
                     'parallel_images': parallel_images,
+                    'theme': theme,
                 },
                 self.parallel_limit,
                 source=self.entries[0].path if self.entries else Path('example.png'),
@@ -1898,7 +1936,29 @@ class Controller(QObject):
 
     @Slot()
     def requestSettings(self):
+        self._preview_theme = self._preferences.theme
+        self._palette.set_theme(self._preferences.theme)
+        self.themeChanged.emit()
         self.settingsRequested.emit()
+
+    @Slot(str)
+    def previewThemeById(self, theme_id):
+        if not themes.is_known(theme_id) or theme_id == self._preview_theme:
+            return
+        self._preview_theme = theme_id
+        self._palette.set_theme(theme_id)
+        self._set_hint_theme(theme_id)
+        self.themeChanged.emit()
+
+    @Slot()
+    def clearThemePreview(self):
+        saved = self._preferences.theme
+        if self._preview_theme == saved:
+            return
+        self._preview_theme = saved
+        self._palette.set_theme(saved)
+        self._set_hint_theme(saved)
+        self.themeChanged.emit()
 
     @Slot(result=str)
     def chooseOutputFolder(self):

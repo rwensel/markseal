@@ -73,7 +73,8 @@ Window {
         var error = Backend.applySettings(
             sensitivityValue, confidenceValue, allTextValue, enhancedValue, colorValue,
             engineValue, selectedCategories, methodValue,
-            outputValue, templateValue, includeLogValue, parallelValue
+            outputValue, templateValue, includeLogValue, parallelValue,
+            Backend.previewTheme
         )
         if (error.length > 0) {
             errorText = error
@@ -84,6 +85,7 @@ Window {
     }
 
     function closeSettings() {
+        Backend.clearThemePreview()
         visible = false
     }
 
@@ -180,6 +182,13 @@ Window {
                     onClicked: settings.tab = "blocked"
                 }
 
+                RailTab {
+                    Layout.fillWidth: true
+                    text: "APPEARANCE"
+                    active: settings.tab === "appearance"
+                    onClicked: settings.tab = "appearance"
+                }
+
                 Item { Layout.fillHeight: true }
 
                 Text {
@@ -204,7 +213,8 @@ Window {
                     currentIndex: settings.tab === "engine" ? 0
                                   : settings.tab === "patterns" ? 1
                                   : settings.tab === "redaction" ? 2
-                                  : settings.tab === "output" ? 3 : 4
+                                  : settings.tab === "output" ? 3
+                                  : settings.tab === "blocked" ? 4 : 5
 
                     Flickable {
                         id: engineFlick
@@ -822,6 +832,58 @@ Window {
                                 text: "Patterns are matched case-insensitively in addition to the selected detection categories. "
                                       + "Disable one to keep it without blocking it."
                             }
+                        }
+                    }
+
+                    Flickable {
+                        id: appearanceFlick
+                        clip: true
+                        contentWidth: width
+                        contentHeight: appearancePage.implicitHeight
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        ColumnLayout {
+                            id: appearancePage
+                            width: appearanceFlick.width
+                            spacing: 12
+
+                            FieldLabel {
+                                text: "APPEARANCE"
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Pick a world for the whole shell. The window updates as you click; "
+                                      + "Apply keeps it, Cancel or Escape restores the saved theme."
+                                wrapMode: Text.WordWrap
+                                color: Theme.mutedText
+                                font.family: Theme.bodyFont
+                                font.pixelSize: 11
+                            }
+
+                            GridLayout {
+                                Layout.fillWidth: true
+                                columns: 2
+                                rowSpacing: 10
+                                columnSpacing: 10
+
+                                Repeater {
+                                    model: Backend.themeChoices
+
+                                    ThemeCard {
+                                        required property var modelData
+                                        Layout.fillWidth: true
+                                        themeId: modelData.id
+                                        name: modelData.name
+                                        tagline: modelData.tagline
+                                        swatches: modelData.swatches
+                                        selected: modelData.id === Backend.previewTheme
+                                        onClicked: Backend.previewThemeById(modelData.id)
+                                    }
+                                }
+                            }
+
+                            Item { Layout.fillHeight: true }
                         }
                     }
                 }

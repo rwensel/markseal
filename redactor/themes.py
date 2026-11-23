@@ -110,6 +110,10 @@ def is_known(theme_id: str) -> bool:
     return theme_id in _SPECS
 
 
+def spec(theme_id: str) -> ThemeSpec:
+    return _SPECS[theme_id]
+
+
 def _rgb(color: str) -> tuple[int, int, int]:
     value = color.lstrip('#')
     if len(value) == 8:
