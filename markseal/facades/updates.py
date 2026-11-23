@@ -21,8 +21,8 @@ class _Job(QRunnable):
     def run(self):
         try:
             self.signals.done.emit(self._work(self.signals.progress.emit))
-        except updates.UpdateError as error:
-            self.signals.failed.emit(str(error))
+        except Exception as error:  # A worker error must still finish the job bookkeeping.
+            self.signals.failed.emit(str(error) or error.__class__.__name__)
 
 
 class UpdateFacade(QObject):

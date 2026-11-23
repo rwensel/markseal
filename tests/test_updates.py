@@ -34,7 +34,7 @@ def manifest(version='2.1.0', **overrides):
         'version': version,
         'notes': 'Fixes and speed.',
         'page_url': 'https://example.test/v2.1.0',
-        'downloads': {'windows-x64': {'url': 'https://example.test/setup.exe', 'sha256': ''}},
+        'downloads': {'windows-x64': {'url': 'https://example.test/setup.exe', 'sha256': 'a' * 64}},
     }
     document.update(overrides)
     return json.dumps(document).encode('utf-8')
@@ -58,7 +58,7 @@ class CheckTests(unittest.TestCase):
             return FakeResponse(manifest())
 
         with unittest.mock.patch.object(updates, 'platform_key', return_value='windows-x64'):
-            info = updates.check_for_update(current='2.0.0', url='u', opener=opener)
+            info = updates.check_for_update(current='2.0.0', url='https://example.test/manifest.json', opener=opener)
         self.assertIsNotNone(info)
         self.assertEqual(info.version, '2.1.0')
         self.assertEqual(info.notes, 'Fixes and speed.')
@@ -69,16 +69,16 @@ class CheckTests(unittest.TestCase):
             return FakeResponse(manifest(version='2.0.0'))
 
         with unittest.mock.patch.object(updates, 'platform_key', return_value='windows-x64'):
-            self.assertIsNone(updates.check_for_update(current='2.0.0', url='u', opener=opener))
+            self.assertIsNone(updates.check_for_update(current='2.0.0', url='https://example.test/manifest.json', opener=opener))
 
     def test_network_and_parse_failures_raise_update_error(self):
         def broken(url):
             raise OSError('offline')
 
         with self.assertRaises(updates.UpdateError):
-            updates.check_for_update(current='2.0.0', url='u', opener=broken)
+            updates.check_for_update(current='2.0.0', url='https://example.test/manifest.json', opener=broken)
         with self.assertRaises(updates.UpdateError):
-            updates.check_for_update(current='2.0.0', url='u',
+            updates.check_for_update(current='2.0.0', url='https://example.test/manifest.json',
                                      opener=lambda url: FakeResponse(b'not json'))
 
     def test_missing_platform_artifact_raises(self):
@@ -87,7 +87,32 @@ class CheckTests(unittest.TestCase):
 
         with unittest.mock.patch.object(updates, 'platform_key', return_value='windows-x64'):
             with self.assertRaises(updates.UpdateError):
-                updates.check_for_update(current='2.0.0', url='u', opener=opener)
+                updates.check_for_update(current='2.0.0', url='https://example.test/manifest.json', opener=opener)
+
+
+    def test_missing_checksum_is_rejected(self):
+        def opener(url):
+            return FakeResponse(manifest(downloads={
+                'windows-x64': {'url': 'https://example.test/setup.exe', 'sha256': ''}}))
+
+        with unittest.mock.patch.object(updates, 'platform_key', return_value='windows-x64'):
+            with self.assertRaises(updates.UpdateError):
+                updates.check_for_update(current='2.0.0', url='https://example.test/manifest.json',
+                                         opener=opener)
+
+    def test_non_https_urls_are_rejected(self):
+        with self.assertRaises(updates.UpdateError):
+            updates.check_for_update(current='2.0.0', url='http://example.test/manifest.json',
+                                     opener=lambda url: FakeResponse(manifest()))
+
+        def opener(url):
+            return FakeResponse(manifest(downloads={
+                'windows-x64': {'url': 'http://example.test/setup.exe', 'sha256': 'a' * 64}}))
+
+        with unittest.mock.patch.object(updates, 'platform_key', return_value='windows-x64'):
+            with self.assertRaises(updates.UpdateError):
+                updates.check_for_update(current='2.0.0', url='https://example.test/manifest.json',
+                                         opener=opener)
 
 
 class DownloadTests(unittest.TestCase):
@@ -112,6 +137,23 @@ class DownloadTests(unittest.TestCase):
                     bad, directory=folder,
                     opener=lambda url: FakeResponse(payload, {'Content-Length': str(len(payload))}))
             self.assertEqual(list(Path(folder).iterdir()), [])
+
+
+    def test_missing_checksum_is_rejected_before_download(self):
+        payload = b'installer-bytes'
+        info = updates.UpdateInfo('2.1.0', '', '', 'https://example.test/setup.exe', '')
+        with TemporaryDirectory() as folder:
+            with self.assertRaises(updates.UpdateError):
+                updates.download_update(info, directory=folder,
+                                        opener=lambda url: FakeResponse(payload))
+            self.assertEqual(list(Path(folder).iterdir()), [])
+
+    def test_non_https_download_is_rejected(self):
+        info = updates.UpdateInfo('2.1.0', '', '', 'http://example.test/setup.exe', 'a' * 64)
+        with TemporaryDirectory() as folder:
+            with self.assertRaises(updates.UpdateError):
+                updates.download_update(info, directory=folder,
+                                        opener=lambda url: FakeResponse(b'x'))
 
 
 if __name__ == '__main__':
