@@ -35,19 +35,19 @@ Window {
     property int parallelValue: 1
 
     function openSettings() {
-        Backend.clearThemePreview()
-        selectedCategories = Backend.categories.slice(0)
-        sensitivityValue = Backend.sensitivity
-        confidenceValue = Backend.confidence
-        allTextValue = Backend.allText
-        enhancedValue = Backend.enhancedOcr
-        colorValue = Backend.colorOcr
-        engineValue = Backend.ocrEngine
-        methodValue = Backend.redactionMethod
-        outputValue = Backend.outputDirectory
-        templateValue = Backend.filenameTemplate
-        includeLogValue = Backend.includeLog
-        parallelValue = Backend.parallelImages
+        Backend.settings.clearThemePreview()
+        selectedCategories = Backend.settings.categories.slice(0)
+        sensitivityValue = Backend.settings.sensitivity
+        confidenceValue = Backend.settings.confidence
+        allTextValue = Backend.settings.allText
+        enhancedValue = Backend.settings.enhancedOcr
+        colorValue = Backend.settings.colorOcr
+        engineValue = Backend.settings.ocrEngine
+        methodValue = Backend.settings.redactionMethod
+        outputValue = Backend.settings.outputDirectory
+        templateValue = Backend.settings.filenameTemplate
+        includeLogValue = Backend.settings.includeLog
+        parallelValue = Backend.settings.parallelImages
         tab = "engine"
         showDiagnostics = false
         errorText = ""
@@ -69,13 +69,13 @@ Window {
         }
         var typedParallel = parseInt(parallelSpin.contentItem.text)
         if (!isNaN(typedParallel)) {
-            parallelValue = Math.max(1, Math.min(Backend.parallelLimit, typedParallel))
+            parallelValue = Math.max(1, Math.min(Backend.settings.parallelLimit, typedParallel))
         }
-        var error = Backend.applySettings(
+        var error = Backend.settings.applySettings(
             sensitivityValue, confidenceValue, allTextValue, enhancedValue, colorValue,
             engineValue, selectedCategories, methodValue,
             outputValue, templateValue, includeLogValue, parallelValue,
-            Backend.previewTheme
+            Backend.settings.previewTheme
         )
         if (error.length > 0) {
             errorText = error
@@ -86,7 +86,7 @@ Window {
     }
 
     function closeSettings() {
-        Backend.clearThemePreview()
+        Backend.settings.clearThemePreview()
         visible = false
     }
 
@@ -246,7 +246,7 @@ Window {
                             ConcourseComboBox {
                                 id: engineCombo
                                 Layout.fillWidth: true
-                                model: Backend.engineNames
+                                model: Backend.settings.engineNames
                                 onActivated: settings.engineValue = currentText
                             }
 
@@ -260,13 +260,13 @@ Window {
                                 onValueModified: settings.confidenceValue = value
                             }
 
-                            FieldLabel { text: "PARALLEL IMAGE JOBS (1-" + Backend.parallelLimit + ")" }
+                            FieldLabel { text: "PARALLEL IMAGE JOBS (1-" + Backend.settings.parallelLimit + ")" }
 
                             ConcourseSpinBox {
                                 id: parallelSpin
                                 Layout.preferredWidth: 130
                                 from: 1
-                                to: Backend.parallelLimit
+                                to: Backend.settings.parallelLimit
                                 onValueModified: settings.parallelValue = value
                             }
 
@@ -334,11 +334,11 @@ Window {
                             ConcourseComboBox {
                                 id: sensitivityCombo
                                 Layout.fillWidth: true
-                                model: Backend.presetNames
+                                model: Backend.settings.presetNames
                                 onActivated: {
                                     settings.sensitivityValue = currentText
                                     if (currentText !== "Custom") {
-                                        var preset = Backend.presetCategories[currentText]
+                                        var preset = Backend.settings.presetCategories[currentText]
                                         if (preset) {
                                             settings.selectedCategories = preset.slice(0)
                                         }
@@ -382,7 +382,7 @@ Window {
                                     rowSpacing: 3
 
                                     Repeater {
-                                        model: Backend.categoryNames
+                                        model: Backend.settings.categoryNames
 
                                         delegate: ToggleRow {
                                             required property string modelData
@@ -442,7 +442,7 @@ Window {
                             ConcourseComboBox {
                                 id: methodCombo
                                 Layout.fillWidth: true
-                                model: Backend.methodNames
+                                model: Backend.settings.methodNames
                                 onActivated: settings.methodValue = currentText
                             }
 
@@ -556,7 +556,7 @@ Window {
                                     text: "BROWSE"
                                     compact: true
                                     onClicked: {
-                                        var directory = Backend.chooseOutputFolder()
+                                        var directory = Backend.settings.chooseOutputFolder()
                                         if (directory.length > 0) {
                                             settings.outputValue = directory
                                             outputField.text = directory
@@ -633,7 +633,7 @@ Window {
                                         anchors.fill: parent
                                         anchors.leftMargin: 11
                                         anchors.rightMargin: 11
-                                        text: Backend.performanceLogsDirectory()
+                                        text: Backend.settings.performanceLogsDirectory()
                                         elide: Text.ElideMiddle
                                         verticalAlignment: Text.AlignVCenter
                                         color: Theme.steelLight
@@ -645,7 +645,7 @@ Window {
                                 ConcourseButton {
                                     text: "OPEN PERFORMANCE LOGS FOLDER"
                                     compact: true
-                                    onClicked: Backend.openPerformanceLogs()
+                                    onClicked: Backend.settings.openPerformanceLogs()
                                 }
 
                                 HintText {
@@ -722,7 +722,7 @@ Window {
 
                                 ConcourseButton {
                                     text: "ADD PATTERN"
-                                    onClicked: Backend.addBlockedPatternManually()
+                                    onClicked: Backend.settings.addBlockedPatternManually()
                                 }
 
                                 Item { Layout.fillWidth: true }
@@ -746,7 +746,7 @@ Window {
 
                             Text {
                                 Layout.fillWidth: true
-                                visible: Backend.blockedPatterns.length === 0
+                                visible: Backend.settings.blockedPatterns.length === 0
                                 text: "No blocked patterns yet. Learn one from a scan area or add an expression manually."
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
@@ -755,7 +755,7 @@ Window {
                             }
 
                             Repeater {
-                                model: Backend.blockedPatterns
+                                model: Backend.settings.blockedPatterns
 
                                 delegate: Rectangle {
                                     required property var modelData
@@ -796,21 +796,21 @@ Window {
                                                 label: "ENABLED"
                                                 checked: modelData.enabled
                                                 onToggled: function(next) {
-                                                    Backend.setBlockedPatternEnabled(index, next)
+                                                    Backend.settings.setBlockedPatternEnabled(index, next)
                                                 }
                                             }
 
                                             ConcourseButton {
                                                 text: "EDIT"
                                                 compact: true
-                                                onClicked: Backend.renameBlockedPattern(index)
+                                                onClicked: Backend.settings.renameBlockedPattern(index)
                                             }
 
                                             ConcourseButton {
                                                 text: "REMOVE"
                                                 compact: true
                                                 variant: "danger"
-                                                onClicked: Backend.removeBlockedPattern(index)
+                                                onClicked: Backend.settings.removeBlockedPattern(index)
                                             }
                                         }
 
@@ -869,7 +869,7 @@ Window {
                                 columnSpacing: 10
 
                                 Repeater {
-                                    model: Backend.themeChoices
+                                    model: Backend.settings.themeChoices
 
                                     ThemeCard {
                                         required property var modelData
@@ -878,8 +878,8 @@ Window {
                                         name: modelData.name
                                         tagline: modelData.tagline
                                         swatches: modelData.swatches
-                                        selected: modelData.id === Backend.previewTheme
-                                        onClicked: Backend.previewThemeById(modelData.id)
+                                        selected: modelData.id === Backend.settings.previewTheme
+                                        onClicked: Backend.settings.previewThemeById(modelData.id)
                                     }
                                 }
                             }

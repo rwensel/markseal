@@ -90,7 +90,7 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.controller.selectedCount, 0)
         self.assertFalse(self.controller.confirmed)
         self.controller.toggleBox(0)
-        self.controller.setRedactionMethod('Solid black')
+        self.controller.settings.setRedactionMethod('Solid black')
         self.controller.confirmSelection()
         self.assertTrue(self.controller.confirmed)
 

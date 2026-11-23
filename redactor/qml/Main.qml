@@ -107,7 +107,7 @@ Window {
     }
 
     Connections {
-        target: Backend
+        target: Backend.settings
         function onSettingsRequested() {
             settingsWindow.openSettings()
         }

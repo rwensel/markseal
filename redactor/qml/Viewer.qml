@@ -90,10 +90,10 @@ Item {
 
         MethodToggle {
             Layout.preferredHeight: 26
-            method: Backend.redactionMethod
+            method: Backend.settings.redactionMethod
             enabled: !Backend.busy
             onSelected: function(method) {
-                Backend.setRedactionMethod(method)
+                Backend.settings.setRedactionMethod(method)
             }
         }
 
@@ -101,9 +101,9 @@ Item {
             Layout.preferredHeight: 26
             text: "RULE TAGS"
             compact: true
-            variant: Backend.showRules ? "primary" : "secondary"
+            variant: Backend.settings.showRules ? "primary" : "secondary"
             tip: "Show which rule flagged each box"
-            onClicked: Backend.setShowRules(!Backend.showRules)
+            onClicked: Backend.settings.setShowRules(!Backend.settings.showRules)
         }
 
         Text {
@@ -367,7 +367,7 @@ Item {
                     Rectangle {
                         id: ruleTag
                         z: 5
-                        visible: Backend.showRules && (viewer.hoveredBox !== -1
+                        visible: Backend.settings.showRules && (viewer.hoveredBox !== -1
                                  ? viewer.hoveredBox === index
                                  : (box.boxData.selected && Backend.selectedCount === 1))
                         width: Math.min(Math.max(80, ruleText.implicitWidth + 12), stage.width - 8)

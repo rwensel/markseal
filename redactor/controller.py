@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import os
 import re
 from pathlib import Path
 from queue import Queue
@@ -9,26 +8,20 @@ from threading import Event
 
 from PIL import Image
 from PySide6.QtCore import Property, QBuffer, QIODevice, QObject, QUrl, Signal, Slot
-from PySide6.QtGui import QDesktopServices, QGuiApplication, QImage
+from PySide6.QtGui import QGuiApplication, QImage
 from PySide6.QtWidgets import QFileDialog
 
-from .performance_log import PerformanceRun, log_directory
+from .performance_log import PerformanceRun
 
 from . import boxset
-from . import detection
-from . import dialogs
 from . import export
 from . import images
 from . import ocr
-from . import patterns
-from . import preferences
 from . import redaction
-from .facades import Alerts, JobCenter, SessionState
+from .facades import Alerts, JobCenter, SessionState, SettingsFacade
 from .facades.alerts import box_hint
-from .ui.models import DisplayImageProvider, FolderModel, preference_property
-from . import themes
+from .ui.models import DisplayImageProvider, FolderModel
 from . import workflows
-from .themes import Palette
 
 
 
@@ -41,7 +34,6 @@ from .themes import Palette
 class Controller(QObject):
     statusChanged = Signal()
     errorChanged = Signal()
-    themeChanged = Signal()
     imageChanged = Signal()
     imageRevisionChanged = Signal()
     reviewChanged = Signal()
@@ -50,19 +42,20 @@ class Controller(QObject):
     busyChanged = Signal()
     progressChanged = Signal()
     scanStageChanged = Signal()
-    settingsChanged = Signal()
-    blockedPatternsChanged = Signal()
     captureChanged = Signal()
     scrollRequested = Signal(int)
-    settingsRequested = Signal()
 
     def __init__(self, preferences_file=None, parent=None):
         super().__init__(parent)
         self.session = SessionState(preferences_file)
         self.alerts = Alerts(self)
         self.jobs = JobCenter(self.session, self)
+        self._settings = SettingsFacade(self.session, self.alerts, self)
         self.session.alerts = self.alerts
         self.session.jobs = self.jobs
+        self.session.facades.settings = self._settings
+        self._settings.on_method_changed = self._method_changed
+        self._settings.retry_learn = self.beginLearnPattern
         self.alerts.statusChanged.connect(self.statusChanged)
         self.alerts.errorChanged.connect(self.errorChanged)
         self.jobs.busyChanged.connect(self.busyChanged)
@@ -83,11 +76,13 @@ class Controller(QObject):
         self.jobs.jobStatesCleared.connect(self._folder_model.clear_job_states)
         self.jobs.rowsChanged.connect(self._refresh_folder_rows)
         self.jobs.before_start = self._cancel_capture
-        self._preview_theme = self.session.preferences.theme
-        self._palette = Palette(self)
-        self.load_preferences()
+        self._settings.load_preferences()
         if not self.alerts.status_text:
             self.alerts.set_status(box_hint(self.session.preferences.theme))
+
+    @Property(QObject, constant=True)
+    def settings(self):
+        return self._settings
 
     def display_qimage(self):
         return self._display_qimage
@@ -331,88 +326,6 @@ class Controller(QObject):
     @Property(str, notify=scanStageChanged)
     def scanStage(self):
         return self.jobs.scanStage
-
-    @Property(str, notify=themeChanged)
-    def themeName(self):
-        return self.session.preferences.theme
-
-    @Property(str, notify=themeChanged)
-    def previewTheme(self):
-        return self._preview_theme
-
-    @Property('QVariantList', constant=True)
-    def themeChoices(self):
-        choices = []
-        for theme_id in themes.THEME_IDS:
-            entry = themes.spec(theme_id)
-            tokens = themes.resolve(theme_id)
-            choices.append({
-                'id': theme_id,
-                'name': entry.name,
-                'tagline': entry.tagline,
-                'swatches': {
-                    'bg': tokens['bg'],
-                    'surface': tokens['panel'],
-                    'accent': tokens['amber'],
-                    'white': tokens['white'],
-                    'muted': tokens['mutedText'],
-                },
-            })
-        return choices
-
-    @Property(QObject, constant=True)
-    def palette(self):
-        return self._palette
-
-    @Property(list, constant=True)
-    def categoryNames(self):
-        return list(detection.PATTERNS)
-
-    @Property(list, constant=True)
-    def presetNames(self):
-        return [*detection.PRESETS, 'Custom']
-
-    @Property(list, constant=True)
-    def engineNames(self):
-        return ['Tesseract', 'RapidOCR']
-
-    @Property(list, constant=True)
-    def methodNames(self):
-        return ['Pixelate', 'Solid black']
-
-    @Property(dict, constant=True)
-    def presetCategories(self):
-        return {name: [category for category in detection.PATTERNS if category in values]
-                for name, values in detection.PRESETS.items()}
-
-    @Property(list, notify=settingsChanged)
-    def categories(self):
-        return list(self.session.preferences.categories)
-
-    sensitivity = preference_property('sensitivity', str, settingsChanged)
-    confidence = preference_property('confidence', int, settingsChanged)
-    allText = preference_property('all_text', bool, settingsChanged)
-    enhancedOcr = preference_property('enhanced_ocr', bool, settingsChanged)
-    colorOcr = preference_property('color_ocr', bool, settingsChanged)
-    showRules = preference_property('show_rules', bool, settingsChanged)
-    ocrEngine = preference_property('ocr_engine', str, settingsChanged)
-
-    @Property(str, notify=settingsChanged)
-    def redactionMethod(self):
-        return self.session.preferences.method
-
-    outputDirectory = preference_property('output_directory', str, settingsChanged)
-    filenameTemplate = preference_property('filename_template', str, settingsChanged)
-    includeLog = preference_property('include_log', bool, settingsChanged)
-    parallelImages = preference_property('parallel_images', int, settingsChanged)
-
-    @Property(int, constant=True)
-    def parallelLimit(self):
-        return self.session.parallel_limit
-
-    @Property(list, notify=blockedPatternsChanged)
-    def blockedPatterns(self):
-        return [dict(entry) for entry in self.session.preferences.blocked_patterns]
 
     def _choose_image(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -866,13 +779,13 @@ class Controller(QObject):
             self._emit_view()
 
     def _scan_engine(self):
-        return ocr.make_engine(self.session.preferences.ocr_engine)
+        return self.session.scan_engine()
 
     def _scan_settings(self):
-        return preferences.scan_settings(self.session.preferences)
+        return self.session.scan_settings()
 
     def _scan_metrics(self):
-        return preferences.scan_metrics(self.session.preferences)
+        return self.session.scan_metrics()
 
     @Slot()
     def find(self):
@@ -994,105 +907,6 @@ class Controller(QObject):
         self.alerts.set_status(
             'Drag around the text to block. The area is read locally and turned into a pattern. Esc cancels.'
         )
-
-    def _learn_pattern(self, area):
-        if self.session.review.image is None:
-            return
-        try:
-            engine = self._scan_engine()
-        except OSError as error:
-            self.alerts.error('OCR unavailable', str(error), 'OPEN SETTINGS', self.requestSettings)
-            return
-        info = {'text': '', 'error': None}
-
-        def operation(job):
-            return ocr.read_area_text(self.session.review.image, engine, area)
-
-        def accept(index, result, error):
-            if error is not None:
-                info['error'] = error
-            else:
-                info['text'] = result
-
-        def finish():
-            if info['error'] is not None:
-                return 'Could not read the area'
-            return f'{len(info["text"].split())} words read'
-
-        def complete():
-            if info['error'] is not None:
-                self.alerts.error('Could not read area', f'Text recognition failed: {info["error"]}',
-                            'TRY AGAIN', self.beginLearnPattern)
-                return
-            text = info['text'].strip()
-            if not text:
-                self.alerts.info('No text recognized', 'Draw a tighter box around the text and try again.')
-                return
-            pattern = dialogs.prompt_blocked_pattern(text)
-            if pattern is not None:
-                self.addBlockedPattern(text, pattern)
-
-        self.alerts.set_status('Reading the selected text...')
-        self.jobs.run('Learning pattern', [self.session.review.path], operation, accept, finish,
-                       complete=complete, report_failures=False)
-
-    @Slot()
-    def addBlockedPatternManually(self):
-        result = dialogs.prompt_new_pattern()
-        if result is None:
-            return
-        self.addBlockedPattern(*result)
-
-    @Slot(int)
-    def renameBlockedPattern(self, index):
-        if not 0 <= index < len(self.session.preferences.blocked_patterns):
-            return
-        entry = self.session.preferences.blocked_patterns[index]
-        name = dialogs.prompt_rename(entry.get('text', ''))
-        if name is None or not patterns.rename_entry(entry, name):
-            return
-        self._persist_blocked_patterns()
-        self.blockedPatternsChanged.emit()
-        self.alerts.set_status('Blocked pattern renamed.')
-
-    def _persist_blocked_patterns(self):
-        try:
-            preferences.write_preferences(self.session.preference_file, self.session.preferences)
-        except OSError as error:
-            self.alerts.error('Could not save blocked patterns', str(error))
-
-    def addBlockedPattern(self, text, pattern):
-        pattern = pattern.strip()
-        if not pattern:
-            return False
-        error = patterns.compile_error(pattern)
-        if error is not None:
-            self.alerts.error('Invalid pattern', error)
-            return False
-        if patterns.duplicate_pattern(self.session.preferences.blocked_patterns, pattern):
-            self.alerts.set_status('That pattern is already in the blocked list.')
-            return False
-        self.session.preferences.blocked_patterns.append(patterns.blocked_entry(text, pattern))
-        self._persist_blocked_patterns()
-        self.blockedPatternsChanged.emit()
-        self.alerts.set_status('Blocked pattern added. It applies to the next scan.')
-        return True
-
-    @Slot(int)
-    def removeBlockedPattern(self, index):
-        if 0 <= index < len(self.session.preferences.blocked_patterns):
-            del self.session.preferences.blocked_patterns[index]
-            self._persist_blocked_patterns()
-            self.blockedPatternsChanged.emit()
-            self.alerts.set_status('Blocked pattern removed.')
-
-    @Slot(int, bool)
-    def setBlockedPatternEnabled(self, index, enabled):
-        if 0 <= index < len(self.session.preferences.blocked_patterns):
-            self.session.preferences.blocked_patterns[index]['enabled'] = bool(enabled)
-            self._persist_blocked_patterns()
-            self.blockedPatternsChanged.emit()
-            self.alerts.set_status('Blocked pattern enabled.' if enabled else 'Blocked pattern disabled.')
 
     @Slot()
     def scanAll(self):
@@ -1502,95 +1316,6 @@ class Controller(QObject):
             rows=self._folder_rows(),
         )
 
-    def load_preferences(self):
-        try:
-            self.session.preferences = preferences.load(self.session.preference_file, self.session.parallel_limit)
-        except preferences.PreferencesError as error:
-            self.session.preferences = preferences.defaults()
-            self.alerts.set_status(str(error))
-            return
-        self._apply_loaded_preferences()
-
-    def _apply_loaded_preferences(self):
-        directory = self.session.preferences.output_directory
-        path = Path(directory) if directory else None
-        self.session.output_directory_override = path
-        self.session.output_directory = path or (self.session.folder / 'redacted' if self.session.folder else None)
-        self._preview_theme = self.session.preferences.theme
-        self._palette.set_theme(self.session.preferences.theme)
-        self.alerts.set_hint_theme(self.session.preferences.theme)
-        self.themeChanged.emit()
-
-    @Slot(bool)
-    def setShowRules(self, enabled):
-        enabled = bool(enabled)
-        if self.session.preferences.show_rules == enabled:
-            return
-        self.session.preferences.show_rules = enabled
-        self.settingsChanged.emit()
-        try:
-            preferences.write_preferences(self.session.preference_file, self.session.preferences)
-        except OSError as error:
-            self.alerts.set_status(self.alerts.status_text + f' Settings could not be saved: {error}')
-            return
-        self.alerts.set_status('Rule labels on. Hover a box or select one to inspect its rule.'
-                         if enabled else 'Rule labels hidden.')
-
-    @Slot(str)
-    def setRedactionMethod(self, method):
-        if self.jobs.busy or method not in ('Pixelate', 'Solid black') \
-                or method == self.session.preferences.method:
-            return
-        self.session.preferences.method = method
-        self.settingsChanged.emit()
-        self._method_changed()
-        if not self.session.entries:
-            updated = ' Preview updated.' if self.session.review.confirmed else ''
-            self.alerts.set_status(f'Redaction method set to {method}.{updated}')
-        try:
-            preferences.write_preferences(self.session.preference_file, self.session.preferences)
-        except OSError as error:
-            self.alerts.set_status(self.alerts.status_text + f' Settings could not be saved: {error}')
-
-    @Slot(str, int, bool, bool, bool, str, 'QVariantList', str, str, str, bool, int, str, result=str)
-    def applySettings(self, sensitivity, confidence, all_text, enhanced, color, engine,
-                      categories, method, output_directory, template, include_log,
-                      parallel_images, theme):
-        try:
-            updated = preferences.apply_form(
-                self.session.preferences,
-                {
-                    'sensitivity': sensitivity,
-                    'confidence': confidence,
-                    'all_text': all_text,
-                    'enhanced_ocr': enhanced,
-                    'color_ocr': color,
-                    'ocr_engine': engine,
-                    'categories': categories,
-                    'method': method,
-                    'output_directory': output_directory,
-                    'filename_template': template,
-                    'include_log': include_log,
-                    'parallel_images': parallel_images,
-                    'theme': theme,
-                },
-                self.session.parallel_limit,
-                source=self.session.entries[0].path if self.session.entries else Path('example.png'),
-            )
-            preferences.write_preferences(self.session.preference_file, updated)
-        except (ValueError, re.error, KeyError, IndexError, AttributeError) as error:
-            return str(error)
-        except OSError as error:
-            return f'Could not save settings: {error}'
-
-        method_changed = updated.method != self.session.preferences.method
-        self.session.preferences = updated
-        self._apply_loaded_preferences()
-        self.settingsChanged.emit()
-        if method_changed:
-            self._method_changed()
-        return ''
-
     def _method_changed(self):
         if not self.session.entries:
             if self.session.review.confirmed:
@@ -1610,50 +1335,3 @@ class Controller(QObject):
             f'{method} will be used across the folder. '
             'Confirm the updated redactions before saving.'
         )
-
-    @Slot()
-    def requestSettings(self):
-        self._preview_theme = self.session.preferences.theme
-        self._palette.set_theme(self.session.preferences.theme)
-        self.themeChanged.emit()
-        self.settingsRequested.emit()
-
-    @Slot(str)
-    def previewThemeById(self, theme_id):
-        if not themes.is_known(theme_id) or theme_id == self._preview_theme:
-            return
-        self._preview_theme = theme_id
-        self._palette.set_theme(theme_id)
-        self.alerts.set_hint_theme(theme_id)
-        self.themeChanged.emit()
-
-    @Slot()
-    def clearThemePreview(self):
-        saved = self.session.preferences.theme
-        if self._preview_theme == saved:
-            return
-        self._preview_theme = saved
-        self._palette.set_theme(saved)
-        self.alerts.set_hint_theme(saved)
-        self.themeChanged.emit()
-
-    @Slot(result=str)
-    def chooseOutputFolder(self):
-        path = QFileDialog.getExistingDirectory(None, 'Choose output folder')
-        return path or ''
-
-    @Slot(result=str)
-    def performanceLogsDirectory(self):
-        return str(log_directory())
-
-    @Slot()
-    def openPerformanceLogs(self):
-        directory = log_directory()
-        try:
-            directory.mkdir(parents=True, exist_ok=True)
-            if os.name == 'nt':
-                os.startfile(directory)
-            else:
-                QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory)))
-        except (AttributeError, OSError):
-            self.alerts.info('Performance logs', str(directory))

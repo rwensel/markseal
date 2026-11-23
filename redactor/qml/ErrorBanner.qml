@@ -91,7 +91,7 @@ Item {
             compact: true
             variant: "ghost"
             tip: "Open the local performance logs"
-            onClicked: Backend.openPerformanceLogs()
+            onClicked: Backend.settings.openPerformanceLogs()
         }
 
         ConcourseButton {

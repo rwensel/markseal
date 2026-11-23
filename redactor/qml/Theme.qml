@@ -4,7 +4,7 @@ import Redactor 1.0
 
 QtObject {
     id: theme
-    readonly property var t: Backend.palette.tokens
+    readonly property var t: Backend.settings.palette.tokens
 
     readonly property color bg: t.bg
     readonly property color panel: t.panel

@@ -230,7 +230,7 @@ Item {
             variant: "ghost"
             compact: true
             tip: "Detection, redaction, and output preferences"
-            onClicked: Backend.requestSettings()
+            onClicked: Backend.settings.requestSettings()
         }
     }
 
