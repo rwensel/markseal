@@ -12,7 +12,6 @@ class Facades:
     def __init__(self):
         self.review = None
         self.folder = None
-        self.batch = None
         self.settings = None
 
 

@@ -17,13 +17,6 @@ from .facades.alerts import box_hint
 from .ui.models import DisplayImageProvider
 
 
-
-
-
-
-
-
-
 class Controller(QObject):
     statusChanged = Signal()
     errorChanged = Signal()
@@ -42,7 +35,6 @@ class Controller(QObject):
         self.session.facades.settings = self._settings
         self.session.facades.review = self._review
         self.session.facades.folder = self._folder
-        self.session.facades.batch = self._batch
         self._review.batch = self._batch
         self._settings.on_method_changed = self._review.method_changed
         self._settings.retry_learn = self._review.beginLearnPattern
@@ -168,18 +160,18 @@ class Controller(QObject):
             url = value if isinstance(value, QUrl) else QUrl(str(value))
             if url.isLocalFile():
                 paths.append(Path(url.toLocalFile()))
-        images = [path for path in paths
-                  if path.is_file() and path.suffix.lower() in images.IMAGE_SUFFIXES]
-        if images:
+        image_paths = [path for path in paths
+                       if path.is_file() and path.suffix.lower() in images.IMAGE_SUFFIXES]
+        if image_paths:
             if not self._prepare_image_open():
                 return
             try:
-                with Image.open(images[0]) as source:
+                with Image.open(image_paths[0]) as source:
                     image = source.convert('RGB')
             except Exception as error:
                 self.alerts.error('Cannot open image', str(error))
                 return
-            self._present_image(image, images[0])
+            self._present_image(image, image_paths[0])
             return
         folders = [path for path in paths if path.is_dir()]
         if folders:

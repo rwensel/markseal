@@ -55,9 +55,6 @@ class FolderFacade(QObject):
     def rows(self):
         return {entry.path: index for index, entry in enumerate(self.session.entries)}
 
-    def refresh(self):
-        self._folder_model.refresh()
-
     def refresh_and_emit(self):
         self._folder_model.refresh()
         self.folderChanged.emit()

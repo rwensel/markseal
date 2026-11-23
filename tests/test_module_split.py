@@ -1,5 +1,9 @@
 """Public launcher re-exports and module ownership."""
+import ast
 import unittest
+from pathlib import Path
+
+from PySide6.QtCore import QObject
 
 from tests.support import (
     core,
@@ -43,3 +47,47 @@ class ModuleSplitTests(unittest.TestCase):
         second = pool.borrow()
         self.assertIsNot(second, first)
         self.assertEqual(len(created), 2)
+
+    def test_controller_is_only_the_qml_shell(self):
+        from redactor.controller import Controller
+
+        def declared(cls):
+            meta = cls.staticMetaObject
+            props = {meta.property(index).name()
+                     for index in range(meta.propertyCount())}
+            methods = {bytes(meta.method(index).name()).decode()
+                       for index in range(meta.methodCount())}
+            return props, methods
+
+        base_props, base_methods = declared(QObject)
+        props, methods = declared(Controller)
+        self.assertEqual(props - base_props, {
+            'settings', 'review', 'folder', 'batch',
+            'statusText', 'errorText', 'errorDetail', 'errorActionText',
+        })
+        self.assertEqual(methods - base_methods, {
+            'statusChanged', 'errorChanged',
+            'dismissError', 'runErrorAction',
+            'openImage', 'openFolder', 'openDropped', 'pasteImage',
+        })
+
+    def test_facade_modules_do_not_import_the_controller(self):
+        import redactor.facades
+        package = Path(redactor.facades.__file__).resolve().parent
+        modules = sorted(path for path in package.glob('*.py') if path.name != '__init__.py')
+        self.assertEqual(
+            [path.stem for path in modules],
+            ['activity', 'alerts', 'batch', 'folder', 'review', 'settings', 'state'],
+        )
+        for path in modules:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    module = node.module or ''
+                    self.assertNotEqual(module, 'controller', f'{path.name} imports controller')
+                    self.assertNotEqual(module, 'redactor.controller',
+                                        f'{path.name} imports controller')
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        self.assertNotIn('controller', alias.name,
+                                         f'{path.name} imports controller')
