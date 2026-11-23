@@ -5,7 +5,6 @@ import Redactor 1.0
 Window {
     id: overlay
     visible: false
-    visibility: Window.FullScreen
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
     color: "#66000000"
 
@@ -21,7 +20,7 @@ Window {
         endX = 0
         endY = 0
         dragging = false
-        visible = true
+        showFullScreen()
     }
 
     function commit() {
