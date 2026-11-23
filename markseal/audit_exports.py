@@ -30,6 +30,55 @@ def classify_coverage(mask, boxes):
     return counts
 
 
+def verify_export(export_path, originals, *, patterns=(), run_ocr=False):
+    """Check one exported PNG and its coordinate log. Never raises; failures land in 'issue'."""
+    export_path = Path(export_path)
+    originals = Path(originals)
+    item = {
+        'export': export_path.name,
+        'outside_pixels_unchanged': None,
+        'logged_boxes': 0,
+        'wide_boxes': 0,
+        'masked_percent': 0.0,
+        'issue': None,
+    }
+    try:
+        with Image.open(export_path) as file:
+            file.verify()
+        sidecar = export_path.with_suffix('.redactions.json')
+        if not sidecar.is_file():
+            raise ValueError('coordinate log missing')
+        log = json.loads(sidecar.read_text(encoding='utf-8'))
+        source = log['source_filename']
+        if Path(source).name != source:
+            raise ValueError('invalid source filename in log')
+        with Image.open(originals / source) as file:
+            original = file.convert('RGB')
+        with Image.open(export_path) as file:
+            exported = file.convert('RGB')
+        boxes = log['redaction_rectangles_xyxy']
+        exact, mask = audit_export(original, exported, boxes)
+        item.update(
+            outside_pixels_unchanged=exact,
+            logged_boxes=len(boxes),
+            wide_boxes=sum(right - left >= .25 * original.width
+                           for left, top, right, bottom in boxes),
+            masked_percent=round(100 * mask.histogram()[255] / (mask.width * mask.height), 3),
+        )
+        if run_ocr:
+            from .detection import PRESETS
+            from .ocr import make_engine, recognize_regions
+            engine = make_engine('RapidOCR')
+            settings = (False, PRESETS['Broad'], 40, '', patterns)
+            suggested = recognize_regions(original, engine, settings)
+            item['ocr_candidates'] = classify_coverage(mask, suggested)
+            residual = recognize_regions(exported, engine, settings)
+            item['export_ocr_candidates'] = classify_coverage(mask, residual)
+    except (OSError, ValueError, SyntaxError, KeyError) as error:
+        item['issue'] = str(error)
+    return item
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('originals', type=Path)
@@ -50,38 +99,8 @@ def main(argv=None):
         if not patterns:
             parser.error('Add or enable a blocked pattern in the app first')
     for path in sorted(args.exports.glob('*.png')):
-        item = {'export': path.name}
-        try:
-            with Image.open(path) as file:
-                file.verify()
-            sidecar = path.with_suffix('.redactions.json')
-            if not sidecar.is_file():
-                raise ValueError('coordinate log missing')
-            log = json.loads(sidecar.read_text(encoding='utf-8'))
-            source = log['source_filename']
-            if Path(source).name != source:
-                raise ValueError('invalid source filename in log')
-            with Image.open(args.originals / source) as file:
-                original = file.convert('RGB')
-            with Image.open(path) as file:
-                exported = file.convert('RGB')
-            boxes = log['redaction_rectangles_xyxy']
-            exact, mask = audit_export(original, exported, boxes)
-            item.update(outside_pixels_unchanged=exact, logged_boxes=len(boxes),
-                        wide_boxes=sum(right-left >= .25*original.width for left, top, right, bottom in boxes),
-                        masked_percent=round(100*mask.histogram()[255]/(mask.width*mask.height), 3))
-            if args.ocr:
-                from .detection import PRESETS
-                from .ocr import make_engine, recognize_regions
-                engine = make_engine('RapidOCR')
-                settings = (False, PRESETS['Broad'], 40, '', patterns)
-                suggested = recognize_regions(original, engine, settings)
-                item['ocr_candidates'] = classify_coverage(mask, suggested)
-                residual = recognize_regions(exported, engine, settings)
-                item['export_ocr_candidates'] = classify_coverage(mask, residual)
-        except (OSError, ValueError, SyntaxError, KeyError) as error:
-            item['issue'] = str(error)
-        print(json.dumps(item), flush=True)
+        print(json.dumps(verify_export(path, args.originals, patterns=patterns,
+                                       run_ocr=args.ocr)), flush=True)
 
 
 if __name__ == '__main__':
