@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Item {
@@ -9,8 +8,8 @@ Item {
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#15181B" }
-            GradientStop { position: 1.0; color: "#0E1012" }
+            GradientStop { position: 0.0; color: Theme.boardTop }
+            GradientStop { position: 1.0; color: Theme.boardBottom }
         }
     }
 
@@ -19,7 +18,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         height: 1
-        color: "#3B4046"
+        color: Theme.hairline
         opacity: 0.5
     }
 

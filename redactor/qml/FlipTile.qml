@@ -1,5 +1,4 @@
 import QtQuick
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Item {
@@ -26,8 +25,8 @@ Item {
         anchors.leftMargin: 1
         anchors.rightMargin: 1
         radius: 6
-        color: "#000000"
-        opacity: 0.45
+        color: Theme.shadow
+        opacity: 1
     }
 
     Rectangle {
@@ -36,7 +35,7 @@ Item {
         radius: 6
         color: Theme.tile
         border.width: 1
-        border.color: "#3B4046"
+        border.color: Theme.hairline
         transform: Rotation {
             id: flipRotation
             origin.x: face.width / 2
@@ -52,8 +51,8 @@ Item {
             anchors.margins: 1
             height: 1
             radius: 1
-            color: "#FFFFFF"
-            opacity: 0.14
+            color: Theme.highlight
+            opacity: 1
         }
 
         Rectangle {
@@ -61,8 +60,8 @@ Item {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             height: 1
-            color: "#000000"
-            opacity: 0.55
+            color: Theme.tileHingeDark
+            opacity: 1
         }
 
         Rectangle {
@@ -71,8 +70,8 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: 1
             height: 1
-            color: "#FFFFFF"
-            opacity: 0.06
+            color: Theme.tileHingeLight
+            opacity: 1
         }
 
         Text {
