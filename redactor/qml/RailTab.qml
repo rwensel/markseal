@@ -11,6 +11,9 @@ Item {
     implicitHeight: 38
     implicitWidth: 168
     activeFocusOnTab: true
+    Accessible.role: Accessible.PageTab
+    Accessible.name: tab.text
+    Accessible.selected: tab.active
     scale: pointer.pressed ? 0.985 : 1
     Behavior on scale { NumberAnimation { duration: 90 } }
 

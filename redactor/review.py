@@ -117,6 +117,13 @@ class Review:
         self.confirmed = False
         return True
 
+    def toggle_box(self, index):
+        if not 0 <= index < len(self.boxes):
+            return False
+        self._state.toggle(index)
+        self.confirmed = False
+        return True
+
     def undo(self):
         if not self._state.undo():
             return False

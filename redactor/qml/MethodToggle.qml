@@ -11,6 +11,15 @@ Item {
     implicitWidth: 150
     implicitHeight: 26
     opacity: enabled ? 1 : 0.4
+    activeFocusOnTab: true
+    Accessible.role: Accessible.Button
+    Accessible.name: "Redaction method: " + control.method
+    Accessible.description: "Press Space to switch between pixelate and solid black"
+
+    function toggle() {
+        if (control.enabled)
+            control.selected(control.method === "Pixelate" ? "Solid black" : "Pixelate")
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -25,7 +34,6 @@ Item {
         anchors.fill: parent
         anchors.margins: 2
         spacing: 2
-
         Rectangle {
             width: (segments.width - 2) / 2
             height: segments.height
@@ -43,8 +51,8 @@ Item {
                 text: "PIXELATE"
                 color: control.method === "Pixelate" ? Theme.ink : Theme.steelLight
                 font.family: Backend.displayFont
-                font.pixelSize: 8
-                font.letterSpacing: 0.6
+                font.pixelSize: 9
+                font.letterSpacing: 0.5
             }
 
             MouseArea {
@@ -53,7 +61,10 @@ Item {
                 hoverEnabled: true
                 enabled: control.enabled
                 cursorShape: control.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: control.selected("Pixelate")
+                onClicked: {
+                    control.forceActiveFocus()
+                    control.selected("Pixelate")
+                }
             }
         }
 
@@ -71,11 +82,11 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                text: "SOLID"
+                text: "BLACK"
                 color: control.method === "Solid black" ? Theme.ink : Theme.steelLight
                 font.family: Backend.displayFont
-                font.pixelSize: 8
-                font.letterSpacing: 0.6
+                font.pixelSize: 9
+                font.letterSpacing: 0.5
             }
 
             MouseArea {
@@ -84,8 +95,27 @@ Item {
                 hoverEnabled: true
                 enabled: control.enabled
                 cursorShape: control.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: control.selected("Solid black")
+                onClicked: {
+                    control.forceActiveFocus()
+                    control.selected("Solid black")
+                }
             }
         }
     }
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -2
+        radius: 6
+        color: "transparent"
+        border.width: 1
+        border.color: Theme.amber
+        opacity: 0.85
+        visible: control.activeFocus
+    }
+
+    Keys.onSpacePressed: control.toggle()
+    Keys.onLeftPressed: control.selected("Pixelate")
+    Keys.onRightPressed: control.selected("Solid black")
+    Keys.onReturnPressed: control.toggle()
 }

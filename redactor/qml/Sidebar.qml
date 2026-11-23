@@ -8,6 +8,7 @@ import Redactor 1.0
 Item {
     id: sidebar
     implicitWidth: 336
+    property bool showBatch: false
 
     Rectangle {
         id: background
@@ -58,7 +59,7 @@ Item {
             spacing: 1
 
             Text {
-                text: "FOLDER CONCOURSE"
+                text: "FOLDER"
                 color: Theme.amber
                 font.family: Backend.displayFont
                 font.pixelSize: 9
@@ -95,6 +96,7 @@ Item {
                 Layout.fillWidth: true
                 text: "SCAN ALL"
                 compact: true
+                tip: "Scan every image in the folder"
                 enabled: !Backend.busy
                 onClicked: Backend.scanAll()
             }
@@ -103,55 +105,78 @@ Item {
                 Layout.fillWidth: true
                 text: "SCAN SELECTED"
                 compact: true
+                tip: "Scan only the highlighted images"
                 enabled: !Backend.busy
                 onClicked: Backend.scanSelected()
             }
 
             ConcourseButton {
                 Layout.fillWidth: true
-                text: "RESCAN ALL"
-                compact: true
-                enabled: !Backend.busy
-                onClicked: Backend.rescanAll()
-            }
-
-            ConcourseButton {
-                Layout.fillWidth: true
-                text: "COPY BOXES"
-                compact: true
-                enabled: Backend.hasImage && Backend.folderMode && !Backend.busy
-                onClicked: Backend.copyBoxesToFolder()
-            }
-
-            ConcourseButton {
-                Layout.fillWidth: true
-                text: "MATCH ANCHOR"
-                compact: true
-                enabled: Backend.hasImage && Backend.folderMode && !Backend.busy
-                onClicked: Backend.beginAnchorCapture()
-            }
-
-            ConcourseButton {
-                Layout.fillWidth: true
                 text: "CONFIRM ALL"
                 compact: true
+                tip: "Apply the boxes on every scanned image"
                 enabled: !Backend.busy
                 onClicked: Backend.confirmAll()
             }
 
             ConcourseButton {
                 Layout.fillWidth: true
-                Layout.columnSpan: 2
-                text: "SAVE REVIEWED IMAGES"
+                text: "SAVE REVIEWED"
                 compact: true
-                enabled: !Backend.busy
+                tip: Backend.reviewedCount > 0
+                     ? "Export " + Backend.reviewedCount + " confirmed image(s)"
+                     : "Confirm at least one image first"
+                enabled: !Backend.busy && Backend.reviewedCount > 0
                 onClicked: Backend.saveReviewed()
+            }
+
+            ConcourseButton {
+                Layout.fillWidth: true
+                Layout.columnSpan: 2
+                text: sidebar.showBatch ? "HIDE BATCH TOOLS" : "BATCH TOOLS"
+                variant: "secondary"
+                compact: true
+                tip: "Rescan, copy boxes, and match by anchor"
+                onClicked: sidebar.showBatch = !sidebar.showBatch
+            }
+
+            ConcourseButton {
+                Layout.fillWidth: true
+                Layout.columnSpan: 2
+                visible: sidebar.showBatch
+                text: "RESCAN SCANNED"
+                compact: true
+                tip: "Run detection again on every scanned image"
+                enabled: !Backend.busy
+                onClicked: Backend.rescanAll()
+            }
+
+            ConcourseButton {
+                Layout.fillWidth: true
+                Layout.columnSpan: 2
+                visible: sidebar.showBatch
+                text: "COPY BOXES TO MATCHING"
+                compact: true
+                tip: "Copy this image's boxes to every image of the same size"
+                enabled: Backend.hasImage && Backend.folderMode && !Backend.busy
+                onClicked: Backend.copyBoxesToFolder()
+            }
+
+            ConcourseButton {
+                Layout.fillWidth: true
+                Layout.columnSpan: 2
+                visible: sidebar.showBatch
+                text: "MATCH BY ANCHOR"
+                compact: true
+                tip: "Place this image's boxes on shifted captures of the same screen"
+                enabled: Backend.hasImage && Backend.folderMode && !Backend.busy
+                onClicked: Backend.beginAnchorCapture()
             }
         }
 
         Panel {
             Layout.fillWidth: true
-            implicitHeight: 160
+            implicitHeight: Backend.busy ? 146 : 84
 
             ColumnLayout {
                 anchors.fill: parent
@@ -219,7 +244,7 @@ Item {
                 Text {
                     Layout.fillWidth: true
                     text: Backend.progressCurrent
-                    visible: text.length > 0
+                    visible: Backend.busy && text.length > 0
                     elide: Text.ElideRight
                     color: Theme.steelLight
                     font.family: Backend.bodyFont
@@ -229,7 +254,7 @@ Item {
                 Text {
                     Layout.fillWidth: true
                     text: Backend.progressDetail
-                    visible: text.length > 0
+                    visible: Backend.busy && text.length > 0
                     wrapMode: Text.WordWrap
                     maximumLineCount: 2
                     elide: Text.ElideRight
@@ -245,6 +270,7 @@ Item {
                     text: "CANCEL SCAN"
                     variant: "danger"
                     compact: true
+                    visible: Backend.canCancel
                     enabled: Backend.canCancel
                     onClicked: Backend.cancelScan()
                 }
@@ -269,8 +295,8 @@ Item {
                 text: "CTRL / SHIFT SELECT"
                 color: Theme.mutedText
                 font.family: Backend.displayFont
-                font.pixelSize: 8
-                font.letterSpacing: 0.8
+                font.pixelSize: 9
+                font.letterSpacing: 0.7
             }
         }
 
@@ -278,11 +304,14 @@ Item {
             id: fileList
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 150
             clip: true
             spacing: 2
             model: Backend.folderModel
             boundsBehavior: Flickable.StopAtBounds
             activeFocusOnTab: true
+            Accessible.role: Accessible.List
+            Accessible.name: "Folder images"
 
             Keys.onUpPressed: function(event) {
                 var target = Math.max(0, fileList.currentIndex - 1)

@@ -64,7 +64,7 @@ Item {
         }
 
         FlipTile {
-            value: Backend.confirmed ? "APPLIED" : "DRAFT"
+            value: Backend.confirmed ? "APPLIED" : "PENDING"
             label: "STATE"
             accent: Backend.confirmed ? Theme.amber : Theme.steelMid
         }

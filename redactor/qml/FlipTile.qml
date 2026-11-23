@@ -92,8 +92,8 @@ Item {
             text: tile.label
             color: Theme.mutedText
             font.family: Backend.displayFont
-            font.pixelSize: 8
-            font.letterSpacing: 0.9
+            font.pixelSize: 9
+            font.letterSpacing: 0.8
         }
     }
 

@@ -19,8 +19,9 @@ Window {
     title: "Settings - Offline Screenshot Redactor"
     visible: false
 
-    property string tab: "detection"
+    property string tab: "engine"
     property string errorText: ""
+    property bool showDiagnostics: false
     property var selectedCategories: []
     property string sensitivityValue: "Focused"
     property int confidenceValue: 50
@@ -47,7 +48,8 @@ Window {
         templateValue = Backend.filenameTemplate
         includeLogValue = Backend.includeLog
         parallelValue = Backend.parallelImages
-        tab = "detection"
+        tab = "engine"
+        showDiagnostics = false
         errorText = ""
         engineCombo.currentIndex = Math.max(0, engineCombo.find(engineValue))
         sensitivityCombo.currentIndex = Math.max(0, sensitivityCombo.find(sensitivityValue))
@@ -88,9 +90,7 @@ Window {
 
     onClosing: function(close) {
         close.accepted = false
-        if (tryApply()) {
-            visible = false
-        }
+        closeSettings()
     }
 
     Shortcut {
@@ -148,9 +148,16 @@ Window {
 
                 RailTab {
                     Layout.fillWidth: true
-                    text: "DETECTION"
-                    active: settings.tab === "detection"
-                    onClicked: settings.tab = "detection"
+                    text: "OCR ENGINE"
+                    active: settings.tab === "engine"
+                    onClicked: settings.tab = "engine"
+                }
+
+                RailTab {
+                    Layout.fillWidth: true
+                    text: "PATTERNS"
+                    active: settings.tab === "patterns"
+                    onClicked: settings.tab = "patterns"
                 }
 
                 RailTab {
@@ -162,7 +169,7 @@ Window {
 
                 RailTab {
                     Layout.fillWidth: true
-                    text: "FOLDER OUTPUT"
+                    text: "OUTPUT"
                     active: settings.tab === "output"
                     onClicked: settings.tab = "output"
                 }
@@ -172,13 +179,6 @@ Window {
                     text: "BLOCKED PATTERNS"
                     active: settings.tab === "blocked"
                     onClicked: settings.tab = "blocked"
-                }
-
-                RailTab {
-                    Layout.fillWidth: true
-                    text: "DIAGNOSTICS"
-                    active: settings.tab === "diagnostics"
-                    onClicked: settings.tab = "diagnostics"
                 }
 
                 Item { Layout.fillHeight: true }
@@ -202,15 +202,15 @@ Window {
                 StackLayout {
                     anchors.fill: parent
                     anchors.margins: 18
-                    currentIndex: settings.tab === "detection" ? 0
-                                  : settings.tab === "redaction" ? 1
-                                  : settings.tab === "output" ? 2
-                                  : settings.tab === "blocked" ? 3 : 4
+                    currentIndex: settings.tab === "engine" ? 0
+                                  : settings.tab === "patterns" ? 1
+                                  : settings.tab === "redaction" ? 2
+                                  : settings.tab === "output" ? 3 : 4
 
                     Flickable {
                         clip: true
                         contentWidth: width
-                        contentHeight: detectionPage.implicitHeight
+                        contentHeight: enginePage.implicitHeight
                         boundsBehavior: Flickable.StopAtBounds
 
                         ScrollBar.vertical: ScrollBar {
@@ -225,7 +225,7 @@ Window {
                         }
 
                         ColumnLayout {
-                            id: detectionPage
+                            id: enginePage
                             width: parent.width
                             spacing: 10
 
@@ -236,23 +236,6 @@ Window {
                                 Layout.fillWidth: true
                                 model: Backend.engineNames
                                 onActivated: settings.engineValue = currentText
-                            }
-
-                            FieldLabel { text: "SENSITIVITY" }
-
-                            ConcourseComboBox {
-                                id: sensitivityCombo
-                                Layout.fillWidth: true
-                                model: Backend.presetNames
-                                onActivated: {
-                                    settings.sensitivityValue = currentText
-                                    if (currentText !== "Custom") {
-                                        var preset = Backend.presetCategories[currentText]
-                                        if (preset) {
-                                            settings.selectedCategories = preset.slice(0)
-                                        }
-                                    }
-                                }
                             }
 
                             FieldLabel { text: "MIN OCR CONFIDENCE (0-100)" }
@@ -300,6 +283,67 @@ Window {
                                 label: "Suggest all detected text (bypasses patterns)"
                                 checked: settings.allTextValue
                                 onToggled: function(next) { settings.allTextValue = next }
+                            }
+
+                            HintText {
+                                Layout.fillWidth: true
+                                Layout.topMargin: 4
+                                text: "Detection changes apply on the next scan."
+                            }
+                        }
+                    }
+
+                    Flickable {
+                        clip: true
+                        contentWidth: width
+                        contentHeight: patternsPage.implicitHeight
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                            background: Item {}
+                            contentItem: Rectangle {
+                                implicitWidth: 4
+                                radius: 2
+                                color: Theme.steelMid
+                                opacity: 0.6
+                            }
+                        }
+
+                        ColumnLayout {
+                            id: patternsPage
+                            width: parent.width
+                            spacing: 10
+
+                            FieldLabel { text: "SENSITIVITY PRESET" }
+
+                            ConcourseComboBox {
+                                id: sensitivityCombo
+                                Layout.fillWidth: true
+                                model: Backend.presetNames
+                                onActivated: {
+                                    settings.sensitivityValue = currentText
+                                    if (currentText !== "Custom") {
+                                        var preset = Backend.presetCategories[currentText]
+                                        if (preset) {
+                                            settings.selectedCategories = preset.slice(0)
+                                        }
+                                    }
+                                }
+
+                                Connections {
+                                    target: settings
+                                    function onSensitivityValueChanged() {
+                                        sensitivityCombo.currentIndex = Math.max(
+                                            0, sensitivityCombo.find(settings.sensitivityValue))
+                                    }
+                                }
+                            }
+
+                            HintText {
+                                Layout.fillWidth: true
+                                text: "Focused, Balanced and Broad choose groups of categories. "
+                                      + "Toggling a category below switches the preset to Custom."
                             }
 
                             FieldLabel {
@@ -350,7 +394,7 @@ Window {
                             HintText {
                                 Layout.fillWidth: true
                                 Layout.topMargin: 4
-                                text: "Detection changes apply on the next scan. Custom expressions are managed under Blocked patterns."
+                                text: "Custom expressions are managed under Blocked patterns."
                             }
                         }
                     }
@@ -511,6 +555,65 @@ Window {
                                 checked: settings.includeLogValue
                                 onToggled: function(next) { settings.includeLogValue = next }
                             }
+
+                            ConcourseButton {
+                                Layout.topMargin: 8
+                                text: settings.showDiagnostics ? "HIDE PERFORMANCE LOGS" : "PERFORMANCE LOGS"
+                                variant: "secondary"
+                                compact: true
+                                tip: "Show the local timing logs used for troubleshooting"
+                                onClicked: settings.showDiagnostics = !settings.showDiagnostics
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                visible: settings.showDiagnostics
+                                spacing: 8
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "Each run records elapsed time, gaps between images, per-pass timings, counts, and error types. "
+                                          + "Traces omit filenames, paths, OCR text, and blocked-pattern expressions."
+                                    wrapMode: Text.WordWrap
+                                    color: Theme.steelLight
+                                    font.family: Backend.bodyFont
+                                    font.pixelSize: 11
+                                    lineHeight: 1.2
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    implicitHeight: 40
+                                    radius: 6
+                                    color: "#101214"
+                                    border.width: 1
+                                    border.color: "#2A2D31"
+
+                                    Text {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 11
+                                        anchors.rightMargin: 11
+                                        text: Backend.performanceLogsDirectory()
+                                        elide: Text.ElideMiddle
+                                        verticalAlignment: Text.AlignVCenter
+                                        color: Theme.steelLight
+                                        font.family: Backend.bodyFont
+                                        font.pixelSize: 11
+                                    }
+                                }
+
+                                ConcourseButton {
+                                    text: "OPEN PERFORMANCE LOGS FOLDER"
+                                    compact: true
+                                    onClicked: Backend.openPerformanceLogs()
+                                }
+
+                                HintText {
+                                    Layout.fillWidth: true
+                                    text: "Coordinate logs still contain source filenames. Inspect them before sharing. "
+                                          + "This application does not download or install OCR."
+                                }
+                            }
                         }
                     }
 
@@ -536,6 +639,16 @@ Window {
                                 font.family: Backend.bodyFont
                                 font.pixelSize: 12
                                 lineHeight: 1.25
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "CHANGES ON THIS PAGE SAVE IMMEDIATELY, EVEN IF YOU CANCEL"
+                                wrapMode: Text.WordWrap
+                                color: Theme.amber
+                                font.family: Backend.displayFont
+                                font.pixelSize: 9
+                                font.letterSpacing: 0.8
                             }
 
                             RowLayout {
@@ -665,67 +778,7 @@ Window {
                                 Layout.fillWidth: true
                                 Layout.topMargin: 4
                                 text: "Patterns are matched case-insensitively in addition to the selected detection categories. "
-                                      + "Disable one to keep it without blocking it. Changes to this list are saved immediately."
-                            }
-                        }
-                    }
-
-                    Flickable {
-                        clip: true
-                        contentWidth: width
-                        contentHeight: diagnosticsPage.implicitHeight
-                        boundsBehavior: Flickable.StopAtBounds
-
-                        ColumnLayout {
-                            id: diagnosticsPage
-                            width: parent.width
-                            spacing: 10
-
-                            FieldLabel { text: "LOCAL PERFORMANCE LOGS" }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: "Each run records elapsed time, gaps between images, per-pass timings, counts, and error types. "
-                                      + "Traces omit filenames, paths, OCR text, and blocked-pattern expressions."
-                                wrapMode: Text.WordWrap
-                                color: Theme.steelLight
-                                font.family: Backend.bodyFont
-                                font.pixelSize: 12
-                                lineHeight: 1.25
-                            }
-
-                            Rectangle {
-                                Layout.fillWidth: true
-                                implicitHeight: 40
-                                radius: 6
-                                color: "#101214"
-                                border.width: 1
-                                border.color: "#2A2D31"
-
-                                Text {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 11
-                                    anchors.rightMargin: 11
-                                    text: Backend.performanceLogsDirectory()
-                                    elide: Text.ElideMiddle
-                                    verticalAlignment: Text.AlignVCenter
-                                    color: Theme.steelLight
-                                    font.family: Backend.bodyFont
-                                    font.pixelSize: 11
-                                }
-                            }
-
-                            ConcourseButton {
-                                text: "OPEN PERFORMANCE LOGS FOLDER"
-                                compact: true
-                                onClicked: Backend.openPerformanceLogs()
-                            }
-
-                            HintText {
-                                Layout.fillWidth: true
-                                Layout.topMargin: 8
-                                text: "Coordinate logs still contain source filenames. Inspect them before sharing. "
-                                      + "This application does not download or install OCR."
+                                      + "Disable one to keep it without blocking it."
                             }
                         }
                     }

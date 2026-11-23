@@ -11,6 +11,15 @@ Item {
     implicitHeight: 28
     implicitWidth: row.implicitWidth
     opacity: enabled ? 1 : 0.45
+    activeFocusOnTab: true
+    Accessible.role: Accessible.CheckBox
+    Accessible.name: control.label
+    Accessible.checked: control.checked
+
+    function toggle() {
+        if (control.enabled)
+            control.toggled(!control.checked)
+    }
 
     Row {
         id: row
@@ -35,6 +44,28 @@ Item {
                 border.color: "#FFFFFF"
                 opacity: control.checked ? 0.22 : 0
             }
+
+            Rectangle {
+                width: 3
+                height: 7
+                radius: 1
+                x: 3
+                y: 7
+                rotation: -42
+                color: Theme.ink
+                visible: control.checked
+            }
+
+            Rectangle {
+                width: 3
+                height: 11
+                radius: 1
+                x: 6.5
+                y: 3
+                rotation: 34
+                color: Theme.ink
+                visible: control.checked
+            }
         }
 
         Text {
@@ -51,6 +82,23 @@ Item {
         enabled: control.enabled
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: control.toggled(!control.checked)
+        onClicked: {
+            control.forceActiveFocus()
+            control.toggle()
+        }
     }
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -2
+        radius: 5
+        color: "transparent"
+        border.width: 1
+        border.color: Theme.amber
+        opacity: 0.8
+        visible: control.activeFocus
+    }
+
+    Keys.onSpacePressed: control.toggle()
+    Keys.onReturnPressed: control.toggle()
 }

@@ -88,7 +88,7 @@ def image_status(*, error='', saved=False, reviewed=False, incomplete_ocr=(),
         return 'Scanned · review needed'
     if boxes:
         return 'Boxes added · review needed'
-    return 'Not checked'
+    return 'Not scanned'
 
 
 @dataclass(frozen=True)

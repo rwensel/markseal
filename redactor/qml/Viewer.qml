@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Effects
 import QtQuick.Layouts
 import "Theme.js" as Theme
@@ -7,6 +8,7 @@ import Redactor 1.0
 Item {
     id: viewer
     property int hoveredBox: -1
+    property int keyboardBox: -1
     readonly property string captureTitle: Backend.captureMode === "area" ? "SCAN AREA"
                                           : Backend.captureMode === "anchor" ? "ANCHOR MATCH"
                                           : Backend.captureMode === "learn" ? "LEARN PATTERN" : ""
@@ -20,7 +22,20 @@ Item {
 
     Connections {
         target: Backend
-        function onImageChanged() { viewer.hoveredBox = -1 }
+        function onImageChanged() { viewer.hoveredBox = -1; viewer.keyboardBox = -1 }
+        function onReviewChanged() {
+            if (viewer.keyboardBox >= Backend.totalBoxes)
+                viewer.keyboardBox = Backend.totalBoxes - 1
+        }
+    }
+
+    function stepBox(delta) {
+        if (Backend.totalBoxes === 0)
+            return
+        if (keyboardBox < 0)
+            keyboardBox = 0
+        else
+            keyboardBox = (keyboardBox + delta + Backend.totalBoxes) % Backend.totalBoxes
     }
 
     Rectangle {
@@ -70,7 +85,7 @@ Item {
             text: "METHOD"
             color: Theme.mutedText
             font.family: Backend.displayFont
-            font.pixelSize: 8
+            font.pixelSize: 9
             font.letterSpacing: 0.8
         }
 
@@ -85,27 +100,43 @@ Item {
 
         ConcourseButton {
             Layout.preferredHeight: 26
-            text: "RULES"
+            text: "RULE TAGS"
             compact: true
             variant: Backend.showRules ? "primary" : "secondary"
+            tip: "Show which rule flagged each box"
             onClicked: Backend.setShowRules(!Backend.showRules)
         }
 
         Text {
-            text: "SCROLL ZOOM / RIGHT-DRAG PAN"
-            visible: caption.width > 900
-            color: Theme.mutedText
-            font.family: Backend.displayFont
-            font.pixelSize: 8
-            font.letterSpacing: 0.7
-        }
-
-        Text {
-            text: Backend.zoomPercent + "%"
+            id: zoomText
+            text: Math.round(Backend.viewScale * 100) + "%"
             color: Theme.white
             font.family: Backend.displayFont
             font.pixelSize: 10
             font.letterSpacing: 0.6
+            Accessible.role: Accessible.StaticText
+            Accessible.name: "Display scale " + text
+            ToolTip.visible: zoomPointer.containsMouse
+            ToolTip.delay: 500
+            ToolTip.timeout: 5000
+            ToolTip.text: "Scroll to zoom. Right-drag to pan."
+
+            MouseArea {
+                id: zoomPointer
+                anchors.fill: parent
+                anchors.margins: -4
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+            }
+        }
+
+        ConcourseButton {
+            Layout.preferredHeight: 26
+            text: "REVISE"
+            compact: true
+            visible: Backend.confirmed
+            tip: "Return to editing the boxes"
+            onClicked: Backend.editBoxes()
         }
 
         ConcourseButton {
@@ -113,6 +144,7 @@ Item {
             text: "COPY IMAGE"
             compact: true
             visible: Backend.confirmed
+            tip: "Copy the redacted image to the clipboard (Ctrl+C)"
             enabled: !Backend.busy
             onClicked: Backend.copyRedacted()
         }
@@ -168,10 +200,37 @@ Item {
             anchors.fill: parent
             anchors.margins: 6
             clip: true
+            activeFocusOnTab: true
+            Accessible.role: Accessible.Pane
+            Accessible.name: "Screenshot review area"
+            Accessible.description: "Arrow keys move between boxes, Space includes or excludes, Delete removes. Confirm with Ctrl+Enter."
 
             onWidthChanged: Backend.setViewSize(width, height)
             onHeightChanged: Backend.setViewSize(width, height)
             Component.onCompleted: Backend.setViewSize(width, height)
+            onActiveFocusChanged: {
+                if (activeFocus && keyboardBox < 0 && Backend.totalBoxes > 0)
+                    keyboardBox = 0
+            }
+
+            Keys.onLeftPressed: stepBox(-1)
+            Keys.onUpPressed: stepBox(-1)
+            Keys.onRightPressed: stepBox(1)
+            Keys.onDownPressed: stepBox(1)
+            Keys.onSpacePressed: {
+                if (keyboardBox >= 0) {
+                    Backend.toggleBox(keyboardBox)
+                    event.accepted = true
+                }
+            }
+            Keys.onDeletePressed: {
+                if (keyboardBox >= 0) {
+                    var removed = keyboardBox
+                    Backend.removeBox(removed)
+                    viewer.keyboardBox = Math.min(removed, Backend.totalBoxes - 1)
+                    event.accepted = true
+                }
+            }
 
             Image {
                 id: screenshot
@@ -198,6 +257,7 @@ Item {
                 cursorShape: Backend.panning ? Qt.ClosedHandCursor : Qt.CrossCursor
 
                 onPressed: function(mouse) {
+                    stage.forceActiveFocus()
                     if (mouse.button === Qt.RightButton) {
                         Backend.beginPan(mouse.x, mouse.y)
                     } else {
@@ -269,6 +329,16 @@ Item {
                     }
 
                     Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        radius: 2
+                        color: "transparent"
+                        border.width: 2
+                        border.color: Theme.white
+                        visible: stage.activeFocus && viewer.keyboardBox === index
+                    }
+
+                    Rectangle {
                         id: ruleTag
                         z: 5
                         visible: Backend.showRules && (viewer.hoveredBox !== -1
@@ -336,12 +406,48 @@ Item {
 
                         MouseArea {
                             anchors.fill: parent
+                            anchors.margins: -4
                             acceptedButtons: Qt.LeftButton
                             cursorShape: Qt.PointingHandCursor
                             onClicked: Backend.removeBox(index)
                         }
                     }
                 }
+            }
+
+            Rectangle {
+                z: 8
+                anchors.left: parent.left
+                anchors.bottom: parent.bottom
+                anchors.margins: 8
+                width: keyHint.implicitWidth + 16
+                height: 22
+                radius: 4
+                color: "#E60B0D10"
+                border.width: 1
+                border.color: "#3B4046"
+                visible: stage.activeFocus && Backend.totalBoxes > 0 && !Backend.confirmed
+                         && Backend.captureMode === "none" && !Backend.busy
+
+                Text {
+                    id: keyHint
+                    anchors.centerIn: parent
+                    text: "ARROWS MOVE · SPACE TOGGLE · DEL REMOVE"
+                    color: Theme.steelLight
+                    font.family: Backend.displayFont
+                    font.pixelSize: 9
+                    font.letterSpacing: 0.6
+                }
+            }
+
+            Rectangle {
+                z: 9
+                anchors.fill: parent
+                color: "transparent"
+                border.width: 1
+                border.color: Theme.amber
+                opacity: 0.7
+                visible: stage.activeFocus
             }
 
             Rectangle {
@@ -453,14 +559,26 @@ Item {
                             ConcourseButton {
                                 text: "OPEN IMAGE"
                                 variant: "primary"
+                                tip: "Open an image file (Ctrl+O)"
                                 onClicked: Backend.openImage()
                             }
 
                             ConcourseButton {
                                 text: "OPEN FOLDER"
+                                tip: "Open every image in a folder (Ctrl+Shift+O)"
                                 onClicked: Backend.openFolder()
                             }
                         }
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: "CTRL+O OPEN · CTRL+V PASTE · CTRL+F SCAN · CTRL+ENTER CONFIRM"
+                        horizontalAlignment: Text.AlignHCenter
+                        color: Theme.steelLight
+                        font.family: Backend.displayFont
+                        font.pixelSize: 9
+                        font.letterSpacing: 0.8
                     }
 
                     Text {

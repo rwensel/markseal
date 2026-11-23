@@ -338,6 +338,11 @@ class Controller(QObject):
     def confirmed(self):
         return self.review.confirmed
 
+    @Property(str, notify=folderChanged)
+    def confirmLabel(self):
+        count = len(self.row_selection) if self.entries else 0
+        return f'CONFIRM {count}' if count > 1 else 'CONFIRM'
+
     @Property(float, notify=viewChanged)
     def viewScale(self):
         return self.review.scale
@@ -399,6 +404,10 @@ class Controller(QObject):
         saved = sum(entry.saved for entry in self.entries)
         return (f'{len(self.entries)} images · {scanned} scanned · '
                 f'{reviewed} reviewed · {saved} saved')
+
+    @Property(int, notify=folderChanged)
+    def reviewedCount(self):
+        return sum(1 for entry in self.entries if entry.reviewed and not entry.saved)
 
     @Property(QObject, constant=True)
     def folderModel(self):
@@ -835,6 +844,16 @@ class Controller(QObject):
         if self.review.pan_end():
             self._panning = False
             self.viewChanged.emit()
+
+    @Slot(int)
+    def toggleBox(self, index):
+        if self.review.confirmed:
+            return
+        if self.review.toggle_box(index):
+            self._refresh_display()
+            self._store_active()
+            self._emit_review()
+            self._set_status(self._review_status())
 
     @Slot(int)
     def removeBox(self, index):
@@ -1518,7 +1537,7 @@ class Controller(QObject):
         self._folder_model.refresh()
         self.folderChanged.emit()
         self._set_status(
-            f'Confirmed {len(pending)} image(s). Use Save reviewed images to export them.'
+            f'Confirmed {len(pending)} image(s). Use Save reviewed to export them.'
         )
 
     @Slot()
@@ -1529,7 +1548,7 @@ class Controller(QObject):
         pending = [(index, entry) for index, entry in enumerate(self.entries)
                    if entry.reviewed and not entry.saved]
         if not pending:
-            self._info('Save reviewed images', 'Confirm the selection on each image you want to save.')
+            self._info('Save reviewed', 'Confirm the selection on each image you want to save.')
             return
         self._export_entries(pending)
 
@@ -1564,7 +1583,7 @@ class Controller(QObject):
         self._store_active()
         entry = self.entries[self.active]
         if self.review.image is None or not entry.reviewed:
-            self._info('Review image', 'Review this image and confirm the selection before saving.')
+            self._set_status('Confirm the selection on this image before saving.')
             return
         self._export_entries([(self.active, entry)], individual=True)
 
@@ -1572,10 +1591,7 @@ class Controller(QObject):
         if self.review.image is None:
             return
         if not self.review.confirmed:
-            self._info(
-                'Confirm selection',
-                'Select the areas to redact and click Confirm selection before saving.',
-            )
+            self._set_status('Confirm the selection before saving.')
             return
         if not self.review.selected and not self._ask(
                 'No redactions', 'No areas are selected. Save an unredacted copy?'):

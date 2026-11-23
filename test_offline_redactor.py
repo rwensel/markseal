@@ -1022,6 +1022,17 @@ class ReviewSessionTests(unittest.TestCase):
         self.assertEqual(review.boxes[-1], (60, 60, 90, 90))
         self.assertEqual(review.rules[(60, 60, 90, 90)], ('Copied box',))
 
+    def test_toggle_box_updates_selection_and_clears_confirmation(self):
+        review = Review()
+        review.load(Image.new('RGB', (100, 100)), Path('toggle.png'))
+        review.boxes = [(1, 1, 10, 10), (20, 20, 30, 30)]
+        review.selected = {0, 1}
+        review.confirmed = True
+        self.assertTrue(review.toggle_box(0))
+        self.assertEqual(review.selected, {1})
+        self.assertFalse(review.confirmed)
+        self.assertFalse(review.toggle_box(9))
+
     def test_state_survives_switching_between_folder_images(self):
         first = FolderImage(Path('one.png'))
         second = FolderImage(Path('two.png'))
@@ -1039,7 +1050,7 @@ class ReviewSessionTests(unittest.TestCase):
 
     def test_status_transitions_follow_scan_review_and_save(self):
         entry = FolderImage(Path('status.png'))
-        self.assertEqual(entry.status, 'Not checked')
+        self.assertEqual(entry.status, 'Not scanned')
         entry.add_suggestions([])
         self.assertEqual(entry.status, 'Scanned · review needed')
         entry.add_suggestions([(1, 1, 5, 5)], ['enhanced OCR timed out'])

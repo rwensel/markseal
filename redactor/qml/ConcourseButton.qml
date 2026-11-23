@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Effects
 import "Theme.js" as Theme
 import Redactor 1.0
@@ -7,6 +8,7 @@ Item {
     id: control
     property string text: ""
     property string variant: "secondary"
+    property string tip: ""
     property bool compact: false
     property real pressPulse: 0
     signal clicked()
@@ -14,8 +16,14 @@ Item {
     implicitWidth: label.implicitWidth + (compact ? 22 : 30)
     implicitHeight: compact ? 32 : 36
     activeFocusOnTab: true
-    opacity: enabled ? 1 : 0.38
     scale: isPressed ? 0.965 : 1
+    Accessible.role: Accessible.Button
+    Accessible.name: control.text
+    Accessible.description: control.tip
+    ToolTip.visible: control.hovered && control.tip.length > 0
+    ToolTip.delay: 600
+    ToolTip.timeout: 5000
+    ToolTip.text: control.tip
     Behavior on scale {
         NumberAnimation {
             duration: control.isPressed ? 80 : 160
@@ -41,7 +49,9 @@ Item {
         id: background
         anchors.fill: parent
         radius: Theme.radiusButton
-        color: control.isPressed
+        color: !control.enabled
+               ? "#191C1F"
+               : control.isPressed
                ? (control.primary ? "#E6A000"
                   : control.danger ? "#351318"
                   : control.ghost ? "#2A2E33" : "#15181B")
@@ -53,7 +63,9 @@ Item {
                      ? (control.hovered ? "#22262A" : "transparent")
                      : (control.hovered ? "#2A2E33" : Theme.panelRaised)
         border.width: control.ghost && !control.isPressed ? 0 : 1
-        border.color: control.isPressed
+        border.color: !control.enabled
+                      ? "#2A2D31"
+                      : control.isPressed
                       ? (control.danger ? "#E04A5A" : control.primary ? "#FFE2A6" : Theme.amber)
                       : control.danger
                         ? Theme.red
@@ -64,7 +76,7 @@ Item {
     MultiEffect {
         anchors.fill: background
         source: background
-        shadowEnabled: true
+        shadowEnabled: control.enabled
         shadowColor: control.primary ? Theme.amber : "#000000"
         shadowOpacity: control.isPressed
                        ? (control.primary ? 0.2 : 0.26)
@@ -114,7 +126,9 @@ Item {
         id: label
         anchors.centerIn: parent
         text: control.text
-        color: control.primary ? Theme.ink : Theme.white
+        color: !control.enabled
+               ? Theme.mutedText
+               : control.primary ? Theme.ink : Theme.white
         font.family: Backend.displayFont
         font.pixelSize: control.compact ? 10 : 11
         font.letterSpacing: 1.1
@@ -127,7 +141,10 @@ Item {
         hoverEnabled: true
         enabled: control.enabled
         cursorShape: control.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onClicked: control.activate()
+        onClicked: {
+            control.forceActiveFocus()
+            control.activate()
+        }
     }
 
     Keys.onReturnPressed: control.activate()

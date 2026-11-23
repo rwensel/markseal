@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Effects
 import QtQuick.Layouts
 import "Theme.js" as Theme
@@ -8,6 +9,10 @@ Item {
     id: toolbar
     implicitHeight: 70
     signal settingsClicked()
+
+    readonly property bool wide: width >= 1240
+    readonly property bool canScan: Backend.hasImage && !Backend.busy && !Backend.confirmed
+    readonly property bool canConfirm: Backend.hasImage && !Backend.busy && !Backend.confirmed
 
     Rectangle {
         id: bar
@@ -113,6 +118,7 @@ Item {
         ConcourseButton {
             text: "OPEN IMAGE"
             compact: true
+            tip: "Open an image file (Ctrl+O)"
             enabled: !Backend.busy
             onClicked: Backend.openImage()
         }
@@ -120,6 +126,7 @@ Item {
         ConcourseButton {
             text: "OPEN FOLDER"
             compact: true
+            tip: "Open every image in a folder (Ctrl+Shift+O)"
             enabled: !Backend.busy
             onClicked: Backend.openFolder()
         }
@@ -127,59 +134,88 @@ Item {
         ConcourseButton {
             text: "PASTE"
             compact: true
+            tip: "Paste an image from the clipboard (Ctrl+V)"
+            visible: toolbar.wide
             enabled: !Backend.busy
             onClicked: Backend.pasteImage()
         }
 
+        Rectangle {
+            Layout.preferredWidth: 1
+            Layout.preferredHeight: 30
+            color: "#34393F"
+        }
+
         ConcourseButton {
-            text: "SCAN"
+            text: "SCAN IMAGE"
             compact: true
-            enabled: Backend.hasImage && !Backend.busy
+            variant: toolbar.canScan && Backend.totalBoxes === 0 ? "primary" : "secondary"
+            tip: "Find identifiers in this image (Ctrl+F)"
+            enabled: toolbar.canScan
             onClicked: Backend.find()
         }
 
         ConcourseButton {
-            text: "SCAN AREA"
+            text: "SCAN REGION"
             compact: true
-            enabled: Backend.hasImage && !Backend.busy
+            tip: "Drag around one area to scan just that text"
+            visible: toolbar.wide
+            enabled: toolbar.canScan
             onClicked: Backend.beginScanArea()
+        }
+
+        Rectangle {
+            Layout.preferredWidth: 1
+            Layout.preferredHeight: 30
+            color: "#34393F"
         }
 
         ConcourseButton {
             text: "UNDO"
             compact: true
+            tip: "Undo the last box (Ctrl+Z)"
             enabled: Backend.hasImage && Backend.totalBoxes > 0
             onClicked: Backend.undo()
         }
 
         ConcourseButton {
-            text: "EDIT"
+            text: "CLEAR"
             compact: true
-            enabled: Backend.hasImage && Backend.confirmed
-            onClicked: Backend.editBoxes()
+            tip: "Remove every box from this image"
+            visible: toolbar.wide
+            enabled: Backend.hasImage && Backend.totalBoxes > 0
+            onClicked: Backend.clearBoxes()
         }
 
         ConcourseButton {
-            text: "CLEAR"
+            id: moreButton
+            text: "MORE"
             compact: true
-            enabled: Backend.hasImage && Backend.totalBoxes > 0
-            onClicked: Backend.clearBoxes()
+            tip: overflow.visible ? "" : "More actions"
+            visible: !toolbar.wide
+            onClicked: overflow.popup(moreButton, moreButton.width - overflow.width,
+                                      moreButton.height + 6)
         }
 
         Item { Layout.fillWidth: true }
 
         ConcourseButton {
-            text: "CONFIRM"
+            text: Backend.confirmLabel
             compact: true
-            enabled: Backend.hasImage && !Backend.busy
+            variant: toolbar.canConfirm && Backend.totalBoxes > 0 ? "primary" : "secondary"
+            tip: Backend.confirmLabel.indexOf(" ") > 0
+                 ? "Apply the boxes to every selected image"
+                 : "Apply the selected boxes (Ctrl+Enter)"
+            enabled: toolbar.canConfirm
             onClicked: Backend.confirmSelection()
         }
 
         ConcourseButton {
             text: "SAVE"
-            variant: "primary"
             compact: true
-            enabled: Backend.hasImage && !Backend.busy
+            variant: Backend.confirmed ? "primary" : "secondary"
+            tip: "Save the confirmed PNG copy and coordinate log (Ctrl+S)"
+            enabled: Backend.hasImage && !Backend.busy && Backend.confirmed
             onClicked: Backend.save()
         }
 
@@ -187,7 +223,35 @@ Item {
             text: "SETTINGS"
             variant: "ghost"
             compact: true
+            tip: "Detection, redaction, and output preferences"
             onClicked: Backend.requestSettings()
+        }
+    }
+
+    Menu {
+        id: overflow
+        width: 218
+
+        background: Rectangle {
+            color: "#181B1F"
+            radius: 8
+            border.width: 1
+            border.color: Theme.hairline
+        }
+
+        MenuAction {
+            text: "Paste image  (Ctrl+V)"
+            onTriggered: Backend.pasteImage()
+        }
+        MenuAction {
+            text: "Scan a region"
+            enabled: toolbar.canScan && !Backend.busy
+            onTriggered: Backend.beginScanArea()
+        }
+        MenuAction {
+            text: "Clear all boxes"
+            enabled: Backend.hasImage && Backend.totalBoxes > 0 && !Backend.busy
+            onTriggered: Backend.clearBoxes()
         }
     }
 }

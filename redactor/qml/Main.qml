@@ -145,6 +145,11 @@ Window {
     }
 
     Shortcut {
+        sequence: "Ctrl+Return"
+        onActivated: Backend.confirmSelection()
+    }
+
+    Shortcut {
         sequence: "Ctrl+S"
         onActivated: Backend.save()
     }
