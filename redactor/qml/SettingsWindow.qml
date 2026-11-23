@@ -35,6 +35,7 @@ Window {
     property int parallelValue: 1
 
     function openSettings() {
+        Backend.clearThemePreview()
         selectedCategories = Backend.categories.slice(0)
         sensitivityValue = Backend.sensitivity
         confidenceValue = Backend.confidence

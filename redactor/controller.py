@@ -35,9 +35,8 @@ from .themes import Palette
 
 def box_hint(theme_id):
     entry = themes.spec(theme_id)
-    return (f'Click a box or use arrows; Space includes or excludes. '
-            f'{entry.selected_name.capitalize()} = selected; {entry.excluded_name} = excluded. '
-            'Confirm to apply.')
+    return (f'Space includes or excludes. '
+            f'{entry.selected_name.capitalize()} = selected; {entry.excluded_name} = excluded.')
 
 
 
