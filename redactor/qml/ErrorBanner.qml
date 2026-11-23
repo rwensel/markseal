@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Layouts
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Item {
@@ -26,16 +25,16 @@ Item {
         id: face
         anchors.fill: parent
         radius: 8
-        color: "#1A1418"
+        color: Theme.bannerFace
         border.width: 1
-        border.color: "#8C1A2E"
+        border.color: Theme.bannerBorder
     }
 
     MultiEffect {
         anchors.fill: face
         source: face
         shadowEnabled: true
-        shadowColor: "#000000"
+        shadowColor: Theme.shadow
         shadowOpacity: 0.55
         shadowBlur: 0.7
         shadowVerticalOffset: 6
@@ -63,7 +62,7 @@ Item {
                 text: Backend.errorText.toUpperCase()
                 elide: Text.ElideRight
                 color: Theme.white
-                font.family: Backend.displayFont
+                font.family: Theme.displayFont
                 font.pixelSize: 10
                 font.letterSpacing: 1.1
             }
@@ -75,7 +74,7 @@ Item {
                 maximumLineCount: 2
                 elide: Text.ElideRight
                 color: Theme.steelLight
-                font.family: Backend.bodyFont
+                font.family: Theme.bodyFont
                 font.pixelSize: 11
             }
         }

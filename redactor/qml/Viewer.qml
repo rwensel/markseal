@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
 import QtQuick.Layouts
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Item {
@@ -41,8 +40,8 @@ Item {
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#14171A" }
-            GradientStop { position: 1.0; color: "#0B0C0E" }
+            GradientStop { position: 0.0; color: Theme.shellTop }
+            GradientStop { position: 1.0; color: Theme.shellBottom }
         }
     }
 
@@ -63,14 +62,14 @@ Item {
             text: Backend.imageName
             elide: Text.ElideMiddle
             color: Theme.white
-            font.family: Backend.bodyFont
+            font.family: Theme.bodyFont
             font.pixelSize: 11
         }
 
         Text {
             text: Backend.imageSizeText
             color: Theme.steelLight
-            font.family: Backend.displayFont
+            font.family: Theme.displayFont
             font.pixelSize: 9
             font.letterSpacing: 0.7
         }
@@ -78,13 +77,13 @@ Item {
         Rectangle {
             Layout.preferredWidth: 1
             Layout.preferredHeight: 12
-            color: "#34393F"
+            color: Theme.hairline
         }
 
         Text {
             text: "METHOD"
             color: Theme.mutedText
-            font.family: Backend.displayFont
+            font.family: Theme.displayFont
             font.pixelSize: 9
             font.letterSpacing: 0.8
         }
@@ -111,7 +110,7 @@ Item {
             id: zoomText
             text: Math.round(Backend.viewScale * 100) + "%"
             color: Theme.white
-            font.family: Backend.displayFont
+            font.family: Theme.displayFont
             font.pixelSize: 10
             font.letterSpacing: 0.6
             Accessible.role: Accessible.StaticText
@@ -133,7 +132,7 @@ Item {
         Rectangle {
             Layout.preferredWidth: 1
             Layout.preferredHeight: 12
-            color: "#34393F"
+            color: Theme.hairline
             visible: Backend.confirmed
         }
 
@@ -169,14 +168,14 @@ Item {
             radius: 6
             color: Theme.inset
             border.width: 1
-            border.color: "#050506"
+            border.color: Theme.shadow
         }
 
         MultiEffect {
             anchors.fill: cardBackground
             source: cardBackground
             shadowEnabled: true
-            shadowColor: "#000000"
+            shadowColor: Theme.shadow
             shadowOpacity: 0.6
             shadowBlur: 0.85
             shadowVerticalOffset: 9
@@ -187,7 +186,7 @@ Item {
             radius: 6
             color: "transparent"
             border.width: 1
-            border.color: "#3B4046"
+            border.color: Theme.buttonBorder
             opacity: 0.45
         }
 
@@ -197,7 +196,7 @@ Item {
             anchors.top: parent.top
             anchors.margins: 2
             height: 1
-            color: "#FFFFFF"
+            color: Theme.highlight
             opacity: 0.06
         }
 
@@ -350,7 +349,7 @@ Item {
                     Rectangle {
                         anchors.fill: parent
                         radius: 1
-                        color: box.boxData.selected ? "#0CFFB000" : "#14B00020"
+                        color: box.boxData.selected ? Theme.amberFill : Theme.redFill
                         border.width: 2
                         border.color: box.boxData.selected ? Theme.amber : Theme.red
                     }
@@ -374,7 +373,7 @@ Item {
                         width: Math.min(Math.max(80, ruleText.implicitWidth + 12), stage.width - 8)
                         height: 19
                         radius: 3
-                        color: "#E61A1C20"
+                        color: Theme.panelRaised
                         border.width: 1
                         border.color: Theme.amber
                         x: Math.max(4 - box.x, Math.min(stage.width - box.x - width - 4, 0))
@@ -391,7 +390,7 @@ Item {
                             textFormat: Text.PlainText
                             elide: Text.ElideRight
                             color: Theme.amber
-                            font.family: Backend.displayFont
+                            font.family: Theme.displayFont
                             font.pixelSize: 9
                             font.letterSpacing: 0.5
                         }
@@ -408,7 +407,7 @@ Item {
                         Rectangle {
                             anchors.fill: parent
                             radius: 3
-                            color: "#181A1D"
+                            color: Theme.fieldFace
                             border.width: 1
                             border.color: Theme.steelLight
                         }
@@ -450,9 +449,9 @@ Item {
                 width: keyHint.implicitWidth + 16
                 height: 22
                 radius: 4
-                color: "#E60B0D10"
+                color: Theme.panel
                 border.width: 1
-                border.color: "#3B4046"
+                border.color: Theme.buttonBorder
                 visible: stage.activeFocus && Backend.totalBoxes > 0 && !Backend.confirmed
                          && Backend.captureMode === "none" && !Backend.busy
 
@@ -461,7 +460,7 @@ Item {
                     anchors.centerIn: parent
                     text: "ARROWS MOVE · SPACE TOGGLE · DEL REMOVE · SHIFT PAN · CTRL+= ZOOM"
                     color: Theme.steelLight
-                    font.family: Backend.displayFont
+                    font.family: Theme.displayFont
                     font.pixelSize: 9
                     font.letterSpacing: 0.6
                 }
@@ -500,7 +499,7 @@ Item {
                         var h = height - 4;
                         if (w <= 0 || h <= 0)
                             return;
-                        ctx.strokeStyle = "#B0000000";
+                        ctx.strokeStyle = Theme.scrim;
                         ctx.lineWidth = 4;
                         ctx.setLineDash([]);
                         ctx.strokeRect(x, y, w, h);
@@ -525,7 +524,7 @@ Item {
                         y: modelData[1] ? parent.height - height : 0
                         color: Theme.amber
                         border.width: 1
-                        border.color: "#B0000000"
+                        border.color: Theme.scrim
                     }
                 }
             }
@@ -545,7 +544,7 @@ Item {
                         text: "NO SCREENSHOT"
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.white
-                        font.family: Backend.displayFont
+                        font.family: Theme.displayFont
                         font.pixelSize: 34
                         font.letterSpacing: 4
                         font.weight: Font.DemiBold
@@ -570,7 +569,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
                         color: Theme.steelLight
-                        font.family: Backend.bodyFont
+                        font.family: Theme.bodyFont
                         font.pixelSize: 13
                         lineHeight: 1.25
                     }
@@ -603,7 +602,7 @@ Item {
                         text: "CTRL+O OPEN · CTRL+V PASTE · CTRL+F SCAN · CTRL+ENTER CONFIRM"
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.steelLight
-                        font.family: Backend.displayFont
+                        font.family: Theme.displayFont
                         font.pixelSize: 9
                         font.letterSpacing: 0.8
                     }
@@ -613,7 +612,7 @@ Item {
                         text: "TESSERACT + RAPIDOCR / COORDINATE LOG / PNG COPY"
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.mutedText
-                        font.family: Backend.displayFont
+                        font.family: Theme.displayFont
                         font.pixelSize: 9
                         font.letterSpacing: 1.1
                     }
@@ -640,7 +639,7 @@ Item {
                 width: Math.min(stage.width - 32, 640)
                 height: 58
                 radius: 7
-                color: "#F00B0D10"
+                color: Theme.panel
                 border.width: 1
                 border.color: Theme.amber
 
@@ -674,7 +673,7 @@ Item {
                         Text {
                             text: viewer.captureTitle
                             color: Theme.amber
-                            font.family: Backend.displayFont
+                            font.family: Theme.displayFont
                             font.pixelSize: 11
                             font.letterSpacing: 1.2
                             font.weight: Font.DemiBold
@@ -684,7 +683,7 @@ Item {
                             Layout.fillWidth: true
                             text: viewer.captureInstruction + " Esc cancels."
                             color: Theme.white
-                            font.family: Backend.bodyFont
+                            font.family: Theme.bodyFont
                             font.pixelSize: 11
                             elide: Text.ElideRight
                         }
@@ -729,7 +728,7 @@ Item {
                 width: Math.min(stage.width - 40, 460)
                 height: 64
                 radius: 8
-                color: "#E61D2024"
+                color: Theme.rowSelected
                 border.width: 1
                 border.color: Theme.amber
 
@@ -750,7 +749,7 @@ Item {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             height: 1
-                            color: "#000000"
+                            color: Theme.shadow
                             opacity: 0.55
                         }
                     }
@@ -763,7 +762,7 @@ Item {
                         Text {
                             text: Backend.busyLabel.toUpperCase()
                             color: Theme.white
-                            font.family: Backend.displayFont
+                            font.family: Theme.displayFont
                             font.pixelSize: 10
                             font.letterSpacing: 1.1
                         }
@@ -774,7 +773,7 @@ Item {
                             text: Backend.scanStage
                             elide: Text.ElideRight
                             color: Theme.white
-                            font.family: Backend.bodyFont
+                            font.family: Theme.bodyFont
                             font.pixelSize: 11
                         }
 
@@ -783,7 +782,7 @@ Item {
                             text: Backend.progressText
                             elide: Text.ElideRight
                             color: Theme.steelLight
-                            font.family: Backend.bodyFont
+                            font.family: Theme.bodyFont
                             font.pixelSize: 10
                         }
                     }
