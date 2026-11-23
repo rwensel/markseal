@@ -1,5 +1,4 @@
 import QtQuick
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Item {
@@ -24,9 +23,9 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: 5
-        color: "#0F1114"
+        color: Theme.fieldFace
         border.width: 1
-        border.color: "#2A2D31"
+        border.color: Theme.buttonBorder
     }
 
     Row {
@@ -40,9 +39,9 @@ Item {
             radius: 3
             scale: pixelHover.pressed ? 0.97 : 1
             color: pixelHover.pressed
-                   ? (control.method === "Pixelate" ? "#E6A000" : "#30353A")
+                   ? (control.method === "Pixelate" ? Theme.amberPressed : Theme.buttonFacePressed)
                    : control.method === "Pixelate" ? Theme.amber
-                   : pixelHover.containsMouse ? "#1D2024" : "transparent"
+                   : pixelHover.containsMouse ? Theme.rowSelected : "transparent"
             Behavior on color { ColorAnimation { duration: 90 } }
             Behavior on scale { NumberAnimation { duration: 90 } }
 
@@ -50,9 +49,9 @@ Item {
                 anchors.centerIn: parent
                 text: "PIXELATE"
                 color: control.method === "Pixelate" ? Theme.ink : Theme.steelLight
-                font.family: Backend.displayFont
-                font.pixelSize: 9
-                font.letterSpacing: 0.5
+                font.family: Theme.displayFont
+                font.pixelSize: 9 * Theme.labelScale
+                font.letterSpacing: Theme.labelTracking
             }
 
             MouseArea {
@@ -74,9 +73,9 @@ Item {
             radius: 3
             scale: solidHover.pressed ? 0.97 : 1
             color: solidHover.pressed
-                   ? (control.method === "Solid black" ? "#E6A000" : "#30353A")
+                   ? (control.method === "Solid black" ? Theme.amberPressed : Theme.buttonFacePressed)
                    : control.method === "Solid black" ? Theme.amber
-                   : solidHover.containsMouse ? "#1D2024" : "transparent"
+                   : solidHover.containsMouse ? Theme.rowSelected : "transparent"
             Behavior on color { ColorAnimation { duration: 90 } }
             Behavior on scale { NumberAnimation { duration: 90 } }
 
@@ -84,9 +83,9 @@ Item {
                 anchors.centerIn: parent
                 text: "BLACK"
                 color: control.method === "Solid black" ? Theme.ink : Theme.steelLight
-                font.family: Backend.displayFont
-                font.pixelSize: 9
-                font.letterSpacing: 0.5
+                font.family: Theme.displayFont
+                font.pixelSize: 9 * Theme.labelScale
+                font.letterSpacing: Theme.labelTracking
             }
 
             MouseArea {

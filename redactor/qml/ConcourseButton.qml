@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Item {
@@ -50,26 +49,26 @@ Item {
         anchors.fill: parent
         radius: Theme.radiusButton
         color: !control.enabled
-               ? "#191C1F"
+               ? Theme.disabledFace
                : control.isPressed
-               ? (control.primary ? "#E6A000"
-                  : control.danger ? "#351318"
-                  : control.ghost ? "#2A2E33" : "#15181B")
+               ? (control.primary ? Theme.amberPressed
+                  : control.danger ? Theme.dangerFace
+                  : control.ghost ? Theme.buttonFaceHover : Theme.buttonFacePressed)
                : control.primary
-                 ? (control.hovered ? "#FFC24D" : Theme.amber)
+                 ? (control.hovered ? Theme.amberHover : Theme.amber)
                  : control.danger
-                   ? (control.hovered ? "#2A1114" : "#171214")
+                   ? (control.hovered ? Theme.dangerFace : Theme.dangerFace)
                    : control.ghost
-                     ? (control.hovered ? "#22262A" : "transparent")
-                     : (control.hovered ? "#2A2E33" : Theme.panelRaised)
+                     ? (control.hovered ? Theme.ghostHover : "transparent")
+                     : (control.hovered ? Theme.buttonFaceHover : Theme.panelRaised)
         border.width: control.ghost && !control.isPressed ? 0 : 1
         border.color: !control.enabled
-                      ? "#2A2D31"
+                      ? Theme.buttonBorder
                       : control.isPressed
-                      ? (control.danger ? "#E04A5A" : control.primary ? "#FFE2A6" : Theme.amber)
+                      ? (control.danger ? Theme.dangerBorder : control.primary ? Theme.amberBorder : Theme.amber)
                       : control.danger
                         ? Theme.red
-                        : control.primary ? "#FFD37A" : "#3B4046"
+                        : control.primary ? Theme.amberBorder : Theme.buttonBorder
         Behavior on color { ColorAnimation { duration: 110 } }
     }
 
@@ -77,7 +76,7 @@ Item {
         anchors.fill: background
         source: background
         shadowEnabled: control.enabled
-        shadowColor: control.primary ? Theme.amber : "#000000"
+        shadowColor: control.primary ? Theme.amber : Theme.shadow
         shadowOpacity: control.isPressed
                        ? (control.primary ? 0.2 : 0.26)
                        : control.primary ? (control.hovered ? 0.55 : 0.34) : 0.42
@@ -92,7 +91,7 @@ Item {
         anchors.margins: 1
         height: 1
         radius: 1
-        color: "#FFFFFF"
+        color: Theme.highlight
         opacity: control.isPressed
                  ? (control.primary ? 0.22 : 0.06)
                  : (control.primary ? 0.38 : 0.12)
@@ -116,7 +115,7 @@ Item {
         radius: Theme.radiusButton + 2
         color: "transparent"
         border.width: 1
-        border.color: control.danger ? Theme.red : control.primary ? "#FFE2A6" : Theme.amber
+        border.color: control.danger ? Theme.red : control.primary ? Theme.amberBorder : Theme.amber
         opacity: control.pressPulse * 0.5
         scale: 1 + (1 - control.pressPulse) * 0.025
         visible: control.pressPulse > 0.001
@@ -129,9 +128,9 @@ Item {
         color: !control.enabled
                ? Theme.mutedText
                : control.primary ? Theme.ink : Theme.white
-        font.family: Backend.displayFont
-        font.pixelSize: control.compact ? 10 : 11
-        font.letterSpacing: 1.1
+        font.family: Theme.displayFont
+        font.pixelSize: (control.compact ? 10 : 11) * Theme.labelScale
+        font.letterSpacing: Theme.labelTracking
         font.weight: Font.DemiBold
     }
 

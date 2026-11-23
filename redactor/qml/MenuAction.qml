@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import "Theme.js" as Theme
 import Redactor 1.0
 
 MenuItem {
@@ -10,7 +9,7 @@ MenuItem {
     contentItem: Text {
         leftPadding: 12
         text: control.text
-        font.family: Backend.bodyFont
+        font.family: Theme.bodyFont
         font.pixelSize: 12
         color: control.enabled ? Theme.white : Theme.mutedText
         verticalAlignment: Text.AlignVCenter
@@ -18,6 +17,6 @@ MenuItem {
 
     background: Rectangle {
         radius: 5
-        color: control.highlighted && control.enabled ? "#25292E" : "transparent"
+        color: control.highlighted && control.enabled ? Theme.rowSelected : "transparent"
     }
 }

@@ -1,5 +1,4 @@
 import QtQuick
-import "Theme.js" as Theme
 import Redactor 1.0
 
 Item {
@@ -30,7 +29,7 @@ Item {
             width: 16
             height: 16
             radius: 3
-            color: control.checked ? Theme.amber : "#101214"
+            color: control.checked ? Theme.amber : Theme.fieldFace
             border.width: 1
             border.color: control.checked ? Theme.amber : Theme.steelMid
             Behavior on color { ColorAnimation { duration: 100 } }
@@ -41,7 +40,7 @@ Item {
                 radius: 2
                 color: "transparent"
                 border.width: 1
-                border.color: "#FFFFFF"
+                border.color: Theme.highlight
                 opacity: control.checked ? 0.22 : 0
             }
 
@@ -72,7 +71,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: control.label
             color: Theme.white
-            font.family: Backend.bodyFont
+            font.family: Theme.bodyFont
             font.pixelSize: 12
         }
     }
