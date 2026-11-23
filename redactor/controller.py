@@ -11,13 +11,14 @@ from PySide6.QtCore import Property, QBuffer, QIODevice, QObject, QUrl, Signal, 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QFileDialog
 
-from . import boxset
 from . import export
 from . import images
 from . import ocr
-from .facades import Alerts, JobCenter, ReviewFacade, SessionState, SettingsFacade
+from .facades import (
+    Alerts, FolderFacade, JobCenter, ReviewFacade, SessionState, SettingsFacade,
+)
 from .facades.alerts import box_hint
-from .ui.models import DisplayImageProvider, FolderModel
+from .ui.models import DisplayImageProvider
 from . import workflows
 
 
@@ -31,11 +32,9 @@ from . import workflows
 class Controller(QObject):
     statusChanged = Signal()
     errorChanged = Signal()
-    folderChanged = Signal()
     busyChanged = Signal()
     progressChanged = Signal()
     scanStageChanged = Signal()
-    scrollRequested = Signal(int)
 
     def __init__(self, preferences_file=None, parent=None):
         super().__init__(parent)
@@ -44,10 +43,12 @@ class Controller(QObject):
         self.jobs = JobCenter(self.session, self)
         self._settings = SettingsFacade(self.session, self.alerts, self)
         self._review = ReviewFacade(self.session, self.alerts, self)
+        self._folder = FolderFacade(self.session, self.alerts, self)
         self.session.alerts = self.alerts
         self.session.jobs = self.jobs
         self.session.facades.settings = self._settings
         self.session.facades.review = self._review
+        self.session.facades.folder = self._folder
         self._review.batch = self
         self._settings.on_method_changed = self._review.method_changed
         self._settings.retry_learn = self._review.beginLearnPattern
@@ -56,16 +57,15 @@ class Controller(QObject):
         self.jobs.busyChanged.connect(self.busyChanged)
         self.jobs.progressChanged.connect(self.progressChanged)
         self.jobs.scanStageChanged.connect(self.scanStageChanged)
-        self._folder_model = FolderModel()
-        self.jobs.jobStatesQueued.connect(
-            lambda states: self._folder_model.set_job_states(states))
+        self.jobs.jobStatesQueued.connect(self._folder.set_job_states)
         self.jobs.jobStarted.connect(
-            lambda row: self._folder_model.set_job_state(row, 'running'))
+            lambda row: self._folder.set_job_state(row, 'running'))
         self.jobs.jobCleared.connect(
-            lambda row: self._folder_model.set_job_state(row, ''))
-        self.jobs.jobStatesCleared.connect(self._folder_model.clear_job_states)
-        self.jobs.rowsChanged.connect(self._refresh_folder_rows)
-        self._review.reviewChanged.connect(self._refresh_folder_rows)
+            lambda row: self._folder.set_job_state(row, ''))
+        self.jobs.jobStatesCleared.connect(self._folder.clear_job_states)
+        self.jobs.rowsChanged.connect(self._folder.refresh_and_emit)
+        self._review.reviewChanged.connect(self._folder.refresh_and_emit)
+        self._folder.selectionChanged.connect(self._review.selection_changed)
         self.jobs.before_start = self._review.cancel_capture
         self._settings.load_preferences()
         if not self.alerts.status_text:
@@ -79,46 +79,16 @@ class Controller(QObject):
     def review(self):
         return self._review
 
+    @Property(QObject, constant=True)
+    def folder(self):
+        return self._folder
+
     def display_qimage(self):
         return self._review.display_qimage()
-
-    def _refresh_folder_rows(self):
-        self._folder_model.refresh()
-        self.folderChanged.emit()
 
     @Property(str, notify=statusChanged)
     def statusText(self):
         return self.alerts.status_text
-
-    @Property(bool, notify=folderChanged)
-    def folderMode(self):
-        return bool(self.session.entries) and self.session.active is not None
-
-    @Property(str, notify=folderChanged)
-    def folderName(self):
-        return self.session.folder.name if self.session.folder else ''
-
-    @Property(str, notify=folderChanged)
-    def folderCounts(self):
-        if not self.session.entries:
-            return ''
-        scanned = sum(entry.scanned for entry in self.session.entries)
-        reviewed = sum(entry.reviewed for entry in self.session.entries)
-        saved = sum(entry.saved for entry in self.session.entries)
-        return (f'{len(self.session.entries)} images · {scanned} scanned · '
-                f'{reviewed} reviewed · {saved} saved')
-
-    @Property(int, notify=folderChanged)
-    def reviewedCount(self):
-        return sum(1 for entry in self.session.entries if entry.reviewed and not entry.saved)
-
-    @Property(int, notify=folderChanged)
-    def folderImageCount(self):
-        return len(self.session.entries)
-
-    @Property(QObject, constant=True)
-    def folderModel(self):
-        return self._folder_model
 
     @Property(bool, notify=busyChanged)
     def busy(self):
@@ -187,27 +157,10 @@ class Controller(QObject):
         path = QFileDialog.getExistingDirectory(None, title)
         return Path(path) if path else None
 
-    def _can_leave(self):
-        self.session.store_active()
-        if not self.session.entries:
-            return True
-        pending = any(not entry.saved and (entry.boxes or entry.reviewed) for entry in self.session.entries)
-        return not pending or self.alerts.ask(
-            'Leave folder?', 'Some images have unsaved review work. Leave this folder?'
-        )
-
-    def _clear_folder(self):
-        self.session.entries = []
-        self.session.active = None
-        self.session.row_selection = set()
-        self.session.row_anchor = None
-        self._folder_model.set_entries([])
-        self.folderChanged.emit()
-
     def _prepare_image_open(self):
         if self.jobs.busy:
             return False
-        if not self._can_leave():
+        if not self._folder.can_leave():
             return False
         if not self.session.entries and self.session.review.boxes:
             if not self.alerts.ask('Open another image', 'Discard the current unsaved markings?'):
@@ -216,8 +169,8 @@ class Controller(QObject):
 
     def _present_image(self, image, path, pasted=False):
         self._review.cancel_capture()
-        if self.session.entries:
-            self._clear_folder()
+        if self._folder.has_entries():
+            self._folder.clear()
         self._review.load_image(image, path, pasted=pasted)
         self.alerts.set_status(
             f'{self._review.imageName}: find suggestions or drag to add a box, then confirm.'
@@ -245,38 +198,7 @@ class Controller(QObject):
         chosen = self._choose_folder('Open image folder')
         if chosen is None:
             return
-        self._open_folder_path(chosen)
-
-    def _open_folder_path(self, chosen):
-        if self.jobs.busy or not self._can_leave():
-            return
-        try:
-            paths = sorted(
-                (path for path in chosen.iterdir()
-                 if path.suffix.lower() in images.IMAGE_SUFFIXES and path.is_file()),
-                key=lambda path: (path.name.casefold(), path.name),
-            )
-        except OSError as error:
-            self.alerts.error('Cannot open folder', str(error))
-            return
-        if not paths:
-            self.alerts.info('No images', 'Choose a folder containing PNG, JPEG, BMP or TIFF images.')
-            return
-        if not self.session.entries and self.session.review.boxes and not self.alerts.ask(
-                'Open folder?', 'Discard the current image markings?'):
-            return
-        self._review.cancel_capture()
-        self.session.folder = chosen
-        self.session.output_directory = self.session.output_directory_override or chosen / 'redacted'
-        self.session.entries = [boxset.FolderImage(path, method=self.session.preferences.method) for path in paths]
-        self.session.active = None
-        self.session.row_selection = {0}
-        self.session.row_anchor = 0
-        self._folder_model.set_entries(self.session.entries)
-        self._folder_model.set_selection(self.session.row_selection)
-        self._folder_model.set_active(0)
-        self.jobs.reset_progress('Select images to scan, then review each image.')
-        self._show_folder_image(0)
+        self._folder.open_path(chosen)
 
     @Slot('QVariantList')
     def openDropped(self, urls):
@@ -302,7 +224,7 @@ class Controller(QObject):
             return
         folders = [path for path in paths if path.is_dir()]
         if folders:
-            self._open_folder_path(folders[0])
+            self._folder.open_path(folders[0])
             return
         self.alerts.info('Drop an image', 'Drop a PNG, JPEG, BMP, TIFF image, or an image folder.')
 
@@ -345,56 +267,6 @@ class Controller(QObject):
         image, path, pasted = loaded
         self._present_image(image, path, pasted=pasted)
 
-    def _show_folder_image(self, index):
-        if not 0 <= index < len(self.session.entries) or self.session.active == index:
-            return
-        self._review.cancel_capture()
-        self.session.store_active()
-        self.session.active = index
-        entry = self.session.entries[index]
-        self._review.adopt_entry(entry)
-        try:
-            image, entry.stamp = images.read_folder_image(entry.path, entry.stamp)
-        except (OSError, ValueError, Image.DecompressionBombError) as error:
-            self._review.set_entry_image(None)
-            entry.error = 'Open failed'
-            self.alerts.set_status(f'{entry.path.name} · {error}')
-        else:
-            self._review.set_entry_image(image)
-            self.alerts.set_status(
-                f'{entry.path.name} · {entry.status} · {len(entry.selected)} boxes selected'
-            )
-        self._folder_model.set_active(index)
-        self._folder_model.set_selection(self.session.row_selection)
-        self._review.imageChanged.emit()
-        self._review.emit_review()
-        self._review.emit_view()
-        self.scrollRequested.emit(index)
-
-    @Slot(int, bool, bool)
-    def selectRow(self, index, control, shift):
-        if not 0 <= index < len(self.session.entries):
-            return
-        if shift and self.session.row_anchor is not None:
-            low, high = sorted((self.session.row_anchor, index))
-            self.session.row_selection = set(range(low, high + 1))
-        elif control:
-            if index in self.session.row_selection:
-                self.session.row_selection.discard(index)
-            else:
-                self.session.row_selection.add(index)
-            self.session.row_anchor = index
-        else:
-            self.session.row_selection = {index}
-            self.session.row_anchor = index
-        self._folder_model.set_selection(self.session.row_selection)
-        self._review.selection_changed()
-        if not self.session.row_selection:
-            return
-        target = index if index in self.session.row_selection else min(self.session.row_selection)
-        if target != self.session.active:
-            self._show_folder_image(target)
-
     @Slot()
     def scanAll(self):
         self._start_scan(self.session.entries, follow=True)
@@ -419,7 +291,7 @@ class Controller(QObject):
     def _start_scan(self, entries, rescan=False, *, follow=False, area=None):
         if self.jobs.busy:
             return
-        self._store_active()
+        self.session.store_active()
         plan = workflows.plan_scan(self.session.entries, entries, rescan=rescan, area=area)
         pending = plan.entries
         if not pending:
@@ -438,7 +310,7 @@ class Controller(QObject):
             return
         except (ValueError, re.error) as error:
             self.alerts.error('Invalid detection settings', str(error), 'OPEN SETTINGS',
-                        self.requestSettings)
+                              self.session.facades.settings.requestSettings)
             return
         cancel = Event()
         enhanced = self.session.preferences.enhanced_ocr
@@ -448,7 +320,7 @@ class Controller(QObject):
 
         def show_image(index):
             row = rows[pending[index].path]
-            self._show_folder_image(int(row))
+            self._folder.activate_entry(int(row))
 
         def operation(job):
             path, stamp = job
@@ -495,9 +367,6 @@ class Controller(QObject):
     @Slot()
     def cancelScan(self):
         self.jobs.cancel()
-
-    def _folder_rows(self):
-        return {entry.path: index for index, entry in enumerate(self.session.entries)}
 
     @Slot()
     def copyBoxesToFolder(self):
@@ -554,7 +423,7 @@ class Controller(QObject):
         self.jobs.run(
             'Copying boxes',
             [(entry.path, entry.stamp) for entry in targets],
-            operation, accept, finish, rows=self._folder_rows(),
+            operation, accept, finish, rows=self._folder.rows(),
         )
 
     def _match_boxes_to_folder(self, anchor):
@@ -611,7 +480,7 @@ class Controller(QObject):
         self.jobs.run(
             'Matching visual anchor',
             [(entry.path, entry.stamp) for entry in targets],
-            operation, accept, finish, rows=self._folder_rows(),
+            operation, accept, finish, rows=self._folder.rows(),
         )
 
     @Slot()
@@ -634,8 +503,7 @@ class Controller(QObject):
         for entry in pending:
             entry.reviewed = True
         self._review.apply_confirmation()
-        self._folder_model.refresh()
-        self.folderChanged.emit()
+        self._folder.refresh_and_emit()
         self.alerts.set_status(
             f'Confirmed {len(pending)} image(s). Use Save reviewed to export them.'
         )
@@ -705,7 +573,7 @@ class Controller(QObject):
         self.jobs.run(
             'Saving', snapshots, operation, accept,
             metrics_settings={'method': self.session.preferences.method, 'coordinate_logs': include_log},
-            rows=self._folder_rows(),
+            rows=self._folder.rows(),
         )
 
     def save_active(self):

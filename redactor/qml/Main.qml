@@ -41,7 +41,7 @@ Window {
             Sidebar {
                 Layout.preferredWidth: 336
                 Layout.fillHeight: true
-                visible: Backend.folderMode
+                visible: Backend.folder.folderMode
             }
 
             Viewer {

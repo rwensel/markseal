@@ -8,9 +8,9 @@ Item {
     id: sidebar
     implicitWidth: 336
     property bool showBatch: false
-    readonly property int batchReady: Backend.folderMode
+    readonly property int batchReady: Backend.folder.folderMode
                                       ? 1 + (Backend.review.selectedCount > 0
-                                             && Backend.folderImageCount > 1 ? 2 : 0)
+                                             && Backend.folder.folderImageCount > 1 ? 2 : 0)
                                       : 0
 
     Rectangle {
@@ -71,7 +71,7 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: Backend.folderName
+                text: Backend.folder.folderName
                 elide: Text.ElideMiddle
                 color: Theme.white
                 font.family: Theme.displayFont
@@ -81,7 +81,7 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: Backend.folderCounts
+                text: Backend.folder.folderCounts
                 elide: Text.ElideRight
                 color: Theme.steelLight
                 font.family: Theme.bodyFont
@@ -126,10 +126,10 @@ Item {
                 Layout.fillWidth: true
                 text: "SAVE REVIEWED"
                 compact: true
-                tip: Backend.reviewedCount > 0
-                     ? "Export " + Backend.reviewedCount + " confirmed image(s)"
+                tip: Backend.folder.reviewedCount > 0
+                     ? "Export " + Backend.folder.reviewedCount + " confirmed image(s)"
                      : "Confirm at least one image first"
-                enabled: !Backend.busy && Backend.reviewedCount > 0
+                enabled: !Backend.busy && Backend.folder.reviewedCount > 0
                 onClicked: Backend.saveReviewed()
             }
 
@@ -166,7 +166,7 @@ Item {
                 text: "COPY BOXES TO MATCHING"
                 compact: true
                 tip: "Copy this image's boxes to every image of the same size"
-                enabled: Backend.review.hasImage && Backend.folderImageCount > 1
+                enabled: Backend.review.hasImage && Backend.folder.folderImageCount > 1
                          && Backend.review.selectedCount > 0 && !Backend.busy
                 onClicked: Backend.copyBoxesToFolder()
             }
@@ -178,7 +178,7 @@ Item {
                 text: "MATCH BY ANCHOR"
                 compact: true
                 tip: "Place this image's boxes on shifted captures of the same screen"
-                enabled: Backend.review.hasImage && Backend.folderImageCount > 1
+                enabled: Backend.review.hasImage && Backend.folder.folderImageCount > 1
                          && Backend.review.selectedCount > 0 && !Backend.busy
                 onClicked: Backend.review.beginAnchorCapture()
             }
@@ -317,7 +317,7 @@ Item {
             Layout.minimumHeight: 150
             clip: true
             spacing: 2
-            model: Backend.folderModel
+            model: Backend.folder.folderModel
             boundsBehavior: Flickable.StopAtBounds
             activeFocusOnTab: true
             Accessible.role: Accessible.List
@@ -326,14 +326,14 @@ Item {
             Keys.onUpPressed: function(event) {
                 var target = Math.max(0, fileList.currentIndex - 1)
                 fileList.currentIndex = target
-                Backend.selectRow(target, (event.modifiers & Qt.ControlModifier) !== 0,
+                Backend.folder.selectRow(target, (event.modifiers & Qt.ControlModifier) !== 0,
                                   (event.modifiers & Qt.ShiftModifier) !== 0)
             }
 
             Keys.onDownPressed: function(event) {
                 var target = Math.min(fileList.count - 1, fileList.currentIndex + 1)
                 fileList.currentIndex = target
-                Backend.selectRow(target, (event.modifiers & Qt.ControlModifier) !== 0,
+                Backend.folder.selectRow(target, (event.modifiers & Qt.ControlModifier) !== 0,
                                   (event.modifiers & Qt.ShiftModifier) !== 0)
             }
 
@@ -447,7 +447,7 @@ Item {
                     onClicked: {
                         fileList.forceActiveFocus()
                         fileList.currentIndex = index
-                        Backend.selectRow(
+                        Backend.folder.selectRow(
                             index,
                             (mouse.modifiers & Qt.ControlModifier) !== 0,
                             (mouse.modifiers & Qt.ShiftModifier) !== 0
@@ -459,7 +459,7 @@ Item {
     }
 
     Connections {
-        target: Backend
+        target: Backend.folder
         function onScrollRequested(index) {
             fileList.currentIndex = index
             fileList.positionViewAtIndex(index, ListView.Contain)
