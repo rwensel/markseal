@@ -711,7 +711,7 @@ Window {
                                 ConcourseButton {
                                     text: "LEARN FROM SCAN AREA"
                                     variant: "primary"
-                                    enabled: Backend.review.hasImage && !Backend.busy
+                                    enabled: Backend.review.hasImage && !Backend.batch.busy
                                     onClicked: {
                                         if (settings.tryApply()) {
                                             settings.visible = false

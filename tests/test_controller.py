@@ -55,22 +55,22 @@ class ControllerTests(unittest.TestCase):
         return path
 
     def wait_for_jobs(self, timeout_ms=10000):
-        if not self.controller.busy:
+        if not self.controller.batch.busy:
             return
         loop = QEventLoop()
 
         def finished():
-            if not self.controller.busy:
+            if not self.controller.batch.busy:
                 loop.quit()
 
-        self.controller.busyChanged.connect(finished)
+        self.controller.batch.busyChanged.connect(finished)
         timer = QTimer()
         timer.setSingleShot(True)
         timer.timeout.connect(loop.quit)
         timer.start(timeout_ms)
         loop.exec()
-        self.controller.busyChanged.disconnect(finished)
-        self.assertFalse(self.controller.busy, 'background job did not finish')
+        self.controller.batch.busyChanged.disconnect(finished)
+        self.assertFalse(self.controller.batch.busy, 'background job did not finish')
 
     def test_scan_review_and_export_round_trip(self):
         source = self.open_image()

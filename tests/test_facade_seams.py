@@ -70,10 +70,10 @@ class SeamTests(unittest.TestCase):
         changes = []
         self.controller.jobs.busyChanged.connect(lambda: changes.append(self.controller.jobs.busy))
         self.controller.jobs.begin_manual('Saving copy')
-        self.assertEqual(self.controller.busyLabel, 'Saving copy')
+        self.assertEqual(self.controller.batch.busyLabel, 'Saving copy')
         self.controller.jobs.end_manual()
         self.assertEqual(changes, [True, False])
-        self.assertEqual(self.controller.busyLabel, '')
+        self.assertEqual(self.controller.batch.busyLabel, '')
 
     def test_moved_state_is_reachable_through_the_session(self):
         self.assertEqual(self.controller.session.entries, [])

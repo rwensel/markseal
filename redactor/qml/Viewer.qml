@@ -91,7 +91,7 @@ Item {
         MethodToggle {
             Layout.preferredHeight: 26
             method: Backend.settings.redactionMethod
-            enabled: !Backend.busy
+            enabled: !Backend.batch.busy
             onSelected: function(method) {
                 Backend.settings.setRedactionMethod(method)
             }
@@ -151,7 +151,7 @@ Item {
             compact: true
             visible: Backend.review.confirmed
             tip: "Copy the redacted image to the clipboard (Ctrl+C)"
-            enabled: !Backend.busy
+            enabled: !Backend.batch.busy
             onClicked: Backend.review.copyRedacted()
         }
     }
@@ -453,7 +453,7 @@ Item {
                 border.width: 1
                 border.color: Theme.buttonBorder
                 visible: stage.activeFocus && Backend.review.totalBoxes > 0 && !Backend.review.confirmed
-                         && Backend.review.captureMode === "none" && !Backend.busy
+                         && Backend.review.captureMode === "none" && !Backend.batch.busy
 
                 Text {
                     id: keyHint
@@ -701,7 +701,7 @@ Item {
 
             Rectangle {
                 z: 5
-                visible: Backend.busy
+                visible: Backend.batch.busy
                 anchors.top: parent.top
                 height: 3
                 width: 140
@@ -714,14 +714,14 @@ Item {
                     to: stage.width
                     duration: 1500
                     loops: Animation.Infinite
-                    running: Backend.busy
+                    running: Backend.batch.busy
                 }
             }
 
             Rectangle {
                 id: busyBanner
                 z: 6
-                visible: Backend.busy
+                visible: Backend.batch.busy
                 anchors.top: parent.top
                 anchors.topMargin: 52
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -760,7 +760,7 @@ Item {
                         spacing: 1
 
                         Text {
-                            text: Backend.busyLabel.toUpperCase()
+                            text: Backend.batch.busyLabel.toUpperCase()
                             color: Theme.white
                             font.family: Theme.displayFont
                             font.pixelSize: 10
@@ -770,7 +770,7 @@ Item {
                         Text {
                             width: parent.width
                             visible: text.length > 0
-                            text: Backend.scanStage
+                            text: Backend.batch.scanStage
                             elide: Text.ElideRight
                             color: Theme.white
                             font.family: Theme.bodyFont
@@ -779,7 +779,7 @@ Item {
 
                         Text {
                             width: parent.width
-                            text: Backend.progressText
+                            text: Backend.batch.progressText
                             elide: Text.ElideRight
                             color: Theme.steelLight
                             font.family: Theme.bodyFont

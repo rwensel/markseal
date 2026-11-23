@@ -10,8 +10,8 @@ Item {
     signal settingsClicked()
 
     readonly property bool wide: width >= 1240
-    readonly property bool canScan: Backend.review.hasImage && !Backend.busy && !Backend.review.confirmed
-    readonly property bool canConfirm: Backend.review.hasImage && !Backend.busy && !Backend.review.confirmed
+    readonly property bool canScan: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
+    readonly property bool canConfirm: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
 
     Shortcut {
         sequence: "Alt+M"
@@ -125,7 +125,7 @@ Item {
             text: "OPEN IMAGE"
             compact: true
             tip: "Open an image file (Ctrl+O)"
-            enabled: !Backend.busy
+            enabled: !Backend.batch.busy
             onClicked: Backend.openImage()
         }
 
@@ -133,7 +133,7 @@ Item {
             text: "OPEN FOLDER"
             compact: true
             tip: "Open every image in a folder (Ctrl+Shift+O)"
-            enabled: !Backend.busy
+            enabled: !Backend.batch.busy
             onClicked: Backend.openFolder()
         }
 
@@ -142,7 +142,7 @@ Item {
             compact: true
             tip: "Paste an image from the clipboard (Ctrl+V)"
             visible: toolbar.wide
-            enabled: !Backend.busy
+            enabled: !Backend.batch.busy
             onClicked: Backend.pasteImage()
         }
 
@@ -221,7 +221,7 @@ Item {
             compact: true
             variant: Backend.review.confirmed ? "primary" : "secondary"
             tip: "Save the confirmed PNG copy and coordinate log (Ctrl+S)"
-            enabled: Backend.review.hasImage && !Backend.busy && Backend.review.confirmed
+            enabled: Backend.review.hasImage && !Backend.batch.busy && Backend.review.confirmed
             onClicked: Backend.review.save()
         }
 
@@ -251,12 +251,12 @@ Item {
         }
         MenuAction {
             text: "Scan a region"
-            enabled: toolbar.canScan && !Backend.busy
+            enabled: toolbar.canScan && !Backend.batch.busy
             onTriggered: Backend.review.beginScanArea()
         }
         MenuAction {
             text: "Clear all boxes"
-            enabled: Backend.review.hasImage && Backend.review.totalBoxes > 0 && !Backend.busy
+            enabled: Backend.review.hasImage && Backend.review.totalBoxes > 0 && !Backend.batch.busy
             onTriggered: Backend.review.clearBoxes()
         }
     }

@@ -100,8 +100,8 @@ Item {
                 text: "SCAN ALL"
                 compact: true
                 tip: "Scan every image in the folder"
-                enabled: !Backend.busy
-                onClicked: Backend.scanAll()
+                enabled: !Backend.batch.busy
+                onClicked: Backend.batch.scanAll()
             }
 
             ConcourseButton {
@@ -109,8 +109,8 @@ Item {
                 text: "SCAN SELECTED"
                 compact: true
                 tip: "Scan only the highlighted images"
-                enabled: !Backend.busy
-                onClicked: Backend.scanSelected()
+                enabled: !Backend.batch.busy
+                onClicked: Backend.batch.scanSelected()
             }
 
             ConcourseButton {
@@ -118,8 +118,8 @@ Item {
                 text: "CONFIRM ALL"
                 compact: true
                 tip: "Apply the boxes on every scanned image"
-                enabled: !Backend.busy
-                onClicked: Backend.confirmAll()
+                enabled: !Backend.batch.busy
+                onClicked: Backend.batch.confirmAll()
             }
 
             ConcourseButton {
@@ -129,8 +129,8 @@ Item {
                 tip: Backend.folder.reviewedCount > 0
                      ? "Export " + Backend.folder.reviewedCount + " confirmed image(s)"
                      : "Confirm at least one image first"
-                enabled: !Backend.busy && Backend.folder.reviewedCount > 0
-                onClicked: Backend.saveReviewed()
+                enabled: !Backend.batch.busy && Backend.folder.reviewedCount > 0
+                onClicked: Backend.batch.saveReviewed()
             }
 
             ConcourseButton {
@@ -155,8 +155,8 @@ Item {
                 text: "RESCAN ALL"
                 compact: true
                 tip: "Run detection again on every image in the folder"
-                enabled: !Backend.busy
-                onClicked: Backend.rescanAll()
+                enabled: !Backend.batch.busy
+                onClicked: Backend.batch.rescanAll()
             }
 
             ConcourseButton {
@@ -167,8 +167,8 @@ Item {
                 compact: true
                 tip: "Copy this image's boxes to every image of the same size"
                 enabled: Backend.review.hasImage && Backend.folder.folderImageCount > 1
-                         && Backend.review.selectedCount > 0 && !Backend.busy
-                onClicked: Backend.copyBoxesToFolder()
+                         && Backend.review.selectedCount > 0 && !Backend.batch.busy
+                onClicked: Backend.batch.copyBoxesToFolder()
             }
 
             ConcourseButton {
@@ -179,14 +179,14 @@ Item {
                 compact: true
                 tip: "Place this image's boxes on shifted captures of the same screen"
                 enabled: Backend.review.hasImage && Backend.folder.folderImageCount > 1
-                         && Backend.review.selectedCount > 0 && !Backend.busy
+                         && Backend.review.selectedCount > 0 && !Backend.batch.busy
                 onClicked: Backend.review.beginAnchorCapture()
             }
         }
 
         Panel {
             Layout.fillWidth: true
-            implicitHeight: Backend.busy ? 146 : 84
+            implicitHeight: Backend.batch.busy ? 146 : 84
 
             ColumnLayout {
                 anchors.fill: parent
@@ -201,7 +201,7 @@ Item {
                         width: 6
                         height: 6
                         radius: 1
-                        color: Backend.busy ? Theme.amber : Theme.steelMid
+                        color: Backend.batch.busy ? Theme.amber : Theme.steelMid
                     }
 
                     Text {
@@ -215,8 +215,8 @@ Item {
                     Item { Layout.fillWidth: true }
 
                     Text {
-                        text: Backend.busy ? "RUNNING" : "IDLE"
-                        color: Backend.busy ? Theme.amber : Theme.mutedText
+                        text: Backend.batch.busy ? "RUNNING" : "IDLE"
+                        color: Backend.batch.busy ? Theme.amber : Theme.mutedText
                         font.family: Theme.displayFont
                         font.pixelSize: 9
                         font.letterSpacing: 1
@@ -225,7 +225,7 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: Backend.progressText
+                    text: Backend.batch.progressText
                     elide: Text.ElideRight
                     color: Theme.white
                     font.family: Theme.bodyFont
@@ -241,8 +241,8 @@ Item {
                     border.color: Theme.fieldBorder
 
                     Rectangle {
-                        width: parent.width * (Backend.progressMax > 0
-                                               ? Math.min(1, Backend.progressValue / Backend.progressMax)
+                        width: parent.width * (Backend.batch.progressMax > 0
+                                               ? Math.min(1, Backend.batch.progressValue / Backend.batch.progressMax)
                                                : 0)
                         height: parent.height
                         radius: 3
@@ -253,8 +253,8 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: Backend.progressCurrent
-                    visible: Backend.busy && text.length > 0
+                    text: Backend.batch.progressCurrent
+                    visible: Backend.batch.busy && text.length > 0
                     elide: Text.ElideRight
                     color: Theme.steelLight
                     font.family: Theme.bodyFont
@@ -263,8 +263,8 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: Backend.progressDetail
-                    visible: Backend.busy && text.length > 0
+                    text: Backend.batch.progressDetail
+                    visible: Backend.batch.busy && text.length > 0
                     wrapMode: Text.WordWrap
                     maximumLineCount: 2
                     elide: Text.ElideRight
@@ -280,9 +280,9 @@ Item {
                     text: "CANCEL SCAN"
                     variant: "danger"
                     compact: true
-                    visible: Backend.canCancel
-                    enabled: Backend.canCancel
-                    onClicked: Backend.cancelScan()
+                    visible: Backend.batch.canCancel
+                    enabled: Backend.batch.canCancel
+                    onClicked: Backend.batch.cancelScan()
                 }
             }
         }
@@ -391,7 +391,7 @@ Item {
                     Text {
                         width: parent.width
                         text: model.jobState === "running"
-                              ? Backend.busyLabel.toUpperCase() + "..."
+                              ? Backend.batch.busyLabel.toUpperCase() + "..."
                               : model.jobState === "queued" ? "QUEUED" : model.status
                         elide: Text.ElideRight
                         color: model.jobState !== "" ? Theme.amber

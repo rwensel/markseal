@@ -32,7 +32,7 @@ Item {
             width: 7
             height: 7
             radius: 1
-            color: Backend.busy ? Theme.amber : Theme.steelMid
+            color: Backend.batch.busy ? Theme.amber : Theme.steelMid
         }
 
         Text {
