@@ -13,7 +13,6 @@ import os
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -23,6 +22,9 @@ from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 from performance_log import stage, timed
 
+from .boxset import (
+    BoxList, FolderImage, new_ocr_boxes, same_region, strip_contained_selected,
+)
 from .jobs import ScanCancelled, batch_worker_count
 
 
@@ -276,78 +278,6 @@ def write_preferences(path, preferences):
 
 
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff'}
-
-
-@dataclass
-class FolderImage:
-    path: Path
-    boxes: list = field(default_factory=list)
-    rules: dict = field(default_factory=dict)
-    selected: set = field(default_factory=set)
-    scanned: bool = False
-    incomplete_ocr: tuple = ()
-    reviewed: bool = False
-    saved: bool = False
-    error: str = ''
-    stamp: tuple | None = None
-    method: str = 'Pixelate'
-
-    @property
-    def status(self):
-        if self.error:
-            return self.error
-        if self.saved:
-            return 'Saved'
-        if self.reviewed:
-            return 'Reviewed'
-        if self.incomplete_ocr:
-            return 'Partial scan · review needed'
-        if self.scanned:
-            return 'Scanned · review needed'
-        if self.boxes:
-            return 'Boxes added · review needed'
-        return 'Not checked'
-
-    def add_shared_boxes(self, boxes, rules=None, source='Copied box'):
-        indices = {box: index for index, box in enumerate(self.boxes)}
-        rule_values = rules or {}
-        changed = False
-        for box in boxes:
-            index = indices.get(box)
-            if index is None:
-                index = len(self.boxes)
-                self.boxes.append(box)
-                indices[box] = index
-                self.rules.setdefault(box, tuple(rule_values.get(box, ()) or (source,)))
-            elif box not in self.rules:
-                self.rules[box] = tuple(rule_values.get(box, ()) or (source,))
-            if index not in self.selected:
-                self.selected.add(index)
-                changed = True
-        kept, kept_selected = strip_contained_selected(self.boxes, self.selected)
-        if kept != self.boxes:
-            self.boxes[:] = kept
-            for box in list(self.rules):
-                if box not in self.boxes:
-                    del self.rules[box]
-            self.selected.clear()
-            self.selected.update(kept_selected)
-            changed = True
-        if changed:
-            self.reviewed = self.saved = False
-        return changed
-
-    def add_suggestions(self, found, incomplete=(), rules=None):
-        if rules is None:
-            rules = getattr(found, 'rules', {})
-        added = new_ocr_boxes(found, self.boxes)
-        self.add_shared_boxes(added, rules, source='OCR suggestion')
-        self.scanned = True
-        self.incomplete_ocr = tuple(incomplete)
-        self.reviewed = self.saved = False
-        self.error = ''
-        selected_boxes = {box for index, box in enumerate(self.boxes) if index in self.selected}
-        return sum(1 for box in added if box in selected_boxes)
 
 
 def file_stamp(path):
@@ -642,45 +572,6 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
     return BoxList(boxes, rules)
 
 
-def same_region(first, second):
-    if first == second:
-        return True
-    widths = (first[2]-first[0], second[2]-second[0])
-    heights = (first[3]-first[1], second[3]-second[1])
-    areas = (widths[0]*heights[0], widths[1]*heights[1])
-    overlap = max(0, min(first[2], second[2]) - max(first[0], second[0])) * max(
-        0, min(first[3], second[3]) - max(first[1], second[1]))
-    if overlap >= 0.75 * max(areas):
-        return True
-
-    # Different passes can put larger padding around the very same word.
-    # Require close centers and comparable dimensions so a word inside a much
-    # wider line, or a neighboring label whose edges touch, is still distinct.
-    center_dx = abs(first[0]+first[2]-second[0]-second[2]) / 2
-    center_dy = abs(first[1]+first[3]-second[1]-second[3]) / 2
-    return (overlap >= 0.9 * min(areas)
-            and min(widths) >= 0.45 * max(widths)
-            and min(heights) >= 0.45 * max(heights)
-            and center_dx <= 0.2 * max(widths)
-            and center_dy <= 0.2 * max(heights))
-
-
-def new_ocr_boxes(candidates, existing=()):
-    kept = list(existing)
-    added = []
-    for box in candidates:
-        if not any(same_region(box, previous) for previous in kept):
-            added.append(box)
-            kept.append(box)
-    return added
-
-
-class BoxList(list):
-    def __init__(self, iterable=(), rules=None):
-        super().__init__(iterable)
-        self.rules = {box: tuple(labels) for box, labels in (rules or {}).items() if labels}
-
-
 def text_from_tsv(tsv):
     lines = {}
     for row in csv.DictReader(io.StringIO(tsv), delimiter='\t'):
@@ -807,31 +698,6 @@ def value_pattern_expression(text, kind):
     if kind == 'fixed':
         return pattern_from_text(text)
     return PATTERN_TYPE_EXPRESSIONS.get(kind, pattern_from_text(text))
-
-
-def strip_contained_selected(boxes, selected):
-    selected = set(selected)
-
-    def contains(outer, inner):
-        outer_area = (outer[2] - outer[0]) * (outer[3] - outer[1])
-        inner_area = (inner[2] - inner[0]) * (inner[3] - inner[1])
-        return (outer_area > inner_area
-                and outer[0] <= inner[0] + 2
-                and outer[1] <= inner[1] + 2
-                and outer[2] >= inner[2] - 2
-                and outer[3] >= inner[3] - 2)
-
-    kept = []
-    kept_selected = set()
-    for index, box in enumerate(boxes):
-        if index in selected and any(
-                other != index and other in selected and contains(boxes[other], box)
-                for other in range(len(boxes))):
-            continue
-        if index in selected:
-            kept_selected.add(len(kept))
-        kept.append(box)
-    return kept, kept_selected
 
 
 def scan_folder_image(path, expected, executable, settings, enhanced=False, cancel=None, *, color_assisted=False, area=None):

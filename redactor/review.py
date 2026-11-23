@@ -1,36 +1,63 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from PIL import Image
 
-from .core import new_ocr_boxes, strip_contained_selected
+from .boxset import BoxSet
 
 
-@dataclass
 class Review:
-    image: Image.Image | None = None
-    path: Path | None = None
-    boxes: list = field(default_factory=list)
-    rules: dict = field(default_factory=dict)
-    selected: set = field(default_factory=set)
-    confirmed: bool = False
-    zoom: float = 1.0
-    offset_x: float = 0.0
-    offset_y: float = 0.0
-    view_width: int = 1
-    view_height: int = 1
-    scale: float = 1.0
-    start: tuple | None = None
-    pan_start: tuple | None = None
+    def __init__(self):
+        self.image: Image.Image | None = None
+        self.path: Path | None = None
+        self._state = BoxSet()
+        self.confirmed = False
+        self.zoom = 1.0
+        self.offset_x = 0.0
+        self.offset_y = 0.0
+        self.view_width = 1
+        self.view_height = 1
+        self.scale = 1.0
+        self.start: tuple | None = None
+        self.pan_start: tuple | None = None
+
+    @property
+    def boxset(self):
+        return self._state
+
+    @boxset.setter
+    def boxset(self, value):
+        self._state = value
+
+    @property
+    def boxes(self):
+        return self._state.boxes
+
+    @boxes.setter
+    def boxes(self, value):
+        self._state.boxes = list(value)
+
+    @property
+    def rules(self):
+        return self._state.rules
+
+    @rules.setter
+    def rules(self, value):
+        self._state.rules = dict(value)
+
+    @property
+    def selected(self):
+        return self._state.selected
+
+    @selected.setter
+    def selected(self, value):
+        self._state.selected = set(value)
 
     def load(self, image, path):
         self.image = image
         self.path = Path(path)
-        self.boxes = []
-        self.rules.clear()
-        self.selected = set()
+        self._state = BoxSet()
         self.confirmed = False
         self.zoom = 1.0
         self.offset_x = self.offset_y = 0.0
@@ -115,10 +142,7 @@ class Review:
             for index in range(len(self.boxes) - 1, -1, -1):
                 x1, y1, x2, y2 = self.boxes[index]
                 if x1 <= image_x < x2 and y1 <= image_y < y2:
-                    if index in self.selected:
-                        self.selected.remove(index)
-                    else:
-                        self.selected.add(index)
+                    self._state.toggle(index)
                     self.confirmed = False
                     return 'toggle'
             return 'none'
@@ -130,62 +154,34 @@ class Review:
         x1, x2 = sorted((left, right))
         y1, y2 = sorted((top, bottom))
         if x2 > x1 and y2 > y1:
-            self.boxes.append((x1, y1, x2, y2))
-            self.rules[(x1, y1, x2, y2)] = ('Manual box',)
-            self.selected.add(len(self.boxes) - 1)
+            self._state.add((x1, y1, x2, y2), 'Manual box')
             self.confirmed = False
             return 'add'
         return 'none'
 
     def remove_box(self, index):
-        if not 0 <= index < len(self.boxes):
+        if not self._state.remove(index):
             return False
-        removed = self.boxes.pop(index)
-        self.rules.pop(removed, None)
-        self.selected = {i if i < index else i - 1 for i in self.selected if i != index}
         self.confirmed = False
         return True
 
     def undo(self):
-        if not self.boxes:
+        if not self._state.undo():
             return False
-        self.selected.discard(len(self.boxes) - 1)
-        removed = self.boxes.pop()
-        self.rules.pop(removed, None)
         self.confirmed = False
         return True
 
     def clear(self):
-        if not self.boxes:
+        if not self._state.clear():
             return False
-        self.boxes.clear()
-        self.rules.clear()
-        self.selected.clear()
         self.confirmed = False
         return True
 
     def selected_boxes(self):
-        return [box for index, box in enumerate(self.boxes) if index in self.selected]
+        return self._state.selected_boxes()
 
     def add_suggestions(self, found, rules=None):
-        if rules is None:
-            rules = getattr(found, 'rules', {})
-        before_boxes = list(self.boxes)
-        before_selected = {self.boxes[index] for index in self.selected}
-        added = new_ocr_boxes(found, self.boxes)
-        for box in added:
-            self.rules.setdefault(box, tuple(rules.get(box, ()) or ('OCR suggestion',)))
-        first = len(self.boxes)
-        self.boxes.extend(added)
-        self.selected.update(range(first, len(self.boxes)))
-        kept, kept_selected = strip_contained_selected(self.boxes, self.selected)
-        self.boxes[:] = kept
-        for box in list(self.rules):
-            if box not in self.boxes:
-                del self.rules[box]
-        self.selected.clear()
-        self.selected.update(kept_selected)
-        selected_boxes = {box for index, box in enumerate(self.boxes) if index in self.selected}
-        if self.boxes != before_boxes or selected_boxes != before_selected:
+        outcome = self._state.suggest(found, rules)
+        if outcome.changed:
             self.confirmed = False
-        return sum(1 for box in added if box in selected_boxes)
+        return outcome.added

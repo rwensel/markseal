@@ -20,6 +20,7 @@ from redactor.core import (
 )
 from redactor.review import Review
 from redactor.jobs import JobRunner, progress_line
+from redactor.boxset import BoxSet, image_status
 
 class RedactionTests(unittest.TestCase):
     def test_pixelate_preserves_pixels_outside_box(self):
@@ -556,6 +557,112 @@ class RedactionTests(unittest.TestCase):
         rows = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t10\t20\t90\t10\t95\tuser@example.com\n5\t1\t1\t1\t2\t1\t10\t50\t50\t10\t95\tDashboard\n'
         self.assertEqual(detect_regions(rows, (200, 100)), [(6, 16, 104, 34)])
         self.assertEqual(len(detect_regions(rows, (200, 100), all_text=True)), 2)
+
+class ReviewSessionTests(unittest.TestCase):
+    def test_folder_image_and_review_share_one_box_state(self):
+        entry = FolderImage(Path('shared.png'))
+        review = Review()
+        review.load(Image.new('RGB', (200, 200)), Path('shared.png'))
+        review.boxset = entry.boxset
+        box = (10, 10, 50, 50)
+        review.add_suggestions(BoxList([box], {box: ('Emails',)}))
+        self.assertEqual(entry.boxes, [box])
+        self.assertEqual(entry.rules[box], ('Emails',))
+        self.assertEqual(entry.selected, {0})
+        review.selected = set()
+        self.assertEqual(entry.selected, set())
+        entry.add_shared_boxes([(60, 60, 90, 90)], source='Copied box')
+        self.assertEqual(review.boxes[-1], (60, 60, 90, 90))
+        self.assertEqual(review.rules[(60, 60, 90, 90)], ('Copied box',))
+
+    def test_state_survives_switching_between_folder_images(self):
+        first = FolderImage(Path('one.png'))
+        second = FolderImage(Path('two.png'))
+        review = Review()
+        review.load(Image.new('RGB', (100, 100)), first.path)
+        review.boxset = first.boxset
+        review.add_suggestions([(1, 1, 10, 10)])
+        review.boxset = second.boxset
+        review.add_suggestions([(20, 20, 30, 30)])
+        review.boxset = first.boxset
+        self.assertEqual(review.boxes, [(1, 1, 10, 10)])
+        self.assertEqual(review.selected, {0})
+        self.assertEqual(second.boxes, [(20, 20, 30, 30)])
+        self.assertEqual(second.selected, {0})
+
+    def test_status_transitions_follow_scan_review_and_save(self):
+        entry = FolderImage(Path('status.png'))
+        self.assertEqual(entry.status, 'Not checked')
+        entry.add_suggestions([])
+        self.assertEqual(entry.status, 'Scanned · review needed')
+        entry.add_suggestions([(1, 1, 5, 5)], ['enhanced OCR timed out'])
+        self.assertEqual(entry.status, 'Partial scan · review needed')
+        entry.reviewed = True
+        self.assertEqual(entry.status, 'Reviewed')
+        entry.saved = True
+        self.assertEqual(entry.status, 'Saved')
+        entry.error = 'Open failed'
+        self.assertEqual(entry.status, 'Open failed')
+        self.assertEqual(image_status(boxes=[(0, 0, 1, 1)]), 'Boxes added · review needed')
+
+    def test_both_merge_paths_prune_nested_boxes_with_one_rule_source(self):
+        outer = (10, 10, 120, 60)
+        inner = (20, 20, 60, 40)
+        entry = FolderImage(Path('nested.png'))
+        entry.add_shared_boxes([inner, outer], source='Anchor match')
+        self.assertEqual(entry.boxes, [outer])
+        self.assertEqual(entry.selected, {0})
+        self.assertEqual(entry.rules, {outer: ('Anchor match',)})
+
+        review = Review()
+        review.load(Image.new('RGB', (400, 300)), Path('nested.png'))
+        review.add_suggestions(BoxList([inner, outer], {inner: ('Secrets',),
+                                                         outer: ('Secrets',)}))
+        self.assertEqual(review.boxes, [outer])
+        self.assertEqual(review.selected, {0})
+        self.assertEqual(review.rules, {outer: ('Secrets',)})
+
+    def test_absorbed_box_reports_unchanged_in_both_paths(self):
+        outer = (10, 10, 120, 60)
+        inner = (20, 20, 60, 40)
+        entry = FolderImage(Path('absorbed.png'), boxes=[outer], selected={0})
+        self.assertFalse(entry.add_shared_boxes([inner]))
+        self.assertEqual(entry.boxes, [outer])
+
+        review = Review()
+        review.load(Image.new('RGB', (400, 300)), Path('absorbed.png'))
+        review.boxes = [outer]
+        review.selected = {0}
+        review.confirmed = True
+        self.assertEqual(review.add_suggestions([inner]), 0)
+        self.assertTrue(review.confirmed)
+        self.assertEqual(review.boxes, [outer])
+
+    def test_new_boxes_clear_review_and_save_flags(self):
+        entry = FolderImage(Path('flags.png'))
+        entry.add_suggestions([(1, 1, 9, 9)])
+        entry.reviewed = entry.saved = True
+        entry.add_shared_boxes([(20, 20, 30, 30)], source='Anchor match')
+        self.assertFalse(entry.reviewed)
+        self.assertFalse(entry.saved)
+        entry.reviewed = entry.saved = True
+        entry.add_suggestions([(40, 40, 50, 50)])
+        self.assertFalse(entry.reviewed)
+        self.assertFalse(entry.saved)
+        self.assertEqual(entry.rules[(20, 20, 30, 30)], ('Anchor match',))
+
+    def test_boxset_remove_and_undo_keep_selection_indices(self):
+        state = BoxSet(boxes=[(0, 0, 5, 5), (10, 10, 20, 20), (30, 30, 40, 40)],
+                       selected={0, 1, 2})
+        self.assertTrue(state.remove(1))
+        self.assertEqual(state.selected, {0, 1})
+        self.assertEqual(state.selected_boxes(), [(0, 0, 5, 5), (30, 30, 40, 40)])
+        self.assertTrue(state.undo())
+        self.assertEqual(state.boxes, [(0, 0, 5, 5)])
+        self.assertEqual(state.selected, {0})
+        self.assertTrue(state.clear())
+        self.assertEqual(state.boxes, [])
+
 
 class JobRunnerTests(unittest.TestCase):
     def setUp(self):

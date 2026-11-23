@@ -712,9 +712,6 @@ class Controller(QObject):
         if entry.reviewed and not self.review.confirmed:
             entry.saved = False
         entry.reviewed = self.review.confirmed
-        entry.boxes = self.review.boxes
-        entry.rules = self.review.rules
-        entry.selected = self.review.selected
 
     def _show_folder_image(self, index):
         if not 0 <= index < len(self.entries) or self.active == index:
@@ -725,9 +722,7 @@ class Controller(QObject):
         entry = self.entries[index]
         self._pasted_image = False
         self.review.path = entry.path
-        self.review.boxes = entry.boxes
-        self.review.rules = entry.rules
-        self.review.selected = entry.selected
+        self.review.boxset = entry.boxset
         self.review.confirmed = entry.reviewed
         self.review.zoom = 1.0
         self.review.offset_x = self.review.offset_y = 0.0
