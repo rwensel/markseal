@@ -21,6 +21,8 @@ Window {
         endY = 0
         dragging = false
         showFullScreen()
+        raise()
+        requestActivate()
     }
 
     function commit() {

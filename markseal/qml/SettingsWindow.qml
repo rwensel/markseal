@@ -57,6 +57,7 @@ Window {
         parallelSpin.value = parallelValue
         visible = true
         raise()
+        requestActivate()
     }
 
     function tryApply() {
