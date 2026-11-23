@@ -706,9 +706,7 @@ class Controller(QObject):
         self.review.path = entry.path
         self.review.boxset = entry.boxset
         self.review.confirmed = entry.reviewed
-        self.review.zoom = 1.0
-        self.review.offset_x = self.review.offset_y = 0.0
-        self.review.start = self.review.pan_start = None
+        self.review.viewport.clear()
         try:
             image, entry.stamp = core.read_folder_image(entry.path, entry.stamp)
         except (OSError, ValueError, Image.DecompressionBombError) as error:
@@ -717,7 +715,7 @@ class Controller(QObject):
             self._set_status(f'{entry.path.name} · {error}')
         else:
             self.review.image = image
-            self.review.refit()
+            self.review.viewport.reset(image.size)
             self._refresh_display()
             self._set_status(
                 f'{entry.path.name} · {entry.status} · {len(entry.selected)} boxes selected'
@@ -760,7 +758,7 @@ class Controller(QObject):
     @Slot(int, int)
     def press(self, x, y):
         if self.capture != 'none' and self.review.image is not None:
-            self.review.start = (x, y)
+            self.review.viewport.begin_drag(x, y)
             self.drag = (x, y, 0, 0)
             self._emit_view()
             return
@@ -768,15 +766,13 @@ class Controller(QObject):
 
     @Slot(int, int)
     def move(self, x, y):
-        if self.review.pan_start is not None:
+        if self.review.viewport.pan_origin is not None:
             if self.review.pan_move(x, y):
                 self._emit_view()
             return
-        if self.review.start is not None:
-            start_x, start_y = self.review.start
-            x1, x2 = sorted((start_x, x))
-            y1, y2 = sorted((start_y, y))
-            self.drag = (x1, y1, x2 - x1, y2 - y1)
+        rect = self.review.viewport.drag_rect(x, y)
+        if rect is not None:
+            self.drag = rect
             self._emit_view()
 
     @Slot(int, int)
@@ -786,19 +782,11 @@ class Controller(QObject):
                 self._panning = False
                 self.viewChanged.emit()
             return
-        if self.capture != 'none' and self.review.start is not None and self.review.image is not None:
-            start_x, start_y = self.review.start
+        if (self.capture != 'none' and self.review.viewport.drag_origin is not None
+                and self.review.image is not None):
             capture = self.capture
+            anchor = self.review.viewport.drag_region(x, y)
             self._cancel_capture()
-            width, height = self.review.image.size
-            left, right = sorted((start_x, x))
-            top, bottom = sorted((start_y, y))
-            anchor = (
-                max(0, int((left - self.review.offset_x) / self.review.scale)),
-                max(0, int((top - self.review.offset_y) / self.review.scale)),
-                min(width, int((right - self.review.offset_x) / self.review.scale)),
-                min(height, int((bottom - self.review.offset_y) / self.review.scale)),
-            )
             if capture == 'area':
                 if anchor[2] - anchor[0] < 4 or anchor[3] - anchor[1] < 4:
                     self._set_status('Area too small. Click Scan area and draw around the text again.')
@@ -919,7 +907,7 @@ class Controller(QObject):
         if self.capture != 'none' or self.drag is not None:
             self.capture = 'none'
             self.drag = None
-            self.review.start = None
+            self.review.viewport.cancel_drag()
             self.captureChanged.emit()
             self._emit_view()
 
