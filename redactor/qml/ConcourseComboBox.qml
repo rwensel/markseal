@@ -13,11 +13,12 @@ ComboBox {
 
     background: Rectangle {
         radius: 6
-        color: "#0F1114"
+        color: control.pressed ? "#1A1D21" : "#0F1114"
         border.width: 1
-        border.color: control.activeFocus ? Theme.amber
+        border.color: control.pressed || control.activeFocus ? Theme.amber
                       : control.hovered ? Theme.steelMid : "#2A2D31"
-        Behavior on border.color { ColorAnimation { duration: 110 } }
+        Behavior on color { ColorAnimation { duration: 100 } }
+        Behavior on border.color { ColorAnimation { duration: 100 } }
     }
 
     contentItem: Text {

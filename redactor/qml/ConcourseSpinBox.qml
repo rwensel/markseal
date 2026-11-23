@@ -30,12 +30,13 @@ SpinBox {
         y: 1
         width: 25
         height: (control.height - 3) / 2
-        color: "transparent"
+        radius: 3
+        color: up.pressed ? "#2A2E33" : "transparent"
 
         Text {
             anchors.centerIn: parent
             text: "+"
-            color: Theme.steelLight
+            color: up.pressed ? Theme.amber : Theme.steelLight
             font.family: Backend.displayFont
             font.pixelSize: 12
         }
@@ -46,12 +47,13 @@ SpinBox {
         y: (control.height + 1) / 2
         width: 25
         height: (control.height - 3) / 2
-        color: "transparent"
+        radius: 3
+        color: down.pressed ? "#2A2E33" : "transparent"
 
         Text {
             anchors.centerIn: parent
             text: "-"
-            color: Theme.steelLight
+            color: down.pressed ? Theme.amber : Theme.steelLight
             font.family: Backend.displayFont
             font.pixelSize: 12
         }

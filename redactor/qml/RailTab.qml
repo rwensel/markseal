@@ -11,13 +11,18 @@ Item {
     implicitHeight: 38
     implicitWidth: 168
     activeFocusOnTab: true
+    scale: pointer.pressed ? 0.985 : 1
+    Behavior on scale { NumberAnimation { duration: 90 } }
 
     Rectangle {
         anchors.fill: parent
         radius: 6
-        color: tab.active ? Theme.panelRaised : (pointer.containsMouse ? "#1A1D21" : "transparent")
-        border.width: tab.active ? 1 : 0
-        border.color: "#3B4046"
+        color: pointer.pressed
+               ? (tab.active ? "#262A2F" : "#24282D")
+               : tab.active ? Theme.panelRaised
+               : (pointer.containsMouse ? "#1A1D21" : "transparent")
+        border.width: tab.active || pointer.pressed ? 1 : 0
+        border.color: pointer.pressed ? Theme.amber : "#3B4046"
         Behavior on color { ColorAnimation { duration: 100 } }
     }
 

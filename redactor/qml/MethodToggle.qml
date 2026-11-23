@@ -30,8 +30,13 @@ Item {
             width: (segments.width - 2) / 2
             height: segments.height
             radius: 3
-            color: control.method === "Pixelate" ? Theme.amber
+            scale: pixelHover.pressed ? 0.97 : 1
+            color: pixelHover.pressed
+                   ? (control.method === "Pixelate" ? "#E6A000" : "#30353A")
+                   : control.method === "Pixelate" ? Theme.amber
                    : pixelHover.containsMouse ? "#1D2024" : "transparent"
+            Behavior on color { ColorAnimation { duration: 90 } }
+            Behavior on scale { NumberAnimation { duration: 90 } }
 
             Text {
                 anchors.centerIn: parent
@@ -56,8 +61,13 @@ Item {
             width: (segments.width - 2) / 2
             height: segments.height
             radius: 3
-            color: control.method === "Solid black" ? Theme.amber
+            scale: solidHover.pressed ? 0.97 : 1
+            color: solidHover.pressed
+                   ? (control.method === "Solid black" ? "#E6A000" : "#30353A")
+                   : control.method === "Solid black" ? Theme.amber
                    : solidHover.containsMouse ? "#1D2024" : "transparent"
+            Behavior on color { ColorAnimation { duration: 90 } }
+            Behavior on scale { NumberAnimation { duration: 90 } }
 
             Text {
                 anchors.centerIn: parent
