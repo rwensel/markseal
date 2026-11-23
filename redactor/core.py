@@ -281,6 +281,12 @@ class FolderImage:
             if index not in self.selected:
                 self.selected.add(index)
                 changed = True
+        kept, kept_selected = strip_contained_selected(self.boxes, self.selected)
+        if kept != self.boxes:
+            self.boxes[:] = kept
+            self.selected.clear()
+            self.selected.update(kept_selected)
+            changed = True
         if changed:
             self.reviewed = self.saved = False
         return changed
@@ -292,7 +298,8 @@ class FolderImage:
         self.incomplete_ocr = tuple(incomplete)
         self.reviewed = self.saved = False
         self.error = ''
-        return len(added)
+        selected_boxes = {box for index, box in enumerate(self.boxes) if index in self.selected}
+        return sum(1 for box in added if box in selected_boxes)
 
 
 def file_stamp(path):
@@ -603,6 +610,31 @@ def new_ocr_boxes(candidates, existing=()):
             added.append(box)
             kept.append(box)
     return added
+
+
+def strip_contained_selected(boxes, selected):
+    selected = set(selected)
+
+    def contains(outer, inner):
+        outer_area = (outer[2] - outer[0]) * (outer[3] - outer[1])
+        inner_area = (inner[2] - inner[0]) * (inner[3] - inner[1])
+        return (outer_area > inner_area
+                and outer[0] <= inner[0] + 2
+                and outer[1] <= inner[1] + 2
+                and outer[2] >= inner[2] - 2
+                and outer[3] >= inner[3] - 2)
+
+    kept = []
+    kept_selected = set()
+    for index, box in enumerate(boxes):
+        if index in selected and any(
+                other != index and other in selected and contains(boxes[other], box)
+                for other in range(len(boxes))):
+            continue
+        if index in selected:
+            kept_selected.add(len(kept))
+        kept.append(box)
+    return kept, kept_selected
 
 
 def scan_folder_image(path, expected, executable, settings, enhanced=False, cancel=None, *, color_assisted=False, area=None):

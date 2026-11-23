@@ -63,6 +63,75 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(review.selected, {1})
         self.assertFalse(review.confirmed)
 
+    def test_nested_selected_suggestions_keep_only_the_outer_box(self):
+        review = Review()
+        review.image = Image.new('RGB', (400, 300))
+        outer = (10, 10, 120, 60)
+        inner = (20, 20, 60, 40)
+        other = (200, 10, 260, 60)
+        added = review.add_suggestions([inner, outer, other])
+        self.assertEqual(added, 2)
+        self.assertEqual(review.boxes, [outer, other])
+        self.assertEqual(review.selected, {0, 1})
+
+    def test_suggestion_inside_existing_selected_area_is_skipped(self):
+        review = Review()
+        review.image = Image.new('RGB', (400, 300))
+        outer = (10, 10, 120, 60)
+        review.boxes = [outer]
+        review.selected = {0}
+        review.confirmed = True
+        self.assertEqual(review.add_suggestions([(20, 20, 60, 40)]), 0)
+        self.assertEqual(review.boxes, [outer])
+        self.assertEqual(review.selected, {0})
+        self.assertTrue(review.confirmed)
+
+    def test_outer_suggestion_replaces_existing_selected_inner_box(self):
+        review = Review()
+        review.image = Image.new('RGB', (400, 300))
+        inner = (20, 20, 60, 40)
+        outer = (10, 10, 120, 60)
+        review.boxes = [inner]
+        review.selected = {0}
+        review.confirmed = True
+        self.assertEqual(review.add_suggestions([outer]), 1)
+        self.assertEqual(review.boxes, [outer])
+        self.assertEqual(review.selected, {0})
+        self.assertFalse(review.confirmed)
+
+    def test_unselected_outer_box_does_not_remove_selected_inner_box(self):
+        review = Review()
+        review.image = Image.new('RGB', (400, 300))
+        outer = (10, 10, 120, 60)
+        inner = (20, 20, 60, 40)
+        review.boxes = [outer, inner]
+        review.selected = {1}
+        self.assertEqual(review.add_suggestions([(200, 10, 260, 60)]), 1)
+        self.assertEqual(review.boxes, [outer, inner, (200, 10, 260, 60)])
+        self.assertEqual(review.selected, {1, 2})
+
+    def test_folder_suggestions_skip_boxes_inside_selected_area(self):
+        entry = FolderImage(Path('example.png'))
+        outer = (10, 10, 120, 60)
+        entry.boxes = [outer]
+        entry.selected = {0}
+        self.assertEqual(entry.add_suggestions([(20, 20, 60, 40)]), 0)
+        self.assertEqual(entry.boxes, [outer])
+        self.assertEqual(entry.selected, {0})
+
+    def test_scan_cleans_existing_nested_selected_boxes(self):
+        review = Review()
+        review.image = Image.new('RGB', (400, 300))
+        outer = (10, 10, 120, 60)
+        inner = (20, 20, 60, 40)
+        review.boxes = [outer, inner]
+        review.selected = {0, 1}
+        review.confirmed = True
+        self.assertEqual(review.add_suggestions([]), 0)
+        self.assertEqual(review.boxes, [outer])
+        self.assertEqual(review.selected, {0})
+        self.assertFalse(review.confirmed)
+
     def test_zoom_keeps_pointer_location_and_selection_coordinates(self):
         review = Review()
         review.load(Image.new('RGB', (1000, 1000)), Path('test.png'))

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from .core import new_ocr_boxes
+from .core import new_ocr_boxes, strip_contained_selected
 
 
 @dataclass
@@ -162,10 +162,17 @@ class Review:
         return [box for index, box in enumerate(self.boxes) if index in self.selected]
 
     def add_suggestions(self, found):
+        before_boxes = list(self.boxes)
+        before_selected = {self.boxes[index] for index in self.selected}
         added = new_ocr_boxes(found, self.boxes)
         first = len(self.boxes)
         self.boxes.extend(added)
         self.selected.update(range(first, len(self.boxes)))
-        if added:
+        kept, kept_selected = strip_contained_selected(self.boxes, self.selected)
+        self.boxes[:] = kept
+        self.selected.clear()
+        self.selected.update(kept_selected)
+        selected_boxes = {box for index, box in enumerate(self.boxes) if index in self.selected}
+        if self.boxes != before_boxes or selected_boxes != before_selected:
             self.confirmed = False
-        return len(added)
+        return sum(1 for box in added if box in selected_boxes)
