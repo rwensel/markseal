@@ -21,6 +21,9 @@ dependencies = [
 build = [
     "pyinstaller>=6.22",
 ]
+release = [
+    "boto3>=1.34",
+]
 
 [project.gui-scripts]
 markseal = "markseal.app:main"
