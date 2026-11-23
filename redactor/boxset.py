@@ -98,6 +98,8 @@ class Merge:
 
 
 class BoxSet:
+    """One image's boxes, provenance rules, and selection, mutated in place."""
+
     def __init__(self, boxes=(), rules=None, selected=()):
         self.boxes = list(boxes)
         self.rules = {box: tuple(labels) for box, labels in (rules or {}).items() if labels}
@@ -179,6 +181,8 @@ class BoxSet:
 
 
 class FolderImage:
+    """A folder entry that owns its BoxSet; the active Review borrows that set."""
+
     def __init__(self, path, boxes=(), rules=None, selected=(), scanned=False,
                  incomplete_ocr=(), reviewed=False, saved=False, error='', stamp=None,
                  method='Pixelate'):

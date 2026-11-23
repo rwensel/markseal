@@ -529,7 +529,7 @@ Window {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: "Open an image, then select an area to read its text. "
+                                text: "Open an image, then select a scan area to read its text. "
                                       + "The app generates a regular expression with fixed-text or detected value-type matching for you to review and save."
                                 wrapMode: Text.WordWrap
                                 color: Theme.steelLight
@@ -543,7 +543,7 @@ Window {
                                 spacing: 9
 
                                 ConcourseButton {
-                                    text: "LEARN FROM IMAGE AREA"
+                                    text: "LEARN FROM SCAN AREA"
                                     variant: "primary"
                                     enabled: Backend.hasImage && !Backend.busy
                                     onClicked: {
@@ -566,7 +566,7 @@ Window {
                                 Layout.fillWidth: true
                                 text: Backend.hasImage
                                       ? "The settings window closes; drag around the text in the viewer. Manual patterns can be added any time."
-                                      : "Open an image to learn from an area, or add a pattern manually."
+                                      : "Open an image to learn from a scan area, or add a pattern manually."
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Backend.bodyFont
@@ -581,7 +581,7 @@ Window {
                             Text {
                                 Layout.fillWidth: true
                                 visible: Backend.blockedPatterns.length === 0
-                                text: "No blocked patterns yet. Learn one from an image area or add an expression manually."
+                                text: "No blocked patterns yet. Learn one from a scan area or add an expression manually."
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Backend.bodyFont

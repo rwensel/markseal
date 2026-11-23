@@ -121,3 +121,14 @@ Work top-down in the numbered workstreams. 1 and 2 are independent of each other
 ## Reporting
 
 After each workstream, report: what moved, the new tests and their counts, the verification commands and their output, and any pre-existing failures that sit outside the changed code. Do not start the next workstream with a red suite.
+
+## Implementation record (2026-11-23)
+
+Status: implemented. Workstreams 1-8 landed in nine commits from `a8d3a72` (Extract the parallel job runner) to `b21f954` (Record the deepened module architecture); a follow-up commit added the controller's direct module imports, the glossary and the ADRs.
+
+- Tests: 36 before, 87 after, in one `python -m unittest` run. No test was deleted or skipped; every original test name still exists.
+- Checks: `python -m unittest` OK, `python -m compileall` clean, `git diff --check` clean.
+- Walkthrough (headless `QT_QPA_PLATFORM=offscreen`, real `Controller` and `Main.qml`): a folder scan with two workers reached queued and running states with two rows running together; select/deselect, drag-add, remove and undo kept the expected counts; confirmation, quick method switch (persisted), and clipboard copy worked; four folder exports and one single-image export were audited pixel-exact; `audit_exports.py --ocr --use-app-pattern` exited 0; QML loaded with zero warnings and frames were grabbed at 1080x680 and 1440x900.
+- Decisions recorded: every coordinate log carries the safety note (both save paths); a folder image and its review share one live `BoxSet`; the controller imports sibling modules directly and `core.py` stays frozen as the launcher/test facade; regression tests remain in one file until roughly 1,500 lines.
+- Corrections made during implementation: the merge change flag is computed from the final box and selection state, so a suggestion absorbed by a selected outer box reports unchanged; a missing adapter pass-through in `scan_folder_image` was caught by a new test; user-facing "area(s)" copy became "box(es)" where it meant a redaction box, while scan-area wording stayed.
+- Deferred: a human visible-window pass before the next release (the walkthrough was offscreen); an optional test-file split; nothing else from the plan.

@@ -7,7 +7,7 @@ import Redactor 1.0
 Item {
     id: viewer
     property int hoveredBox: -1
-    readonly property string captureTitle: Backend.captureMode === "area" ? "AREA SCAN"
+    readonly property string captureTitle: Backend.captureMode === "area" ? "SCAN AREA"
                                           : Backend.captureMode === "anchor" ? "ANCHOR MATCH"
                                           : Backend.captureMode === "learn" ? "LEARN PATTERN" : ""
     readonly property string captureInstruction: Backend.captureMode === "area"

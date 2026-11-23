@@ -123,7 +123,11 @@ class _Batch:
 
 
 class JobRunner:
-    """Own threads, queues and pacing for one batch of jobs at a time."""
+    """Own threads, queues and pacing for one batch of jobs at a time.
+
+    ``accept`` runs on the caller's polling thread, in queue order; ``finish``
+    runs through the returned summary once every result was accepted.
+    """
 
     def __init__(self, limit, trace_factory=PerformanceRun):
         self.limit = max(1, int(limit))
