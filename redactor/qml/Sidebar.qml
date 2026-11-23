@@ -311,7 +311,7 @@ Item {
 
             delegate: Rectangle {
                 id: row
-                width: fileList.width
+                width: fileList.width - 10
                 height: 48
                 radius: 6
                 color: model.active ? "#25292E"
