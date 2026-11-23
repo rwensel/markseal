@@ -16,11 +16,33 @@ from performance_log import PerformanceRun, stage
 from redactor.core import (
     PRESETS, BoxList, FolderImage, apply_redactions, batch_worker_count, detect_regions,
     new_ocr_boxes, pattern_from_text, pixelate, read_area_text, recognize_regions, save_export,
-    text_from_tsv, value_pattern_expression, value_pattern_types,
+    scan_folder_image, text_from_tsv, value_pattern_expression, value_pattern_types,
 )
 from redactor.review import Review
 from redactor.jobs import JobRunner, progress_line
 from redactor.boxset import BoxSet, image_status
+from redactor.ocr import RapidEngine, TesseractEngine, make_engine
+
+
+class FakeEngine:
+    def __init__(self, tsv='', outcomes=None):
+        self.tsv = tsv
+        self.outcomes = list(outcomes) if outcomes is not None else None
+        self.calls = []
+        self.single_label = False
+        self.label = ('', 0.0)
+
+    def recognize(self, image, *, psm=None, cancel=None, timeout=120):
+        self.calls.append({'psm': psm, 'timeout': timeout, 'size': image.size})
+        if self.outcomes is None:
+            return self.tsv
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    def read_label(self, crop):
+        return self.label
 
 class RedactionTests(unittest.TestCase):
     def test_pixelate_preserves_pixels_outside_box(self):
@@ -160,9 +182,8 @@ class RedactionTests(unittest.TestCase):
     def test_recognizer_reports_progress_stages(self):
         image = Image.new('RGB', (120, 80), 'white')
         stages = []
-        with patch('redactor.core.subprocess.run', return_value=SimpleNamespace(stdout=b'tsv')), \
-             patch('redactor.core.detect_regions', return_value=[]):
-            recognize_regions(image, 'ocr', (False,), progress=stages.append)
+        with patch('redactor.core.detect_regions', return_value=[]):
+            recognize_regions(image, FakeEngine('tsv'), (False,), progress=stages.append)
         self.assertIn('Recognizing text', stages)
 
     def test_confidence_patterns_and_word_boundaries(self):
@@ -279,9 +300,10 @@ class RedactionTests(unittest.TestCase):
         )
         self.assertEqual(text_from_tsv(tsv), 'Crownfern Analytics\npass 42')
         image = Image.new('RGB', (240, 90), 'white')
-        with patch('redactor.core.subprocess.run',
+        engine = TesseractEngine('ocr')
+        with patch('redactor.ocr.subprocess.run',
                    return_value=SimpleNamespace(stdout=tsv.encode('utf-8'))) as run:
-            self.assertEqual(read_area_text(image, 'ocr', (10, 10, 200, 70)),
+            self.assertEqual(read_area_text(image, engine, (10, 10, 200, 70)),
                              'Crownfern Analytics\npass 42')
         self.assertEqual(run.call_args.args[0][-1], 'tsv')
         found = detect_regions(tsv, (240, 90), categories=set(),
@@ -337,14 +359,12 @@ class RedactionTests(unittest.TestCase):
         image = Image.new('RGB', (120, 80), 'white')
         incomplete = []
         box = (10, 10, 70, 35)
-        standard = SimpleNamespace(stdout=b'tsv')
-        with patch('redactor.core.subprocess.run', side_effect=[
-            standard, subprocess.TimeoutExpired('ocr', 15),
-        ]) as run, patch('redactor.core.detect_regions', return_value=[box]):
-            result = recognize_regions(image, 'ocr', (False,), enhanced=True, incomplete=incomplete)
+        engine = FakeEngine(outcomes=['tsv', subprocess.TimeoutExpired('ocr', 15)])
+        with patch('redactor.core.detect_regions', return_value=[box]):
+            result = recognize_regions(image, engine, (False,), enhanced=True, incomplete=incomplete)
         self.assertEqual(result, [box])
         self.assertEqual(incomplete, ['enhanced OCR timed out'])
-        self.assertLessEqual(run.call_args.kwargs['timeout'], 15)
+        self.assertLessEqual(engine.calls[-1]['timeout'], 15)
         entry = FolderImage(SimpleNamespace(name='example.png'))
         entry.add_suggestions(result, incomplete)
         self.assertEqual(entry.selected, {0})
@@ -354,18 +374,20 @@ class RedactionTests(unittest.TestCase):
         image = Image.new('RGB', (200, 140), 'white')
         area = (20, 10, 100, 42)
         settings = (False, set(), 40, r'\b(?:CRE|DOD)\b')
-        with patch('rapidocr_backend.recognize_words', return_value=''):
-            for text, confidence, expected in [('CRE', 95, [area]), ('DOO', 95, []),
-                                                ('other CRE', 95, []), ('DOD', 20, [])]:
-                with self.subTest(text=text, confidence=confidence):
-                    with patch('rapidocr_backend.recognize_single_label', return_value=(text, confidence)):
-                        self.assertEqual(recognize_regions(image, None, settings, area=area), expected)
+        for text, confidence, expected in [('CRE', 95, [area]), ('DOO', 95, []),
+                                            ('other CRE', 95, []), ('DOD', 20, [])]:
+            with self.subTest(text=text, confidence=confidence):
+                engine = FakeEngine('')
+                engine.single_label = True
+                engine.label = (text, confidence)
+                self.assertEqual(recognize_regions(image, engine, settings, area=area), expected)
         learned = (False, set(), 40, '', (('Blocked pattern: CRE', r'\b(?:CRE|DOD)\b'),))
-        with patch('rapidocr_backend.recognize_words', return_value=''), \
-             patch('rapidocr_backend.recognize_single_label', return_value=('CRE', 95)):
-            result = recognize_regions(image, None, learned, area=area)
-            self.assertEqual(result, [area])
-            self.assertEqual(result.rules[area], ('Blocked pattern: CRE',))
+        engine = FakeEngine('')
+        engine.single_label = True
+        engine.label = ('CRE', 95)
+        result = recognize_regions(image, engine, learned, area=area)
+        self.assertEqual(result, [area])
+        self.assertEqual(result.rules[area], ('Blocked pattern: CRE',))
 
     def test_nested_ocr_duplicates_are_suppressed_without_merging_neighbors(self):
         tight = (1154, 1103, 1221, 1159)
@@ -387,9 +409,10 @@ class RedactionTests(unittest.TestCase):
         settings = (False, set(), 40, r'\bBFE\b')
         tsv = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
                '1\t1\t1\t1\t100\t80\t80\t40\t95\tBFE\n')
-        with patch('ocr_preprocess.small_text_tiles', return_value=[((500, 300, 1100, 700), tile)]), \
-             patch('rapidocr_backend.recognize_words', side_effect=['', '', tsv]):
-            self.assertEqual(recognize_regions(image, None, settings, enhanced=True), [(548, 338, 592, 362)])
+        engine = FakeEngine(outcomes=['', '', tsv])
+        engine.single_label = True
+        with patch('ocr_preprocess.small_text_tiles', return_value=[((500, 300, 1100, 700), tile)]):
+            self.assertEqual(recognize_regions(image, engine, settings, enhanced=True), [(548, 338, 592, 362)])
 
     def test_model_places_matched_word_even_if_other_characters_lack_boxes(self):
         def polygon(left, right):
@@ -557,6 +580,74 @@ class RedactionTests(unittest.TestCase):
         rows = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t10\t20\t90\t10\t95\tuser@example.com\n5\t1\t1\t1\t2\t1\t10\t50\t50\t10\t95\tDashboard\n'
         self.assertEqual(detect_regions(rows, (200, 100)), [(6, 16, 104, 34)])
         self.assertEqual(len(detect_regions(rows, (200, 100), all_text=True)), 2)
+
+class OcrAdapterTests(unittest.TestCase):
+    def test_fake_adapter_drives_the_whole_pass_pipeline(self):
+        image = Image.new('RGB', (1200, 800), 'white')
+        settings = (False, {'Emails'}, 40, '')
+        engine = FakeEngine(outcomes=['', ''])
+        with patch('ocr_preprocess.strike_reduced_variant', return_value=None), \
+             patch('ocr_preprocess.small_text_tiles', return_value=[]), \
+             patch('ocr_preprocess.color_ocr_variants', return_value=[]):
+            recognize_regions(image, engine, settings, enhanced=True, color_assisted=True)
+        self.assertEqual([call['psm'] for call in engine.calls], [None, '11'])
+
+    def test_tesseract_and_rapid_adapters_return_the_same_box_shape(self):
+        tsv = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+               '1\t1\t1\t1\t10\t20\t100\t20\t95\ta@example.com\n')
+        image = Image.new('RGB', (300, 100), 'white')
+        settings = (False, {'Emails'}, 50, '')
+        with patch('redactor.ocr.subprocess.run',
+                   return_value=SimpleNamespace(stdout=tsv.encode('utf-8'))):
+            tesseract = recognize_regions(image, TesseractEngine('ocr'), settings)
+        with patch('rapidocr_backend.recognize_words', return_value=tsv):
+            rapid = recognize_regions(image, RapidEngine(), settings)
+        self.assertEqual(tesseract, rapid)
+        self.assertEqual(tesseract, [(6, 16, 114, 44)])
+
+    def test_make_engine_validates_the_requested_backend(self):
+        self.assertIsInstance(make_engine('Tesseract', executable='ocr'), TesseractEngine)
+        with patch('rapidocr_backend.model_files', return_value={}):
+            engine = make_engine('RapidOCR')
+        self.assertIsInstance(engine, RapidEngine)
+        self.assertTrue(engine.single_label)
+        with patch('rapidocr_backend.model_files', side_effect=OSError('missing models')):
+            with self.assertRaises(OSError):
+                make_engine('RapidOCR')
+        with patch('redactor.ocr.find_tesseract', return_value=None):
+            with self.assertRaises(OSError):
+                make_engine('Tesseract')
+
+    def test_area_scan_rescales_adapter_boxes_to_source_pixels(self):
+        image = Image.new('RGB', (200, 100), 'white')
+        tsv = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+               '1\t1\t1\t1\t40\t20\t80\t20\t95\ta@example.com\n')
+        engine = FakeEngine(tsv)
+        result = recognize_regions(image, engine, (False, {'Emails'}, 40, ''),
+                                   area=(20, 10, 100, 42))
+        self.assertEqual(result, [(29, 14, 51, 21)])
+        self.assertEqual(engine.calls[0]['size'], (320, 128))
+
+    def test_single_label_fallback_is_reserved_for_detectorless_adapters(self):
+        image = Image.new('RGB', (200, 140), 'white')
+        area = (20, 10, 100, 42)
+        settings = (False, set(), 40, r'\bCRE\b')
+        engine = FakeEngine('')
+        engine.label = ('CRE', 95)
+        self.assertEqual(recognize_regions(image, engine, settings, area=area), [])
+
+    def test_folder_scan_passes_the_adapter_through(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / 'one.png'
+            Image.new('RGB', (120, 80), 'white').save(path)
+            tsv = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+                   '1\t1\t1\t1\t10\t20\t80\t20\t95\ta@example.com\n')
+            engine = FakeEngine(tsv)
+            stamp, boxes, incomplete = scan_folder_image(
+                path, None, engine, (False, {'Emails'}, 50, ''))
+        self.assertEqual(boxes, [(6, 16, 94, 44)])
+        self.assertEqual(incomplete, [])
+
 
 class ReviewSessionTests(unittest.TestCase):
     def test_folder_image_and_review_share_one_box_state(self):

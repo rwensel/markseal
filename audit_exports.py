@@ -94,10 +94,12 @@ def main():
                         masked_percent=round(100*mask.histogram()[255]/(mask.width*mask.height), 3))
             if args.ocr:
                 from offline_redactor import PRESETS, recognize_regions
+                from redactor.ocr import make_engine
+                engine = make_engine('RapidOCR')
                 settings = (False, PRESETS['Broad'], 40, '', patterns)
-                suggested = recognize_regions(original, None, settings)
+                suggested = recognize_regions(original, engine, settings)
                 item['ocr_candidates'] = classify_coverage(mask, suggested)
-                residual = recognize_regions(exported, None, settings)
+                residual = recognize_regions(exported, engine, settings)
                 item['export_ocr_candidates'] = classify_coverage(mask, residual)
         except (OSError, ValueError, SyntaxError, KeyError) as error:
             item['issue'] = str(error)

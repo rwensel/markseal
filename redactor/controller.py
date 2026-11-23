@@ -941,15 +941,8 @@ class Controller(QObject):
             self.captureChanged.emit()
             self._emit_view()
 
-    def _scan_backend(self):
-        if self._settings['ocrEngine'] == 'RapidOCR':
-            from rapidocr_backend import model_files
-            model_files()
-            return None
-        executable = core.find_tesseract()
-        if not executable:
-            raise OSError('Restore Tesseract in tools/tesseract or add it to PATH.')
-        return executable
+    def _scan_engine(self):
+        return core.make_engine(self._settings['ocrEngine'])
 
     def _scan_settings(self):
         confidence = self._settings['confidence']
@@ -987,7 +980,7 @@ class Controller(QObject):
         if self.review.image is None or self._busy:
             return
         try:
-            executable = self._scan_backend()
+            engine = self._scan_engine()
             settings = self._scan_settings()
         except OSError as error:
             self._error('OCR unavailable', str(error))
@@ -1002,7 +995,7 @@ class Controller(QObject):
         def operation(job):
             incomplete = []
             found = core.recognize_regions(
-                self.review.image, executable, settings, self._settings['enhancedOcr'],
+                self.review.image, engine, settings, self._settings['enhancedOcr'],
                 color_assisted=self._settings['colorOcr'], incomplete=incomplete,
                 area=area, progress=stages.put,
             )
@@ -1096,14 +1089,14 @@ class Controller(QObject):
         if self.review.image is None:
             return
         try:
-            executable = self._scan_backend()
+            engine = self._scan_engine()
         except OSError as error:
             self._error('OCR unavailable', str(error))
             return
         info = {'text': '', 'error': None}
 
         def operation(job):
-            return core.read_area_text(self.review.image, executable, area)
+            return core.read_area_text(self.review.image, engine, area)
 
         def accept(index, result, error):
             if error is not None:
@@ -1348,7 +1341,7 @@ class Controller(QObject):
             )
             return
         try:
-            executable = self._scan_backend()
+            engine = self._scan_engine()
             settings = self._scan_settings()
         except OSError as error:
             self._error('OCR unavailable', str(error))
@@ -1370,7 +1363,7 @@ class Controller(QObject):
         def operation(job):
             path, stamp = job
             return core.scan_folder_image(
-                path, stamp, executable, settings, enhanced, cancel,
+                path, stamp, engine, settings, enhanced, cancel,
                 color_assisted=color_assisted, area=area,
             )
 

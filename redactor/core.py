@@ -11,7 +11,6 @@ import json
 import math
 import os
 import re
-import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +25,9 @@ from .boxset import (
     BoxList, FolderImage, new_ocr_boxes, same_region, strip_contained_selected,
 )
 from .jobs import ScanCancelled, batch_worker_count
+from .ocr import (
+    RapidEngine, TesseractEngine, cancellable_ocr, find_tesseract, make_engine,
+)
 
 
 # Very coarse blocks remove fine detail, but mosaic redaction can remain reversible.
@@ -247,17 +249,6 @@ def apply_redactions(image, boxes, method='Pixelate'):
     return out
 
 
-def find_tesseract():
-    bundled = Path(__file__).resolve().parent.parent / 'tools' / 'tesseract' / 'tesseract.exe'
-    if bundled.is_file(): return str(bundled)
-    found = shutil.which('tesseract')
-    if found: return found
-    for base in (os.environ.get('PROGRAMFILES', ''), os.environ.get('LOCALAPPDATA', '')):
-        path = Path(base) / 'Tesseract-OCR' / 'tesseract.exe'
-        if path.is_file(): return str(path)
-    return None
-
-
 def preferences_path():
     local = os.environ.get('LOCALAPPDATA')
     base = Path(local) if local else Path.home() / '.config'
@@ -378,36 +369,7 @@ def write_folder_copy(entry, target, include_log):
     save_export(copy, target, log if include_log else None)
 
 
-def cancellable_ocr(command, data, creationflags, cancel, *, timeout=120, env=None):
-    if cancel.is_set():
-        raise ScanCancelled
-    deadline = monotonic() + timeout
-    with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE, creationflags=creationflags, env=env) as process:
-        pending_input = data
-        try:
-            while True:
-                if cancel.is_set():
-                    raise ScanCancelled
-                remaining = deadline - monotonic()
-                if remaining <= 0:
-                    raise subprocess.TimeoutExpired(command, timeout)
-                try:
-                    stdout, stderr = process.communicate(input=pending_input, timeout=min(0.15, remaining))
-                    break
-                except subprocess.TimeoutExpired:
-                    # communicate retains its input and output across a timeout.
-                    pending_input = None
-        except (ScanCancelled, subprocess.TimeoutExpired):
-            process.kill()
-            process.communicate()
-            raise
-        if process.returncode:
-            raise subprocess.CalledProcessError(process.returncode, command, stdout, stderr)
-        return stdout
-
-
-def recognize_regions(image, executable, settings, enhanced=False, cancel=None, *,
+def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
                       color_assisted=False, incomplete=None, area=None, area_layout=None,
                       progress=None):
     def report(text):
@@ -420,7 +382,7 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
         crop = image.crop(area)
         factor = min(4, 2400 / max(crop.size))
         enlarged = crop.resize((max(1, round(crop.width*factor)), max(1, round(crop.height*factor))), Image.Resampling.LANCZOS)
-        boxes = recognize_regions(enlarged, executable, settings, enhanced, cancel,
+        boxes = recognize_regions(enlarged, engine, settings, enhanced, cancel,
                                   color_assisted=color_assisted, incomplete=incomplete,
                                   area_layout='7' if crop.width >= 6*crop.height else '6',
                                   progress=progress)
@@ -431,13 +393,12 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
             expressions.append(('Custom pattern', re.compile(pattern, re.IGNORECASE)))
         expressions.extend((label, re.compile(value, re.IGNORECASE))
                            for label, value in _learned_pattern_rules(learned))
-        if (not boxes and executable is None and not all_text and expressions
+        if (not boxes and engine.single_label and not all_text and expressions
                 and crop.height <= 180 and crop.width <= min(600, 6*crop.height)):
             if cancel is not None and cancel.is_set():
                 raise ScanCancelled
             report('Reading selected label')
-            from rapidocr_backend import recognize_single_label
-            text, score = recognize_single_label(crop)
+            text, score = engine.read_label(crop)
             if cancel is not None and cancel.is_set():
                 raise ScanCancelled
             if text and score >= confidence:
@@ -452,43 +413,22 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
         mapped_rules = {destination: boxes.rules.get(source, ())
                         for source, destination in zip(boxes, mapped)}
         return BoxList(mapped, mapped_rules)
-    # Tesseract processes run serially. Limiting OpenMP threads avoids
-    # oversubscription on machines where parallel OCR runs slower.
-    environment = {**os.environ, 'OMP_THREAD_LIMIT': '1'}
 
     def check_cancel():
         if cancel is not None and cancel.is_set():
             raise ScanCancelled
 
-    def run(source, extra_options=(), timeout=120):
+    def run(source, psm=None, timeout=120):
         check_cancel()
         detected = {}
-        if executable is None:
-            from rapidocr_backend import recognize_words
-            with stage('rapidocr_inference', width=source.width, height=source.height):
-                tsv = recognize_words(source)
-            check_cancel()
-            return detect_regions(tsv, source.size, *settings, rules=detected), detected
-        data = io.BytesIO()
-        with stage('ocr_input_encoding', width=source.width, height=source.height):
-            source.save(data, format='PNG')
-        command = [executable, 'stdin', 'stdout', *extra_options, 'tsv']
-        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-        if cancel is None:
-            with stage('tesseract_inference'):
-                result = subprocess.run(command, input=data.getvalue(), capture_output=True,
-                                        timeout=timeout, check=True, creationflags=flags, env=environment)
-            stdout = result.stdout
-        else:
-            with stage('tesseract_inference'):
-                stdout = cancellable_ocr(command, data.getvalue(), flags, cancel, timeout=timeout, env=environment)
-        return detect_regions(stdout.decode('utf-8', errors='replace'), source.size,
-                              *settings, rules=detected), detected
+        tsv = engine.recognize(source, psm=psm, cancel=cancel, timeout=timeout)
+        check_cancel()
+        return detect_regions(tsv, source.size, *settings, rules=detected), detected
 
     try:
         with stage('standard_ocr_pass') as timing:
             report('Recognizing text')
-            found, pass_rules = run(image, ('--psm', area_layout) if area_layout else ())
+            found, pass_rules = run(image, psm=area_layout)
             boxes = new_ocr_boxes(found)
             rules = {box: pass_rules.get(box, ()) for box in boxes}
             if timing is not None:
@@ -516,7 +456,7 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
             return False
         try:
             with stage('additional_ocr_pass', pass_name=name) as timing:
-                found, found_rules = run(source, ('--psm', area_layout or '11'), timeout=min(15, remaining))
+                found, found_rules = run(source, psm=area_layout or '11', timeout=min(15, remaining))
         except subprocess.TimeoutExpired:
             note_incomplete(f'{name} timed out')
             return True
@@ -554,7 +494,7 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
             contrast = ImageOps.autocontrast(ImageOps.grayscale(working).filter(ImageFilter.MedianFilter(3)), cutoff=1)
         if not add_pass(contrast, 'enhanced OCR'):
             return BoxList(boxes, rules)
-        if executable is None and area_layout is None:
+        if engine.single_label and area_layout is None:
             from ocr_preprocess import small_text_tiles
             for index, (bounds, tile) in enumerate(small_text_tiles(image), 1):
                 report(f'Reading small-text section {index}')
@@ -583,7 +523,7 @@ def text_from_tsv(tsv):
     return '\n'.join(' '.join(words) for words in lines.values())
 
 
-def read_area_text(image, executable, area):
+def read_area_text(image, engine, area):
     left, top, right, bottom = area
     crop = image.crop((left, top, right, bottom))
     if max(crop.size) > 0:
@@ -593,21 +533,8 @@ def read_area_text(image, executable, area):
                                 max(1, round(crop.height * factor))), Image.Resampling.LANCZOS)
     border = max(6, crop.height // 20)
     crop = ImageOps.expand(crop, border=border, fill=crop.getpixel((0, 0)))
-    if executable is None:
-        from rapidocr_backend import recognize_words
-        tsv = recognize_words(crop)
-    else:
-        data = io.BytesIO()
-        crop.save(data, format='PNG')
-        psm = '7' if crop.width >= 6 * crop.height else '6'
-        result = subprocess.run(
-            [executable, 'stdin', 'stdout', '--psm', psm, 'tsv'],
-            input=data.getvalue(), capture_output=True, timeout=30, check=True,
-            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
-            env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
-        )
-        tsv = result.stdout.decode('utf-8', errors='replace')
-    return text_from_tsv(tsv)
+    psm = '7' if crop.width >= 6 * crop.height else '6'
+    return text_from_tsv(engine.recognize(crop, psm=psm, timeout=30))
 
 
 def pattern_from_text(text):
@@ -700,9 +627,9 @@ def value_pattern_expression(text, kind):
     return PATTERN_TYPE_EXPRESSIONS.get(kind, pattern_from_text(text))
 
 
-def scan_folder_image(path, expected, executable, settings, enhanced=False, cancel=None, *, color_assisted=False, area=None):
+def scan_folder_image(path, expected, engine, settings, enhanced=False, cancel=None, *, color_assisted=False, area=None):
     image, stamp = read_folder_image(path, expected)
     incomplete = []
-    boxes = recognize_regions(image, executable, settings, enhanced, cancel,
+    boxes = recognize_regions(image, engine, settings, enhanced, cancel,
                               color_assisted=color_assisted, incomplete=incomplete, area=area)
     return stamp, boxes, incomplete
