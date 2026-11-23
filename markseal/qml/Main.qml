@@ -142,6 +142,11 @@ Window {
     }
 
     Shortcut {
+        sequence: "Ctrl+Shift+C"
+        onActivated: captureRegion.open()
+    }
+
+    Shortcut {
         sequence: "Ctrl+C"
         onActivated: Backend.review.copyRedacted()
     }
