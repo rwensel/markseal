@@ -10,8 +10,14 @@ if (-not $SkipTests) {
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed.' }
 Write-Host 'Built dist\Markseal\Markseal.exe'
 $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+if (-not $iscc) {
+    $iscc = Get-ChildItem -Path @("$env:LOCALAPPDATA\Programs\Inno Setup*\ISCC.exe",
+        'C:\Program Files*\Inno Setup*\ISCC.exe') -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+}
 if ($iscc) {
-    & $iscc.Source packaging\markseal.iss
+    $isccPath = if ($iscc -is [System.Management.Automation.ApplicationInfo]) { $iscc.Source } else { $iscc.FullName }
+    & $isccPath packaging\markseal.iss
     if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed.' }
     Write-Host 'Built dist\Markseal-Setup.exe'
 } else {
