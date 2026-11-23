@@ -27,6 +27,29 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(out.getpixel((12, 12)), (0, 0, 0))
         self.assertEqual(out.getpixel((20, 20)), (255, 255, 255))
 
+    def test_blur_changes_only_the_selected_area(self):
+        im = Image.new('RGB', (100, 80), 'white')
+        for x in range(10, 70):
+            for y in range(10, 50): im.putpixel((x, y), (x*3, y*5, 40))
+        out = apply_redactions(im, [(10, 10, 70, 50)], 'Blur')
+        self.assertEqual(im.getpixel((5, 5)), out.getpixel((5, 5)))
+        self.assertEqual(im.getpixel((80, 5)), out.getpixel((80, 5)))
+        self.assertNotEqual(im.getpixel((12, 12)), out.getpixel((12, 12)))
+
+    def test_erase_changes_only_the_selected_area(self):
+        im = Image.new('RGB', (100, 80), 'white')
+        for x in range(10, 70):
+            for y in range(10, 50): im.putpixel((x, y), (x*3, y*5, 40))
+        out = apply_redactions(im, [(10, 10, 70, 50)], 'Erase')
+        self.assertEqual(im.getpixel((5, 5)), out.getpixel((5, 5)))
+        self.assertEqual(im.getpixel((80, 5)), out.getpixel((80, 5)))
+        self.assertNotEqual(im.getpixel((40, 30)), out.getpixel((40, 30)))
+
+    def test_erase_on_a_uniform_region_does_not_raise(self):
+        im = Image.new('RGB', (60, 60), 'white')
+        out = apply_redactions(im, [(10, 10, 50, 50)], 'Erase')
+        self.assertEqual(out.size, im.size)
+
     def test_select_confirm_and_change_selection(self):
         review = Review()
         review.load(Image.new('RGB', (200, 200)), Path('test.png'))

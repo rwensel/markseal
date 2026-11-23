@@ -503,6 +503,66 @@ Window {
                                 }
                             }
 
+                            Panel {
+                                Layout.fillWidth: true
+                                implicitHeight: 88
+                                fillColor: Theme.fieldFace
+                                inset: true
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 3
+
+                                    Text {
+                                        text: "BLUR"
+                                        color: Theme.amber
+                                        font.family: Theme.displayFont
+                                        font.pixelSize: 10
+                                        font.letterSpacing: 1
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: "Gaussian blur softens the selected area. Fast, but blurred text can sometimes be recovered — prefer solid black for highly sensitive material."
+                                        wrapMode: Text.WordWrap
+                                        color: Theme.steelLight
+                                        font.family: Theme.bodyFont
+                                        font.pixelSize: 11
+                                    }
+                                }
+                            }
+
+                            Panel {
+                                Layout.fillWidth: true
+                                implicitHeight: 88
+                                fillColor: Theme.fieldFace
+                                inset: true
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 3
+
+                                    Text {
+                                        text: "ERASE"
+                                        color: Theme.dangerText
+                                        font.family: Theme.displayFont
+                                        font.pixelSize: 10
+                                        font.letterSpacing: 1
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: "Replaces the selected area with nearby background pixels. Looks seamless; check the result before sharing."
+                                        wrapMode: Text.WordWrap
+                                        color: Theme.steelLight
+                                        font.family: Theme.bodyFont
+                                        font.pixelSize: 11
+                                    }
+                                }
+                            }
+
                             HintText {
                                 Layout.fillWidth: true
                                 Layout.topMargin: 4

@@ -690,10 +690,13 @@ class ReviewFacade(QObject):
             return
         self.last_export = target
         note = ' and coordinate log' if include_log else ''
+        warning = {
+            'Blur': 'blurred text can sometimes be recovered.',
+            'Erase': 'erased text is filled with nearby pixels; check the result.',
+        }.get(self.session.preferences.method, 'pixelated text can sometimes be recovered.')
         self.alerts.info(
             'Saved',
-            f'Saved the redacted PNG{note}. Review before sharing; '
-            'pixelated text can sometimes be recovered.',
+            f'Saved the redacted PNG{note}. Review before sharing; {warning}',
         )
 
     @Slot()

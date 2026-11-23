@@ -59,13 +59,18 @@ class PreferencesTests(unittest.TestCase):
             loaded = preferences.load(path, parallel_limit=8)
         self.assertEqual(loaded.document(), stored.document())
 
+    def test_blur_and_erase_are_valid_methods(self):
+        for method in ('Blur', 'Erase'):
+            loaded = preferences.from_document({'redaction_method': method})
+            self.assertEqual(loaded.method, method)
+
     def test_invalid_settings_are_rejected_before_writing(self):
         current = preferences.defaults()
         for override in ({'confidence': 101}, {'confidence': -1},
                          {'parallel_images': 0}, {'parallel_images': 9},
                          {'output_directory': 'relative/folder'},
                          {'filename_template': '   '}, {'filename_template': 'bad/name'},
-                         {'method': 'Blur'},
+                         {'method': 'Nope'},
                          {'sensitivity': 'Nope'}, {'theme': 'gone'}):
             with self.subTest(override=override):
                 with self.assertRaises(ValueError):
@@ -83,7 +88,7 @@ class PreferencesTests(unittest.TestCase):
 
     def test_load_clamps_and_ignores_invalid_saved_values(self):
         loaded = preferences.from_document(
-            {'parallel_images': 99, 'confidence': 250, 'redaction_method': 'Blur',
+            {'parallel_images': 99, 'confidence': 250, 'redaction_method': 'Mosaic',
              'filename_template': 'bad/name'}, 8)
         self.assertEqual(loaded.parallel_images, 8)
         self.assertEqual(loaded.confidence, 50)

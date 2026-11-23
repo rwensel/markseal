@@ -16,7 +16,7 @@ from .detection import CATEGORIES, PATTERNS, PRESETS
 from .export import output_path
 from .theme_tokens import DEFAULT_ID, is_known
 
-METHOD_NAMES = ('Pixelate', 'Solid black')
+METHOD_NAMES = ('Pixelate', 'Solid black', 'Blur', 'Erase')
 DEFAULT_TEMPLATE = '{stem}_redacted'
 MAX_PARALLEL = 16
 
@@ -235,7 +235,7 @@ def apply_form(current, form, parallel_limit, source=None):
         raise ValueError('Choose a detection preset.')
     method = form['method']
     if method not in METHOD_NAMES:
-        raise ValueError('Choose pixelation or solid black.')
+        raise ValueError('Choose pixelation, solid black, blur, or erase.')
     theme = form.get('theme', current.theme)
     if not is_known(theme):
         raise ValueError('Choose a known theme.')

@@ -59,11 +59,11 @@ Patterns are matched case-insensitively. With **Fixed text**, the expression kee
 
 ## Redaction method
 
-Use the **METHOD** toggle in the viewer caption to switch between **Pixelate** and **Black** without opening Settings; the same choice is available under **Settings → Redaction**. The choice is saved immediately and applies to the confirmed preview, the copied image, and the saved PNG. The method applies across the folder and is remembered across app restarts. Changing it returns reviewed folder images to review before export. Solid black removes image detail inside the chosen boxes and is more appropriate for sensitive information. Pixels outside selected rectangles are preserved in the PNG. Camera metadata is omitted from saved copies.
+Use the **METHOD** toggle in the viewer caption to switch between **Pixelate**, **Black**, **Blur**, and **Erase** without opening Settings; the same choice is available under **Settings → Redaction**. The choice is saved immediately and applies to the confirmed preview, the copied image, and the saved PNG. The method applies across the folder and is remembered across app restarts. Changing it returns reviewed folder images to review before export. Solid black removes image detail inside the chosen boxes and is the safest for sensitive information; blur and erase look softer but can be less final. Pixels outside selected rectangles are preserved in the PNG. Camera metadata is omitted from saved copies.
 
 ## Pixelation warning
 
-Pixelation changes only marked rectangles, using coarse blocks, but it can leave text or visual features recognizable or recoverable. For highly sensitive material use irreversible opaque fills instead, and independently review before sharing. This tool cannot guarantee removal of all sensitive information.
+Pixelation changes only marked rectangles, using coarse blocks, but it can leave text or visual features recognizable or recoverable. Gaussian **Blur** is the same story: blurred text can sometimes be recovered. For highly sensitive material use **Solid black** instead, and independently review before sharing. **Erase** fills the area with nearby pixels; check the result. This tool cannot guarantee removal of all sensitive information.
 
 ## Audit exports and measure performance
 

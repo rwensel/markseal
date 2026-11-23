@@ -72,7 +72,7 @@ class SettingsFacade(QObject):
 
     @Property(list, constant=True)
     def methodNames(self):
-        return ['Pixelate', 'Solid black']
+        return list(preferences.METHOD_NAMES)
 
     @Property(dict, constant=True)
     def presetCategories(self):
@@ -176,7 +176,7 @@ class SettingsFacade(QObject):
 
     @Slot(str)
     def setRedactionMethod(self, method):
-        if self.session.jobs.busy or method not in ('Pixelate', 'Solid black') \
+        if self.session.jobs.busy or method not in preferences.METHOD_NAMES \
                 or method == self.session.preferences.method:
             return
         self.session.preferences.method = method
