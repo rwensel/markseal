@@ -14,6 +14,13 @@ Item {
     readonly property bool canScan: Backend.hasImage && !Backend.busy && !Backend.confirmed
     readonly property bool canConfirm: Backend.hasImage && !Backend.busy && !Backend.confirmed
 
+    Shortcut {
+        sequence: "Alt+M"
+        enabled: !toolbar.wide
+        onActivated: overflow.popup(moreButton, moreButton.width - overflow.width,
+                                    moreButton.height + 6)
+    }
+
     Rectangle {
         id: bar
         anchors.fill: parent
@@ -191,7 +198,7 @@ Item {
             id: moreButton
             text: "MORE"
             compact: true
-            tip: overflow.visible ? "" : "More actions"
+            tip: overflow.visible ? "" : "More actions (Alt+M)"
             visible: !toolbar.wide
             onClicked: overflow.popup(moreButton, moreButton.width - overflow.width,
                                       moreButton.height + 6)

@@ -140,6 +140,36 @@ Window {
     }
 
     Shortcut {
+        sequence: "Ctrl+="
+        onActivated: Backend.zoomStep(1)
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Shift+="
+        onActivated: Backend.zoomStep(1)
+    }
+
+    Shortcut {
+        sequence: "Ctrl+-"
+        onActivated: Backend.zoomStep(-1)
+    }
+
+    Shortcut {
+        sequence: "Ctrl+0"
+        onActivated: Backend.zoomFit()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+A"
+        onActivated: Backend.selectAllBoxes()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Shift+A"
+        onActivated: Backend.selectNoBoxes()
+    }
+
+    Shortcut {
         sequence: "Ctrl+Z"
         onActivated: Backend.undo()
     }

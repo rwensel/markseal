@@ -124,6 +124,20 @@ class Review:
         self.confirmed = False
         return True
 
+    def select_all(self):
+        if self.confirmed or not self.boxes or len(self.selected) == len(self.boxes):
+            return False
+        self._state.selected = set(range(len(self.boxes)))
+        self.confirmed = False
+        return True
+
+    def select_none(self):
+        if self.confirmed or not self._state.selected:
+            return False
+        self._state.selected.clear()
+        self.confirmed = False
+        return True
+
     def undo(self):
         if not self._state.undo():
             return False

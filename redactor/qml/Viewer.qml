@@ -119,7 +119,7 @@ Item {
             ToolTip.visible: zoomPointer.containsMouse
             ToolTip.delay: 500
             ToolTip.timeout: 5000
-            ToolTip.text: "Scroll to zoom. Right-drag to pan."
+            ToolTip.text: "Scroll or Ctrl+= / Ctrl+- to zoom. Right-drag or Shift+arrows to pan. Ctrl+0 fits."
 
             MouseArea {
                 id: zoomPointer
@@ -128,6 +128,13 @@ Item {
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
             }
+        }
+
+        Rectangle {
+            Layout.preferredWidth: 1
+            Layout.preferredHeight: 12
+            color: "#34393F"
+            visible: Backend.confirmed
         }
 
         ConcourseButton {
@@ -203,7 +210,7 @@ Item {
             activeFocusOnTab: true
             Accessible.role: Accessible.Pane
             Accessible.name: "Screenshot review area"
-            Accessible.description: "Arrow keys move between boxes, Space includes or excludes, Delete removes. Confirm with Ctrl+Enter."
+            Accessible.description: "Arrow keys move between boxes, Space includes or excludes, Delete removes, Shift with arrows pans, Ctrl+Enter confirms."
 
             onWidthChanged: Backend.setViewSize(width, height)
             onHeightChanged: Backend.setViewSize(width, height)
@@ -213,10 +220,30 @@ Item {
                     keyboardBox = 0
             }
 
-            Keys.onLeftPressed: stepBox(-1)
-            Keys.onUpPressed: stepBox(-1)
-            Keys.onRightPressed: stepBox(1)
-            Keys.onDownPressed: stepBox(1)
+            Keys.onLeftPressed: function(event) {
+                if (event.modifiers & Qt.ShiftModifier)
+                    Backend.panStep(60, 0)
+                else
+                    stepBox(-1)
+            }
+            Keys.onUpPressed: function(event) {
+                if (event.modifiers & Qt.ShiftModifier)
+                    Backend.panStep(0, 60)
+                else
+                    stepBox(-1)
+            }
+            Keys.onRightPressed: function(event) {
+                if (event.modifiers & Qt.ShiftModifier)
+                    Backend.panStep(-60, 0)
+                else
+                    stepBox(1)
+            }
+            Keys.onDownPressed: function(event) {
+                if (event.modifiers & Qt.ShiftModifier)
+                    Backend.panStep(0, -60)
+                else
+                    stepBox(1)
+            }
             Keys.onSpacePressed: {
                 if (keyboardBox >= 0) {
                     Backend.toggleBox(keyboardBox)
@@ -432,7 +459,7 @@ Item {
                 Text {
                     id: keyHint
                     anchors.centerIn: parent
-                    text: "ARROWS MOVE · SPACE TOGGLE · DEL REMOVE"
+                    text: "ARROWS MOVE · SPACE TOGGLE · DEL REMOVE · SHIFT PAN · CTRL+= ZOOM"
                     color: Theme.steelLight
                     font.family: Backend.displayFont
                     font.pixelSize: 9
@@ -763,5 +790,12 @@ Item {
                 }
             }
         }
+    }
+
+    ErrorBanner {
+        width: Math.min(viewer.width - 44, 720)
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 18
     }
 }

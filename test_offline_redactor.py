@@ -1033,6 +1033,24 @@ class ReviewSessionTests(unittest.TestCase):
         self.assertFalse(review.confirmed)
         self.assertFalse(review.toggle_box(9))
 
+    def test_select_all_and_none_clear_confirmation(self):
+        review = Review()
+        review.load(Image.new('RGB', (100, 100)), Path('select.png'))
+        review.boxes = [(1, 1, 10, 10), (20, 20, 30, 30)]
+        review.selected = {0}
+        review.confirmed = False
+        self.assertTrue(review.select_all())
+        self.assertEqual(review.selected, {0, 1})
+        self.assertFalse(review.confirmed)
+        self.assertFalse(review.select_all())
+        review.confirmed = True
+        self.assertFalse(review.select_all())
+        self.assertEqual(review.selected, {0, 1})
+        review.confirmed = False
+        self.assertTrue(review.select_none())
+        self.assertEqual(review.selected, set())
+        self.assertFalse(review.select_none())
+
     def test_state_survives_switching_between_folder_images(self):
         first = FolderImage(Path('one.png'))
         second = FolderImage(Path('two.png'))

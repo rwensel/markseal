@@ -148,7 +148,7 @@ Window {
 
                 RailTab {
                     Layout.fillWidth: true
-                    text: "OCR ENGINE"
+                    text: "OCR"
                     active: settings.tab === "engine"
                     onClicked: settings.tab = "engine"
                 }
@@ -208,6 +208,7 @@ Window {
                                   : settings.tab === "output" ? 3 : 4
 
                     Flickable {
+                        id: engineFlick
                         clip: true
                         contentWidth: width
                         contentHeight: enginePage.implicitHeight
@@ -215,6 +216,7 @@ Window {
 
                         ScrollBar.vertical: ScrollBar {
                             policy: ScrollBar.AsNeeded
+                            visible: engineFlick.contentHeight > engineFlick.height
                             background: Item {}
                             contentItem: Rectangle {
                                 implicitWidth: 4
@@ -294,6 +296,7 @@ Window {
                     }
 
                     Flickable {
+                        id: patternsFlick
                         clip: true
                         contentWidth: width
                         contentHeight: patternsPage.implicitHeight
@@ -301,6 +304,7 @@ Window {
 
                         ScrollBar.vertical: ScrollBar {
                             policy: ScrollBar.AsNeeded
+                            visible: patternsFlick.contentHeight > patternsFlick.height
                             background: Item {}
                             contentItem: Rectangle {
                                 implicitWidth: 4
@@ -400,10 +404,23 @@ Window {
                     }
 
                     Flickable {
+                        id: redactionFlick
                         clip: true
                         contentWidth: width
                         contentHeight: redactionPage.implicitHeight
                         boundsBehavior: Flickable.StopAtBounds
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                            visible: redactionFlick.contentHeight > redactionFlick.height
+                            background: Item {}
+                            contentItem: Rectangle {
+                                implicitWidth: 4
+                                radius: 2
+                                color: Theme.steelMid
+                                opacity: 0.6
+                            }
+                        }
 
                         ColumnLayout {
                             id: redactionPage
@@ -489,10 +506,23 @@ Window {
                     }
 
                     Flickable {
+                        id: outputFlick
                         clip: true
                         contentWidth: width
                         contentHeight: outputPage.implicitHeight
                         boundsBehavior: Flickable.StopAtBounds
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                            visible: outputFlick.contentHeight > outputFlick.height
+                            background: Item {}
+                            contentItem: Rectangle {
+                                implicitWidth: 4
+                                radius: 2
+                                color: Theme.steelMid
+                                opacity: 0.6
+                            }
+                        }
 
                         ColumnLayout {
                             id: outputPage
@@ -618,10 +648,23 @@ Window {
                     }
 
                     Flickable {
+                        id: blockedFlick
                         clip: true
                         contentWidth: width
                         contentHeight: blockedPage.implicitHeight
                         boundsBehavior: Flickable.StopAtBounds
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                            visible: blockedFlick.contentHeight > blockedFlick.height
+                            background: Item {}
+                            contentItem: Rectangle {
+                                implicitWidth: 4
+                                radius: 2
+                                color: Theme.steelMid
+                                opacity: 0.6
+                            }
+                        }
 
                         ColumnLayout {
                             id: blockedPage

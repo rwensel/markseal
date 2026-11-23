@@ -9,6 +9,8 @@ Item {
     id: sidebar
     implicitWidth: 336
     property bool showBatch: false
+    readonly property int batchReady: (Backend.hasImage && Backend.folderMode ? 2 : 0)
+                                      + (Backend.scannedCount > 0 ? 1 : 0)
 
     Rectangle {
         id: background
@@ -133,10 +135,15 @@ Item {
             ConcourseButton {
                 Layout.fillWidth: true
                 Layout.columnSpan: 2
-                text: sidebar.showBatch ? "HIDE BATCH TOOLS" : "BATCH TOOLS"
+                text: sidebar.showBatch ? "HIDE BATCH TOOLS"
+                      : sidebar.batchReady > 0 ? "BATCH TOOLS · " + sidebar.batchReady
+                      : "BATCH TOOLS"
                 variant: "secondary"
                 compact: true
-                tip: "Rescan, copy boxes, and match by anchor"
+                tip: sidebar.batchReady > 0
+                     ? "Rescan, copy boxes, and match by anchor; "
+                       + sidebar.batchReady + " enabled for this folder"
+                     : "Rescan, copy boxes, and match by anchor"
                 onClicked: sidebar.showBatch = !sidebar.showBatch
             }
 

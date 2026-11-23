@@ -32,8 +32,8 @@ from .review import Review
 
 
 INITIAL_STATUS = (
-    'Click boxes to select or deselect; drag to add. Amber = selected; red = excluded. '
-    'Confirm to apply.'
+    'Click a box or use arrows; Space includes or excludes. Amber = selected; '
+    'red = excluded. Confirm to apply.'
 )
 
 
@@ -171,6 +171,7 @@ def _preference_property(name, kind, notify):
 
 class Controller(QObject):
     statusChanged = Signal()
+    errorChanged = Signal()
     imageChanged = Signal()
     imageRevisionChanged = Signal()
     reviewChanged = Signal()
@@ -210,6 +211,10 @@ class Controller(QObject):
         self.progress_detail = ''
         self.progress_current = ''
         self.scan_stage = ''
+        self.error_text = ''
+        self.error_detail = ''
+        self.error_action_text = ''
+        self._error_action = None
         self.image_revision = 0
         self._display_qimage = QImage()
         self._runner = JobRunner(self.parallel_limit)
@@ -409,6 +414,10 @@ class Controller(QObject):
     def reviewedCount(self):
         return sum(1 for entry in self.entries if entry.reviewed and not entry.saved)
 
+    @Property(int, notify=folderChanged)
+    def scannedCount(self):
+        return sum(1 for entry in self.entries if entry.scanned)
+
     @Property(QObject, constant=True)
     def folderModel(self):
         return self._folder_model
@@ -420,6 +429,35 @@ class Controller(QObject):
     @Property(str, notify=busyChanged)
     def busyLabel(self):
         return self.busy_label
+
+    @Property(str, notify=errorChanged)
+    def errorText(self):
+        return self.error_text
+
+    @Property(str, notify=errorChanged)
+    def errorDetail(self):
+        return self.error_detail
+
+    @Property(str, notify=errorChanged)
+    def errorActionText(self):
+        return self.error_action_text
+
+    @Slot()
+    def dismissError(self):
+        if not self.error_text and not self.error_detail:
+            return
+        self.error_text = ''
+        self.error_detail = ''
+        self.error_action_text = ''
+        self._error_action = None
+        self.errorChanged.emit()
+
+    @Slot()
+    def runErrorAction(self):
+        action = self._error_action
+        self.dismissError()
+        if callable(action):
+            action()
 
     @Property(bool, notify=busyChanged)
     def canCancel(self):
@@ -533,8 +571,12 @@ class Controller(QObject):
     def _info(self, title, text):
         QMessageBox.information(None, title, text)
 
-    def _error(self, title, text):
-        QMessageBox.critical(None, title, text)
+    def _error(self, title, text, action_text='', action=None):
+        self.error_text = title
+        self.error_detail = text
+        self.error_action_text = action_text
+        self._error_action = action
+        self.errorChanged.emit()
 
     def _can_leave(self):
         self._store_active()
@@ -828,6 +870,49 @@ class Controller(QObject):
         if self.review.zoom_at(x, y, 1 if delta > 0 else -1):
             self._emit_view()
 
+    @Slot(int)
+    def zoomStep(self, direction):
+        if self.review.image is None:
+            return
+        viewport = self.review.viewport
+        if self.review.zoom_at(viewport.view_width / 2, viewport.view_height / 2, direction):
+            self._emit_view()
+
+    @Slot()
+    def zoomFit(self):
+        if self.review.image is None:
+            return
+        viewport = self.review.viewport
+        viewport.zoom = 1.0
+        viewport.refit()
+        self._emit_view()
+
+    @Slot(int, int)
+    def panStep(self, dx, dy):
+        if self.review.image is None or self.review.zoom <= 1.0:
+            return
+        viewport = self.review.viewport
+        viewport.offset_x += dx
+        viewport.offset_y += dy
+        viewport.clamp_offsets()
+        self._emit_view()
+
+    @Slot()
+    def selectAllBoxes(self):
+        if self.review.select_all():
+            self._refresh_display()
+            self._store_active()
+            self._emit_review()
+            self._set_status(self._review_status())
+
+    @Slot()
+    def selectNoBoxes(self):
+        if self.review.select_none():
+            self._refresh_display()
+            self._store_active()
+            self._emit_review()
+            self._set_status(self._review_status())
+
     @Slot(int, int)
     def beginPan(self, x, y):
         if self.review.pan_begin(x, y):
@@ -958,10 +1043,12 @@ class Controller(QObject):
             engine = self._scan_engine()
             settings = self._scan_settings()
         except OSError as error:
-            self._error('OCR unavailable', str(error))
+            self._error('OCR unavailable', str(error), 'RETRY',
+                        lambda: self._start_single_scan(area=area))
             return
         except (ValueError, re.error) as error:
-            self._error('Invalid detection settings', str(error))
+            self._error('Invalid detection settings', str(error), 'OPEN SETTINGS',
+                        self.requestSettings)
             return
         stages = Queue()
         info = {'added': None, 'incomplete': [], 'error': None}
@@ -1001,7 +1088,8 @@ class Controller(QObject):
 
         def complete():
             if info['error'] is not None:
-                self._error('Local OCR failed', f'Text recognition failed: {info["error"]}')
+                self._error('Local OCR failed', f'Text recognition failed: {info["error"]}',
+                            'RETRY', lambda: self._start_single_scan(area=area))
                 return
             if info['added'] is None:
                 return
@@ -1066,7 +1154,7 @@ class Controller(QObject):
         try:
             engine = self._scan_engine()
         except OSError as error:
-            self._error('OCR unavailable', str(error))
+            self._error('OCR unavailable', str(error), 'OPEN SETTINGS', self.requestSettings)
             return
         info = {'text': '', 'error': None}
 
@@ -1086,7 +1174,8 @@ class Controller(QObject):
 
         def complete():
             if info['error'] is not None:
-                self._error('Could not read area', f'Text recognition failed: {info["error"]}')
+                self._error('Could not read area', f'Text recognition failed: {info["error"]}',
+                            'TRY AGAIN', self.beginLearnPattern)
                 return
             text = info['text'].strip()
             if not text:
@@ -1195,10 +1284,12 @@ class Controller(QObject):
             engine = self._scan_engine()
             settings = self._scan_settings()
         except OSError as error:
-            self._error('OCR unavailable', str(error))
+            self._error('OCR unavailable', str(error), 'RETRY',
+                        lambda: self._start_scan(entries, rescan=rescan, follow=follow, area=area))
             return
         except (ValueError, re.error) as error:
-            self._error('Invalid detection settings', str(error))
+            self._error('Invalid detection settings', str(error), 'OPEN SETTINGS',
+                        self.requestSettings)
             return
         cancel = Event()
         rows = {entry.path: index for index, entry in enumerate(self.entries)}
@@ -1563,7 +1654,8 @@ class Controller(QObject):
                 'No redactions', 'No areas are selected. Copy the unredacted image?'):
             return
         if self._display_qimage.isNull():
-            self._error('Copy failed', 'The preview is not available.')
+            self._error('Copy failed', 'The preview is not available.',
+                        'RETRY', self.copyRedacted)
             return
         QGuiApplication.clipboard().setImage(self._display_qimage.copy())
         if self.review.selected:
@@ -1623,7 +1715,7 @@ class Controller(QObject):
                 'pixelated text can sometimes be recovered.',
             )
         except Exception as error:
-            self._error('Save failed', str(error))
+            self._error('Save failed', str(error), 'RETRY', self.save)
         finally:
             trace.finish()
 
@@ -1659,7 +1751,7 @@ class Controller(QObject):
                     targets.add(key)
                 jobs.append((entry, target))
         except (ValueError, KeyError, IndexError, AttributeError, OSError) as error:
-            self._error('Cannot save images', str(error))
+            self._error('Cannot save images', str(error), 'RETRY', self.saveReviewed)
             return
 
         unredacted = sum(not entry.selected for _, entry in pending)
