@@ -52,11 +52,11 @@ PATTERNS = {
     'SSNs': r"\b\d{3}-\d{2}-\d{4}\b",
 }
 TEXT_CATEGORIES = tuple(PATTERNS)
-IMAGE_CATEGORIES = ('QR codes',)
+IMAGE_CATEGORIES = ('Faces', 'QR codes')
 CATEGORIES = TEXT_CATEGORIES + IMAGE_CATEGORIES
 PRESETS = {
     'Focused': {'Emails', 'URLs', 'IP addresses', 'Secrets', 'Card numbers', 'IBANs',
-                'SSNs', 'QR codes'},
+                'SSNs', 'Faces', 'QR codes'},
     'Balanced': (set(PATTERNS) - {'Long identifiers'}) | set(IMAGE_CATEGORIES),
     'Broad': set(PATTERNS) | set(IMAGE_CATEGORIES),
 }

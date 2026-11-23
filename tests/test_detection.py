@@ -51,6 +51,7 @@ class DetectionTests(unittest.TestCase):
 
     def test_focused_preset_leads_with_pii_and_qr(self):
         self.assertIn('Card numbers', PRESETS['Focused'])
+        self.assertIn('Faces', PRESETS['Focused'])
         self.assertIn('QR codes', PRESETS['Focused'])
         self.assertNotIn('Infrastructure', PRESETS['Focused'])
         self.assertIn('Infrastructure', PRESETS['Balanced'])

@@ -38,7 +38,10 @@ def make_engine():
 
 
 def image_boxes(image, categories):
-    from .image_detection import detect_qr_codes
+    from .image_detection import detect_faces, detect_qr_codes
+    if 'Faces' in categories:
+        for box in detect_faces(image):
+            yield box, 'Face'
     if 'QR codes' in categories:
         for box in detect_qr_codes(image):
             yield box, 'QR code'
