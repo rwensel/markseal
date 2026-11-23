@@ -35,10 +35,10 @@ class ControllerTests(unittest.TestCase):
         self.controller = Controller(
             preferences_file=Path(self.temporary.name) / 'settings.json'
         )
-        self.controller._info = lambda *args, **kwargs: None
-        self.controller._ask = lambda *args, **kwargs: True
+        self.controller.alerts.info = lambda *args, **kwargs: None
+        self.controller.alerts.ask = lambda *args, **kwargs: True
         self.errors = []
-        self.controller._error = (
+        self.controller.alerts.error = (
             lambda title, text='', *args, **kwargs: self.errors.append((title, text))
         )
 
@@ -82,7 +82,8 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.errors, [])
         self.assertEqual(self.controller.totalBoxes, 1)
         self.assertEqual(self.controller.selectedCount, 1)
-        self.assertEqual(self.controller.review.rules[self.controller.review.boxes[0]],
+        self.assertEqual(self.controller.session.review.rules[
+                             self.controller.session.review.boxes[0]],
                          ('Emails',))
 
         self.controller.toggleBox(0)

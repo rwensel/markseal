@@ -8,11 +8,9 @@ from queue import Queue
 from threading import Event
 
 from PIL import Image
-from PySide6.QtCore import (
-    Property, QBuffer, QIODevice, QObject, QTimer, QUrl, Signal, Slot,
-)
+from PySide6.QtCore import Property, QBuffer, QIODevice, QObject, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QImage
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog
 
 from .performance_log import PerformanceRun, log_directory
 
@@ -25,18 +23,12 @@ from . import ocr
 from . import patterns
 from . import preferences
 from . import redaction
-from .jobs import JobRunner, progress_line
-from .review import Review
+from .facades import Alerts, JobCenter, SessionState
+from .facades.alerts import box_hint
 from .ui.models import DisplayImageProvider, FolderModel, preference_property
 from . import themes
 from . import workflows
 from .themes import Palette
-
-
-def box_hint(theme_id):
-    entry = themes.spec(theme_id)
-    return (f'Space includes or excludes. '
-            f'{entry.selected_name.capitalize()} = selected; {entry.excluded_name} = excluded.')
 
 
 
@@ -66,58 +58,43 @@ class Controller(QObject):
 
     def __init__(self, preferences_file=None, parent=None):
         super().__init__(parent)
-        self.review = Review()
-        self.entries = []
-        self.active = None
-        self.row_selection = set()
-        self.row_anchor = None
-        self.folder = None
-        self.output_directory = None
-        self.output_directory_override = None
-        self.preferences_file = Path(preferences_file) if preferences_file else preferences.preferences_path()
-        self.parallel_limit = max(1, min(16, os.cpu_count() or 4))
-        self._pasted_image = False
-        self._busy = False
-        self.busy_label = ''
+        self.session = SessionState(preferences_file)
+        self.alerts = Alerts(self)
+        self.jobs = JobCenter(self.session, self)
+        self.session.alerts = self.alerts
+        self.session.jobs = self.jobs
+        self.alerts.statusChanged.connect(self.statusChanged)
+        self.alerts.errorChanged.connect(self.errorChanged)
+        self.jobs.busyChanged.connect(self.busyChanged)
+        self.jobs.progressChanged.connect(self.progressChanged)
+        self.jobs.scanStageChanged.connect(self.scanStageChanged)
         self.capture = 'none'
         self.drag = None
         self._panning = False
-        self.status_text = ''
-        self.progress_text = 'Ready'
-        self.progress_value = 0
-        self.progress_max = 1
-        self.progress_detail = ''
-        self.progress_current = ''
-        self.scan_stage = ''
-        self.error_text = ''
-        self.error_detail = ''
-        self.error_action_text = ''
-        self._error_action = None
         self.image_revision = 0
         self._display_qimage = QImage()
-        self._runner = JobRunner(self.parallel_limit)
         self._folder_model = FolderModel()
-        self._preferences = preferences.defaults()
-        self._preview_theme = self._preferences.theme
+        self.jobs.jobStatesQueued.connect(
+            lambda states: self._folder_model.set_job_states(states))
+        self.jobs.jobStarted.connect(
+            lambda row: self._folder_model.set_job_state(row, 'running'))
+        self.jobs.jobCleared.connect(
+            lambda row: self._folder_model.set_job_state(row, ''))
+        self.jobs.jobStatesCleared.connect(self._folder_model.clear_job_states)
+        self.jobs.rowsChanged.connect(self._refresh_folder_rows)
+        self.jobs.before_start = self._cancel_capture
+        self._preview_theme = self.session.preferences.theme
         self._palette = Palette(self)
-        self._job_timer = QTimer(self)
-        self._job_timer.setInterval(100)
-        self._job_timer.timeout.connect(self._poll_jobs)
         self.load_preferences()
-        if not self.status_text:
-            self.status_text = box_hint(self._preferences.theme)
+        if not self.alerts.status_text:
+            self.alerts.set_status(box_hint(self.session.preferences.theme))
 
     def display_qimage(self):
         return self._display_qimage
 
-    def _set_status(self, text):
-        self.status_text = text
-        self.statusChanged.emit()
-
-    def _set_hint_theme(self, theme_id):
-        if self.status_text in {box_hint(name) for name in themes.THEME_IDS}:
-            self.status_text = box_hint(theme_id)
-            self.statusChanged.emit()
+    def _refresh_folder_rows(self):
+        self._folder_model.refresh()
+        self.folderChanged.emit()
 
     def _pil_to_qimage(self, image):
         if image.mode != 'RGB':
@@ -128,9 +105,9 @@ class Controller(QObject):
         ).copy()
 
     def _refresh_display(self):
-        image = self.review.image
-        if image is not None and self.review.confirmed:
-            image = redaction.apply_redactions(image, self.review.selected_boxes(), self._preferences.method)
+        image = self.session.review.image
+        if image is not None and self.session.review.confirmed:
+            image = redaction.apply_redactions(image, self.session.review.selected_boxes(), self.session.preferences.method)
         if image is None:
             self._display_qimage = QImage()
         else:
@@ -140,20 +117,19 @@ class Controller(QObject):
 
     def _emit_review(self):
         self.reviewChanged.emit()
-        self._folder_model.refresh()
-        self.folderChanged.emit()
+        self._refresh_folder_rows()
 
     def _emit_view(self):
         self.viewChanged.emit()
 
     def _review_status(self):
-        name = self.review.path.name if self.review.path else ''
-        return (f'{name}: {len(self.review.selected)} selected of '
-                f'{len(self.review.boxes)}. Confirm to apply.')
+        name = self.session.review.path.name if self.session.review.path else ''
+        return (f'{name}: {len(self.session.review.selected)} selected of '
+                f'{len(self.session.review.boxes)}. Confirm to apply.')
 
     def _load_image(self, image, path, pasted=False):
-        self._pasted_image = pasted
-        self.review.load(image, path)
+        self.session.pasted_image = pasted
+        self.session.review.load(image, path)
         self._refresh_display()
         self.imageChanged.emit()
         self._emit_review()
@@ -161,23 +137,23 @@ class Controller(QObject):
 
     @Property(str, notify=statusChanged)
     def statusText(self):
-        return self.status_text
+        return self.alerts.status_text
 
     @Property(bool, notify=imageChanged)
     def hasImage(self):
-        return self.review.image is not None
+        return self.session.review.image is not None
 
     @Property(str, notify=imageChanged)
     def imageName(self):
-        if self._pasted_image:
+        if self.session.pasted_image:
             return 'Pasted image'
-        return self.review.path.name if self.review.path else ''
+        return self.session.review.path.name if self.session.review.path else ''
 
     @Property(str, notify=imageChanged)
     def imageSizeText(self):
-        if self.review.image is None:
+        if self.session.review.image is None:
             return ''
-        width, height = self.review.image.size
+        width, height = self.session.review.image.size
         return f'{width} × {height}'
 
     @Property(int, notify=imageRevisionChanged)
@@ -186,61 +162,61 @@ class Controller(QObject):
 
     @Property(int, notify=imageChanged)
     def imageWidth(self):
-        return self.review.image.width if self.review.image else 0
+        return self.session.review.image.width if self.session.review.image else 0
 
     @Property(int, notify=imageChanged)
     def imageHeight(self):
-        return self.review.image.height if self.review.image else 0
+        return self.session.review.image.height if self.session.review.image else 0
 
     @Property(list, notify=reviewChanged)
     def boxes(self):
         boxes = []
-        for index, box in enumerate(self.review.boxes):
-            labels = tuple(self.review.rules.get(box, ())) or ('Manual box',)
+        for index, box in enumerate(self.session.review.boxes):
+            labels = tuple(self.session.review.rules.get(box, ())) or ('Manual box',)
             label = labels[0] if len(labels) == 1 else f'{labels[0]} +{len(labels) - 1}'
             boxes.append({
                 'x1': box[0], 'y1': box[1], 'x2': box[2], 'y2': box[3],
-                'selected': index in self.review.selected,
+                'selected': index in self.session.review.selected,
                 'rules': list(labels), 'ruleLabel': label,
             })
         return boxes
 
     @Property(int, notify=reviewChanged)
     def selectedCount(self):
-        return len(self.review.selected)
+        return len(self.session.review.selected)
 
     @Property(int, notify=reviewChanged)
     def excludedCount(self):
-        return len(self.review.boxes) - len(self.review.selected)
+        return len(self.session.review.boxes) - len(self.session.review.selected)
 
     @Property(int, notify=reviewChanged)
     def totalBoxes(self):
-        return len(self.review.boxes)
+        return len(self.session.review.boxes)
 
     @Property(bool, notify=reviewChanged)
     def confirmed(self):
-        return self.review.confirmed
+        return self.session.review.confirmed
 
     @Property(str, notify=folderChanged)
     def confirmLabel(self):
-        count = len(self.row_selection) if self.entries else 0
+        count = len(self.session.row_selection) if self.session.entries else 0
         return f'CONFIRM {count}' if count > 1 else 'CONFIRM'
 
     @Property(float, notify=viewChanged)
     def viewScale(self):
-        return self.review.scale
+        return self.session.review.scale
 
     @Property(float, notify=viewChanged)
     def viewOffsetX(self):
-        return self.review.offset_x
+        return self.session.review.offset_x
 
     @Property(float, notify=viewChanged)
     def viewOffsetY(self):
-        return self.review.offset_y
+        return self.session.review.offset_y
 
     @Property(int, notify=viewChanged)
     def zoomPercent(self):
-        return round(self.review.zoom * 100)
+        return round(self.session.review.zoom * 100)
 
     @Property(bool, notify=viewChanged)
     def panning(self):
@@ -272,29 +248,29 @@ class Controller(QObject):
 
     @Property(bool, notify=folderChanged)
     def folderMode(self):
-        return bool(self.entries) and self.active is not None
+        return bool(self.session.entries) and self.session.active is not None
 
     @Property(str, notify=folderChanged)
     def folderName(self):
-        return self.folder.name if self.folder else ''
+        return self.session.folder.name if self.session.folder else ''
 
     @Property(str, notify=folderChanged)
     def folderCounts(self):
-        if not self.entries:
+        if not self.session.entries:
             return ''
-        scanned = sum(entry.scanned for entry in self.entries)
-        reviewed = sum(entry.reviewed for entry in self.entries)
-        saved = sum(entry.saved for entry in self.entries)
-        return (f'{len(self.entries)} images · {scanned} scanned · '
+        scanned = sum(entry.scanned for entry in self.session.entries)
+        reviewed = sum(entry.reviewed for entry in self.session.entries)
+        saved = sum(entry.saved for entry in self.session.entries)
+        return (f'{len(self.session.entries)} images · {scanned} scanned · '
                 f'{reviewed} reviewed · {saved} saved')
 
     @Property(int, notify=folderChanged)
     def reviewedCount(self):
-        return sum(1 for entry in self.entries if entry.reviewed and not entry.saved)
+        return sum(1 for entry in self.session.entries if entry.reviewed and not entry.saved)
 
     @Property(int, notify=folderChanged)
     def folderImageCount(self):
-        return len(self.entries)
+        return len(self.session.entries)
 
     @Property(QObject, constant=True)
     def folderModel(self):
@@ -302,77 +278,63 @@ class Controller(QObject):
 
     @Property(bool, notify=busyChanged)
     def busy(self):
-        return self._busy
+        return self.jobs.busy
 
     @Property(str, notify=busyChanged)
     def busyLabel(self):
-        return self.busy_label
+        return self.jobs.busyLabel
 
     @Property(str, notify=errorChanged)
     def errorText(self):
-        return self.error_text
+        return self.alerts.error_text
 
     @Property(str, notify=errorChanged)
     def errorDetail(self):
-        return self.error_detail
+        return self.alerts.error_detail
 
     @Property(str, notify=errorChanged)
     def errorActionText(self):
-        return self.error_action_text
+        return self.alerts.error_action_text
 
     @Slot()
     def dismissError(self):
-        if not self.error_text and not self.error_detail:
-            return
-        self.error_text = ''
-        self.error_detail = ''
-        self.error_action_text = ''
-        self._error_action = None
-        self.errorChanged.emit()
+        self.alerts.dismiss()
 
     @Slot()
     def runErrorAction(self):
-        action = self._error_action
-        self.dismissError()
-        if callable(action):
-            action()
+        self.alerts.run_action()
 
     @Property(bool, notify=busyChanged)
     def canCancel(self):
-        return self._runner.can_cancel
+        return self.jobs.canCancel
 
     @Property(str, notify=progressChanged)
     def progressText(self):
-        return self.progress_text
+        return self.jobs.progressText
 
     @Property(int, notify=progressChanged)
     def progressValue(self):
-        return self.progress_value
+        return self.jobs.progressValue
 
     @Property(int, notify=progressChanged)
     def progressMax(self):
-        return self.progress_max
+        return self.jobs.progressMax
 
     @Property(str, notify=progressChanged)
     def progressDetail(self):
-        return self.progress_detail
+        return self.jobs.progressDetail
 
     @Property(str, notify=progressChanged)
     def progressCurrent(self):
-        return self.progress_current
+        return self.jobs.progressCurrent
 
     @Property(str, notify=scanStageChanged)
     def scanStage(self):
-        return self.scan_stage
-
-    def _set_scan_stage(self, text):
-        if self.scan_stage != text:
-            self.scan_stage = text
-            self.scanStageChanged.emit()
+        return self.jobs.scanStage
 
     @Property(str, notify=themeChanged)
     def themeName(self):
-        return self._preferences.theme
+        return self.session.preferences.theme
 
     @Property(str, notify=themeChanged)
     def previewTheme(self):
@@ -425,7 +387,7 @@ class Controller(QObject):
 
     @Property(list, notify=settingsChanged)
     def categories(self):
-        return list(self._preferences.categories)
+        return list(self.session.preferences.categories)
 
     sensitivity = preference_property('sensitivity', str, settingsChanged)
     confidence = preference_property('confidence', int, settingsChanged)
@@ -437,7 +399,7 @@ class Controller(QObject):
 
     @Property(str, notify=settingsChanged)
     def redactionMethod(self):
-        return self._preferences.method
+        return self.session.preferences.method
 
     outputDirectory = preference_property('output_directory', str, settingsChanged)
     filenameTemplate = preference_property('filename_template', str, settingsChanged)
@@ -446,11 +408,11 @@ class Controller(QObject):
 
     @Property(int, constant=True)
     def parallelLimit(self):
-        return self.parallel_limit
+        return self.session.parallel_limit
 
     @Property(list, notify=blockedPatternsChanged)
     def blockedPatterns(self):
-        return [dict(entry) for entry in self._preferences.blocked_patterns]
+        return [dict(entry) for entry in self.session.preferences.blocked_patterns]
 
     def _choose_image(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -463,56 +425,39 @@ class Controller(QObject):
         path = QFileDialog.getExistingDirectory(None, title)
         return Path(path) if path else None
 
-    def _ask(self, title, text):
-        answer = QMessageBox.question(
-            None, title, text,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        return answer == QMessageBox.StandardButton.Yes
-
-    def _info(self, title, text):
-        QMessageBox.information(None, title, text)
-
-    def _error(self, title, text, action_text='', action=None):
-        self.error_text = title
-        self.error_detail = text
-        self.error_action_text = action_text
-        self._error_action = action
-        self.errorChanged.emit()
-
     def _can_leave(self):
         self._store_active()
-        if not self.entries:
+        if not self.session.entries:
             return True
-        pending = any(not entry.saved and (entry.boxes or entry.reviewed) for entry in self.entries)
-        return not pending or self._ask(
+        pending = any(not entry.saved and (entry.boxes or entry.reviewed) for entry in self.session.entries)
+        return not pending or self.alerts.ask(
             'Leave folder?', 'Some images have unsaved review work. Leave this folder?'
         )
 
     def _clear_folder(self):
-        self.entries = []
-        self.active = None
-        self.row_selection = set()
-        self.row_anchor = None
+        self.session.entries = []
+        self.session.active = None
+        self.session.row_selection = set()
+        self.session.row_anchor = None
         self._folder_model.set_entries([])
         self.folderChanged.emit()
 
     def _prepare_image_open(self):
-        if self._busy:
+        if self.jobs.busy:
             return False
         if not self._can_leave():
             return False
-        if not self.entries and self.review.boxes:
-            if not self._ask('Open another image', 'Discard the current unsaved markings?'):
+        if not self.session.entries and self.session.review.boxes:
+            if not self.alerts.ask('Open another image', 'Discard the current unsaved markings?'):
                 return False
         return True
 
     def _present_image(self, image, path, pasted=False):
         self._cancel_capture()
-        if self.entries:
+        if self.session.entries:
             self._clear_folder()
         self._load_image(image, path, pasted=pasted)
-        self._set_status(f'{self.imageName}: find suggestions or drag to add a box, then confirm.')
+        self.alerts.set_status(f'{self.imageName}: find suggestions or drag to add a box, then confirm.')
 
     @Slot()
     def openImage(self):
@@ -525,13 +470,13 @@ class Controller(QObject):
             with Image.open(chosen) as source:
                 image = source.convert('RGB')
         except Exception as error:
-            self._error('Cannot open image', str(error))
+            self.alerts.error('Cannot open image', str(error))
             return
         self._present_image(image, chosen)
 
     @Slot()
     def openFolder(self):
-        if self._busy:
+        if self.jobs.busy:
             return
         chosen = self._choose_folder('Open image folder')
         if chosen is None:
@@ -539,7 +484,7 @@ class Controller(QObject):
         self._open_folder_path(chosen)
 
     def _open_folder_path(self, chosen):
-        if self._busy or not self._can_leave():
+        if self.jobs.busy or not self._can_leave():
             return
         try:
             paths = sorted(
@@ -548,35 +493,35 @@ class Controller(QObject):
                 key=lambda path: (path.name.casefold(), path.name),
             )
         except OSError as error:
-            self._error('Cannot open folder', str(error))
+            self.alerts.error('Cannot open folder', str(error))
             return
         if not paths:
-            self._info('No images', 'Choose a folder containing PNG, JPEG, BMP or TIFF images.')
+            self.alerts.info('No images', 'Choose a folder containing PNG, JPEG, BMP or TIFF images.')
             return
-        if not self.entries and self.review.boxes and not self._ask(
+        if not self.session.entries and self.session.review.boxes and not self.alerts.ask(
                 'Open folder?', 'Discard the current image markings?'):
             return
         self._cancel_capture()
-        self.folder = chosen
-        self.output_directory = self.output_directory_override or chosen / 'redacted'
-        self.entries = [boxset.FolderImage(path, method=self._preferences.method) for path in paths]
-        self.active = None
-        self.row_selection = {0}
-        self.row_anchor = 0
-        self._folder_model.set_entries(self.entries)
-        self._folder_model.set_selection(self.row_selection)
+        self.session.folder = chosen
+        self.session.output_directory = self.session.output_directory_override or chosen / 'redacted'
+        self.session.entries = [boxset.FolderImage(path, method=self.session.preferences.method) for path in paths]
+        self.session.active = None
+        self.session.row_selection = {0}
+        self.session.row_anchor = 0
+        self._folder_model.set_entries(self.session.entries)
+        self._folder_model.set_selection(self.session.row_selection)
         self._folder_model.set_active(0)
-        self.progress_text = 'Ready'
-        self.progress_value = 0
-        self.progress_max = 1
-        self.progress_detail = 'Select images to scan, then review each image.'
-        self.progress_current = ''
+        self.jobs.progressText = 'Ready'
+        self.jobs.progressValue = 0
+        self.jobs.progressMax = 1
+        self.jobs.progressDetail = 'Select images to scan, then review each image.'
+        self.jobs.progressCurrent = ''
         self.progressChanged.emit()
         self._show_folder_image(0)
 
     @Slot('QVariantList')
     def openDropped(self, urls):
-        if self._busy:
+        if self.jobs.busy:
             return
         paths = []
         for value in urls or []:
@@ -592,7 +537,7 @@ class Controller(QObject):
                 with Image.open(images[0]) as source:
                     image = source.convert('RGB')
             except Exception as error:
-                self._error('Cannot open image', str(error))
+                self.alerts.error('Cannot open image', str(error))
                 return
             self._present_image(image, images[0])
             return
@@ -600,7 +545,7 @@ class Controller(QObject):
         if folders:
             self._open_folder_path(folders[0])
             return
-        self._info('Drop an image', 'Drop a PNG, JPEG, BMP, TIFF image, or an image folder.')
+        self.alerts.info('Drop an image', 'Drop a PNG, JPEG, BMP, TIFF image, or an image folder.')
 
     def _clipboard_image(self):
         clipboard = QGuiApplication.clipboard()
@@ -626,15 +571,15 @@ class Controller(QObject):
 
     @Slot()
     def pasteImage(self):
-        if self._busy:
+        if self.jobs.busy:
             return
         try:
             loaded = self._clipboard_image()
         except Exception as error:
-            self._error('Cannot paste image', str(error))
+            self.alerts.error('Cannot paste image', str(error))
             return
         if loaded is None:
-            self._info('Paste image', 'The clipboard does not contain an image.')
+            self.alerts.info('Paste image', 'The clipboard does not contain an image.')
             return
         if not self._prepare_image_open():
             return
@@ -642,42 +587,42 @@ class Controller(QObject):
         self._present_image(image, path, pasted=pasted)
 
     def _store_active(self):
-        if self.active is None or self.review.image is None:
+        if self.session.active is None or self.session.review.image is None:
             return
-        if not 0 <= self.active < len(self.entries):
+        if not 0 <= self.session.active < len(self.session.entries):
             return
-        entry = self.entries[self.active]
-        if entry.reviewed and not self.review.confirmed:
+        entry = self.session.entries[self.session.active]
+        if entry.reviewed and not self.session.review.confirmed:
             entry.saved = False
-        entry.reviewed = self.review.confirmed
+        entry.reviewed = self.session.review.confirmed
 
     def _show_folder_image(self, index):
-        if not 0 <= index < len(self.entries) or self.active == index:
+        if not 0 <= index < len(self.session.entries) or self.session.active == index:
             return
         self._cancel_capture()
         self._store_active()
-        self.active = index
-        entry = self.entries[index]
-        self._pasted_image = False
-        self.review.path = entry.path
-        self.review.boxset = entry.boxset
-        self.review.confirmed = entry.reviewed
-        self.review.viewport.clear()
+        self.session.active = index
+        entry = self.session.entries[index]
+        self.session.pasted_image = False
+        self.session.review.path = entry.path
+        self.session.review.boxset = entry.boxset
+        self.session.review.confirmed = entry.reviewed
+        self.session.review.viewport.clear()
         try:
             image, entry.stamp = images.read_folder_image(entry.path, entry.stamp)
         except (OSError, ValueError, Image.DecompressionBombError) as error:
-            self.review.image = None
+            self.session.review.image = None
             entry.error = 'Open failed'
-            self._set_status(f'{entry.path.name} · {error}')
+            self.alerts.set_status(f'{entry.path.name} · {error}')
         else:
-            self.review.image = image
-            self.review.viewport.reset(image.size)
+            self.session.review.image = image
+            self.session.review.viewport.reset(image.size)
             self._refresh_display()
-            self._set_status(
+            self.alerts.set_status(
                 f'{entry.path.name} · {entry.status} · {len(entry.selected)} boxes selected'
             )
         self._folder_model.set_active(index)
-        self._folder_model.set_selection(self.row_selection)
+        self._folder_model.set_selection(self.session.row_selection)
         self.imageChanged.emit()
         self._emit_review()
         self._emit_view()
@@ -685,48 +630,48 @@ class Controller(QObject):
 
     @Slot(int, bool, bool)
     def selectRow(self, index, control, shift):
-        if not 0 <= index < len(self.entries):
+        if not 0 <= index < len(self.session.entries):
             return
-        if shift and self.row_anchor is not None:
-            low, high = sorted((self.row_anchor, index))
-            self.row_selection = set(range(low, high + 1))
+        if shift and self.session.row_anchor is not None:
+            low, high = sorted((self.session.row_anchor, index))
+            self.session.row_selection = set(range(low, high + 1))
         elif control:
-            if index in self.row_selection:
-                self.row_selection.discard(index)
+            if index in self.session.row_selection:
+                self.session.row_selection.discard(index)
             else:
-                self.row_selection.add(index)
-            self.row_anchor = index
+                self.session.row_selection.add(index)
+            self.session.row_anchor = index
         else:
-            self.row_selection = {index}
-            self.row_anchor = index
-        self._folder_model.set_selection(self.row_selection)
-        if not self.row_selection:
+            self.session.row_selection = {index}
+            self.session.row_anchor = index
+        self._folder_model.set_selection(self.session.row_selection)
+        if not self.session.row_selection:
             return
-        target = index if index in self.row_selection else min(self.row_selection)
-        if target != self.active:
+        target = index if index in self.session.row_selection else min(self.session.row_selection)
+        if target != self.session.active:
             self._show_folder_image(target)
 
     @Slot(int, int)
     def setViewSize(self, width, height):
-        self.review.set_view_size(width, height)
+        self.session.review.set_view_size(width, height)
         self._emit_view()
 
     @Slot(int, int)
     def press(self, x, y):
-        if self.capture != 'none' and self.review.image is not None:
-            self.review.viewport.begin_drag(x, y)
+        if self.capture != 'none' and self.session.review.image is not None:
+            self.session.review.viewport.begin_drag(x, y)
             self.drag = (x, y, 0, 0)
             self._emit_view()
             return
-        self.review.press(x, y)
+        self.session.review.press(x, y)
 
     @Slot(int, int)
     def move(self, x, y):
-        if self.review.viewport.pan_origin is not None:
-            if self.review.pan_move(x, y):
+        if self.session.review.viewport.pan_origin is not None:
+            if self.session.review.pan_move(x, y):
                 self._emit_view()
             return
-        rect = self.review.viewport.drag_rect(x, y)
+        rect = self.session.review.viewport.drag_rect(x, y)
         if rect is not None:
             self.drag = rect
             self._emit_view()
@@ -734,66 +679,66 @@ class Controller(QObject):
     @Slot(int, int)
     def release(self, x, y):
         if self._panning:
-            if self.review.pan_end():
+            if self.session.review.pan_end():
                 self._panning = False
                 self.viewChanged.emit()
             return
-        if (self.capture != 'none' and self.review.viewport.drag_origin is not None
-                and self.review.image is not None):
+        if (self.capture != 'none' and self.session.review.viewport.drag_origin is not None
+                and self.session.review.image is not None):
             capture = self.capture
-            anchor = self.review.viewport.drag_region(x, y)
+            anchor = self.session.review.viewport.drag_region(x, y)
             self._cancel_capture()
             if capture == 'area':
                 if anchor[2] - anchor[0] < 4 or anchor[3] - anchor[1] < 4:
-                    self._set_status('Area too small. Click Scan area and draw around the text again.')
-                elif self.active is None:
+                    self.alerts.set_status('Area too small. Click Scan area and draw around the text again.')
+                elif self.session.active is None:
                     self._start_single_scan(area=anchor)
                 else:
-                    self._start_scan([self.entries[self.active]], rescan=True, area=anchor)
+                    self._start_scan([self.session.entries[self.session.active]], rescan=True, area=anchor)
             elif capture == 'learn':
                 if anchor[2] - anchor[0] < 4 or anchor[3] - anchor[1] < 4:
-                    self._set_status('Area too small. Draw a tight box around the text you want to block.')
+                    self.alerts.set_status('Area too small. Draw a tight box around the text you want to block.')
                 else:
                     self._learn_pattern(anchor)
             else:
                 self._match_boxes_to_folder(anchor)
             return
         self.drag = None
-        action = self.review.release(x, y)
+        action = self.session.review.release(x, y)
         if action != 'none':
             self._refresh_display()
             self._store_active()
             self._emit_review()
-            self._set_status(self._review_status())
+            self.alerts.set_status(self._review_status())
         self._emit_view()
 
     @Slot(int, int, int)
     def zoomAt(self, x, y, delta):
-        if self.review.zoom_at(x, y, 1 if delta > 0 else -1):
+        if self.session.review.zoom_at(x, y, 1 if delta > 0 else -1):
             self._emit_view()
 
     @Slot(int)
     def zoomStep(self, direction):
-        if self.review.image is None:
+        if self.session.review.image is None:
             return
-        viewport = self.review.viewport
-        if self.review.zoom_at(viewport.view_width / 2, viewport.view_height / 2, direction):
+        viewport = self.session.review.viewport
+        if self.session.review.zoom_at(viewport.view_width / 2, viewport.view_height / 2, direction):
             self._emit_view()
 
     @Slot()
     def zoomFit(self):
-        if self.review.image is None:
+        if self.session.review.image is None:
             return
-        viewport = self.review.viewport
+        viewport = self.session.review.viewport
         viewport.zoom = 1.0
         viewport.refit()
         self._emit_view()
 
     @Slot(int, int)
     def panStep(self, dx, dy):
-        if self.review.image is None or self.review.zoom <= 1.0:
+        if self.session.review.image is None or self.session.review.zoom <= 1.0:
             return
-        viewport = self.review.viewport
+        viewport = self.session.review.viewport
         viewport.offset_x += dx
         viewport.offset_y += dy
         viewport.clamp_offsets()
@@ -801,108 +746,108 @@ class Controller(QObject):
 
     @Slot()
     def selectAllBoxes(self):
-        if self.review.select_all():
+        if self.session.review.select_all():
             self._refresh_display()
             self._store_active()
             self._emit_review()
-            self._set_status(self._review_status())
+            self.alerts.set_status(self._review_status())
 
     @Slot()
     def selectNoBoxes(self):
-        if self.review.select_none():
+        if self.session.review.select_none():
             self._refresh_display()
             self._store_active()
             self._emit_review()
-            self._set_status(self._review_status())
+            self.alerts.set_status(self._review_status())
 
     @Slot(int, int)
     def beginPan(self, x, y):
-        if self.review.pan_begin(x, y):
+        if self.session.review.pan_begin(x, y):
             self._panning = True
             self.viewChanged.emit()
 
     @Slot(int, int)
     def movePan(self, x, y):
-        if self.review.pan_move(x, y):
+        if self.session.review.pan_move(x, y):
             self.viewChanged.emit()
 
     @Slot()
     def endPan(self):
-        if self.review.pan_end():
+        if self.session.review.pan_end():
             self._panning = False
             self.viewChanged.emit()
 
     @Slot(int)
     def toggleBox(self, index):
-        if self.review.confirmed:
+        if self.session.review.confirmed:
             return
-        if self.review.toggle_box(index):
+        if self.session.review.toggle_box(index):
             self._refresh_display()
             self._store_active()
             self._emit_review()
-            self._set_status(self._review_status())
+            self.alerts.set_status(self._review_status())
 
     @Slot(int)
     def removeBox(self, index):
-        if self.review.confirmed:
+        if self.session.review.confirmed:
             return
-        if self.review.remove_box(index):
+        if self.session.review.remove_box(index):
             self._refresh_display()
             self._store_active()
             self._emit_review()
             self._emit_view()
-            self._set_status(
-                f'{self.review.path.name}: box removed. '
-                f'{len(self.review.selected)} selected of {len(self.review.boxes)}.'
+            self.alerts.set_status(
+                f'{self.session.review.path.name}: box removed. '
+                f'{len(self.session.review.selected)} selected of {len(self.session.review.boxes)}.'
             )
 
     @Slot()
     def undo(self):
-        if self.review.undo():
+        if self.session.review.undo():
             self._refresh_display()
             self._store_active()
             self._emit_review()
             self._emit_view()
-        if self.review.image is not None:
-            self._set_status(self._review_status())
+        if self.session.review.image is not None:
+            self.alerts.set_status(self._review_status())
 
     @Slot()
     def editBoxes(self):
-        if self.review.image is None or not self.review.confirmed:
+        if self.session.review.image is None or not self.session.review.confirmed:
             return
-        self.review.confirmed = False
+        self.session.review.confirmed = False
         self._refresh_display()
         self._store_active()
         self._emit_review()
-        self._set_status('Click an X to remove a box. Confirm selection when ready.')
+        self.alerts.set_status('Click an X to remove a box. Confirm selection when ready.')
 
     @Slot()
     def clearBoxes(self):
-        if not self.review.boxes:
+        if not self.session.review.boxes:
             return
-        if not self._ask('Clear boxes', 'Remove all suggested and manually drawn boxes?'):
+        if not self.alerts.ask('Clear boxes', 'Remove all suggested and manually drawn boxes?'):
             return
-        self.review.clear()
+        self.session.review.clear()
         self._refresh_display()
         self._store_active()
         self._emit_review()
         self._emit_view()
-        self._set_status('Boxes cleared. Scan again or drag to add an area.')
+        self.alerts.set_status('Boxes cleared. Scan again or drag to add an area.')
 
     @Slot()
     def confirmSelection(self):
-        if self._busy or self.review.image is None:
+        if self.jobs.busy or self.session.review.image is None:
             return
-        selected = sorted(self.row_selection) if self.entries else ()
+        selected = sorted(self.session.row_selection) if self.session.entries else ()
         if len(selected) > 1:
-            self._confirm_entries([self.entries[index] for index in selected], 'Confirm selected images')
+            self._confirm_entries([self.session.entries[index] for index in selected], 'Confirm selected images')
         else:
-            self.review.confirmed = True
+            self.session.review.confirmed = True
             self._refresh_display()
             self._store_active()
             self._emit_review()
-            self._set_status(
-                f'{len(self.review.selected)} boxes applied in preview. '
+            self.alerts.set_status(
+                f'{len(self.session.review.selected)} boxes applied in preview. '
                 'Save, or click to change your selection.'
             )
 
@@ -910,46 +855,46 @@ class Controller(QObject):
     def cancelCapture(self):
         if self.capture != 'none':
             self._cancel_capture()
-            self._set_status('Area selection canceled.')
+            self.alerts.set_status('Area selection canceled.')
 
     def _cancel_capture(self):
         if self.capture != 'none' or self.drag is not None:
             self.capture = 'none'
             self.drag = None
-            self.review.viewport.cancel_drag()
+            self.session.review.viewport.cancel_drag()
             self.captureChanged.emit()
             self._emit_view()
 
     def _scan_engine(self):
-        return ocr.make_engine(self._preferences.ocr_engine)
+        return ocr.make_engine(self.session.preferences.ocr_engine)
 
     def _scan_settings(self):
-        return preferences.scan_settings(self._preferences)
+        return preferences.scan_settings(self.session.preferences)
 
     def _scan_metrics(self):
-        return preferences.scan_metrics(self._preferences)
+        return preferences.scan_metrics(self.session.preferences)
 
     @Slot()
     def find(self):
-        if self._busy or self.review.image is None:
+        if self.jobs.busy or self.session.review.image is None:
             return
-        if self.active is not None:
-            self._start_scan([self.entries[self.active]], rescan=True)
+        if self.session.active is not None:
+            self._start_scan([self.session.entries[self.session.active]], rescan=True)
             return
         self._start_single_scan()
 
     def _start_single_scan(self, area=None):
-        if self.review.image is None or self._busy:
+        if self.session.review.image is None or self.jobs.busy:
             return
         try:
             engine = self._scan_engine()
             settings = self._scan_settings()
         except OSError as error:
-            self._error('OCR unavailable', str(error), 'RETRY',
+            self.alerts.error('OCR unavailable', str(error), 'RETRY',
                         lambda: self._start_single_scan(area=area))
             return
         except (ValueError, re.error) as error:
-            self._error('Invalid detection settings', str(error), 'OPEN SETTINGS',
+            self.alerts.error('Invalid detection settings', str(error), 'OPEN SETTINGS',
                         self.requestSettings)
             return
         stages = Queue()
@@ -959,8 +904,8 @@ class Controller(QObject):
         def operation(job):
             incomplete = []
             found = ocr.recognize_regions(
-                self.review.image, engine, settings, self._preferences.enhanced_ocr,
-                color_assisted=self._preferences.color_ocr, incomplete=incomplete,
+                self.session.review.image, engine, settings, self.session.preferences.enhanced_ocr,
+                color_assisted=self.session.preferences.color_ocr, incomplete=incomplete,
                 area=area, progress=stages.put,
             )
             return None, found, incomplete
@@ -968,10 +913,10 @@ class Controller(QObject):
         def accept(index, result, error):
             if error is not None:
                 info['error'] = error
-                self._set_status(f'Scan failed: {error}')
+                self.alerts.set_status(f'Scan failed: {error}')
                 return
             _, found, incomplete = result
-            added = self.review.add_suggestions(found)
+            added = self.session.review.add_suggestions(found)
             self._refresh_display()
             self._store_active()
             self._emit_review()
@@ -979,7 +924,7 @@ class Controller(QObject):
             info['added'] = added
             info['incomplete'] = incomplete
             detail = f' Incomplete OCR passes: {", ".join(incomplete)}.' if incomplete else ''
-            self._set_status(
+            self.alerts.set_status(
                 f'{added} selected suggestions added.{detail} Review the entire image.'
             )
 
@@ -990,45 +935,45 @@ class Controller(QObject):
 
         def complete():
             if info['error'] is not None:
-                self._error('Local OCR failed', f'Text recognition failed: {info["error"]}',
+                self.alerts.error('Local OCR failed', f'Text recognition failed: {info["error"]}',
                             'RETRY', lambda: self._start_single_scan(area=area))
                 return
             if info['added'] is None:
                 return
             detail = (f' Incomplete OCR passes: {", ".join(info["incomplete"])}.'
                       if info['incomplete'] else '')
-            self._info(
+            self.alerts.info(
                 'Review required',
                 f'Added {info["added"]} selected boxes.{detail} Review the image before confirming.',
             )
 
-        self._set_status(
+        self.alerts.set_status(
             'Scanning the selected area. Progress is shown above the screenshot.' if area is not None
             else 'Scanning image. Progress is shown above the screenshot.'
         )
-        self._run_jobs(
-            label, [self.review.path], operation, accept, finish,
+        self.jobs.run(
+            label, [self.session.review.path], operation, accept, finish,
             metrics_settings=self._scan_metrics(), stage_queue=stages,
             complete=complete, report_failures=False,
         )
 
     @Slot()
     def beginScanArea(self):
-        if self._busy or self.review.image is None:
+        if self.jobs.busy or self.session.review.image is None:
             return
         self._cancel_capture()
         self.capture = 'area'
         self.captureChanged.emit()
-        self._set_status(
+        self.alerts.set_status(
             'Drag around the text to scan. For small labels, draw a tight box around a single row. Esc cancels.'
         )
 
     @Slot()
     def beginAnchorCapture(self):
-        if self._busy or self.active is None or self.review.image is None:
+        if self.jobs.busy or self.session.active is None or self.session.review.image is None:
             return
-        if not self.review.selected or len(self.entries) < 2:
-            self._info(
+        if not self.session.review.selected or len(self.session.entries) < 2:
+            self.alerts.info(
                 'Match by visual anchor',
                 'Select redaction boxes on one image in a folder with at least two images.',
             )
@@ -1037,31 +982,31 @@ class Controller(QObject):
         self.editBoxes()
         self.capture = 'anchor'
         self.captureChanged.emit()
-        self._set_status('Drag around a distinctive logo or label near the boxes. Esc cancels.')
+        self.alerts.set_status('Drag around a distinctive logo or label near the boxes. Esc cancels.')
 
     @Slot()
     def beginLearnPattern(self):
-        if self._busy or self.review.image is None:
+        if self.jobs.busy or self.session.review.image is None:
             return
         self._cancel_capture()
         self.capture = 'learn'
         self.captureChanged.emit()
-        self._set_status(
+        self.alerts.set_status(
             'Drag around the text to block. The area is read locally and turned into a pattern. Esc cancels.'
         )
 
     def _learn_pattern(self, area):
-        if self.review.image is None:
+        if self.session.review.image is None:
             return
         try:
             engine = self._scan_engine()
         except OSError as error:
-            self._error('OCR unavailable', str(error), 'OPEN SETTINGS', self.requestSettings)
+            self.alerts.error('OCR unavailable', str(error), 'OPEN SETTINGS', self.requestSettings)
             return
         info = {'text': '', 'error': None}
 
         def operation(job):
-            return ocr.read_area_text(self.review.image, engine, area)
+            return ocr.read_area_text(self.session.review.image, engine, area)
 
         def accept(index, result, error):
             if error is not None:
@@ -1076,19 +1021,19 @@ class Controller(QObject):
 
         def complete():
             if info['error'] is not None:
-                self._error('Could not read area', f'Text recognition failed: {info["error"]}',
+                self.alerts.error('Could not read area', f'Text recognition failed: {info["error"]}',
                             'TRY AGAIN', self.beginLearnPattern)
                 return
             text = info['text'].strip()
             if not text:
-                self._info('No text recognized', 'Draw a tighter box around the text and try again.')
+                self.alerts.info('No text recognized', 'Draw a tighter box around the text and try again.')
                 return
             pattern = dialogs.prompt_blocked_pattern(text)
             if pattern is not None:
                 self.addBlockedPattern(text, pattern)
 
-        self._set_status('Reading the selected text...')
-        self._run_jobs('Learning pattern', [self.review.path], operation, accept, finish,
+        self.alerts.set_status('Reading the selected text...')
+        self.jobs.run('Learning pattern', [self.session.review.path], operation, accept, finish,
                        complete=complete, report_failures=False)
 
     @Slot()
@@ -1100,21 +1045,21 @@ class Controller(QObject):
 
     @Slot(int)
     def renameBlockedPattern(self, index):
-        if not 0 <= index < len(self._preferences.blocked_patterns):
+        if not 0 <= index < len(self.session.preferences.blocked_patterns):
             return
-        entry = self._preferences.blocked_patterns[index]
+        entry = self.session.preferences.blocked_patterns[index]
         name = dialogs.prompt_rename(entry.get('text', ''))
         if name is None or not patterns.rename_entry(entry, name):
             return
         self._persist_blocked_patterns()
         self.blockedPatternsChanged.emit()
-        self._set_status('Blocked pattern renamed.')
+        self.alerts.set_status('Blocked pattern renamed.')
 
     def _persist_blocked_patterns(self):
         try:
-            preferences.write_preferences(self.preferences_file, self._preferences)
+            preferences.write_preferences(self.session.preference_file, self.session.preferences)
         except OSError as error:
-            self._error('Could not save blocked patterns', str(error))
+            self.alerts.error('Could not save blocked patterns', str(error))
 
     def addBlockedPattern(self, text, pattern):
         pattern = pattern.strip()
@@ -1122,62 +1067,62 @@ class Controller(QObject):
             return False
         error = patterns.compile_error(pattern)
         if error is not None:
-            self._error('Invalid pattern', error)
+            self.alerts.error('Invalid pattern', error)
             return False
-        if patterns.duplicate_pattern(self._preferences.blocked_patterns, pattern):
-            self._set_status('That pattern is already in the blocked list.')
+        if patterns.duplicate_pattern(self.session.preferences.blocked_patterns, pattern):
+            self.alerts.set_status('That pattern is already in the blocked list.')
             return False
-        self._preferences.blocked_patterns.append(patterns.blocked_entry(text, pattern))
+        self.session.preferences.blocked_patterns.append(patterns.blocked_entry(text, pattern))
         self._persist_blocked_patterns()
         self.blockedPatternsChanged.emit()
-        self._set_status('Blocked pattern added. It applies to the next scan.')
+        self.alerts.set_status('Blocked pattern added. It applies to the next scan.')
         return True
 
     @Slot(int)
     def removeBlockedPattern(self, index):
-        if 0 <= index < len(self._preferences.blocked_patterns):
-            del self._preferences.blocked_patterns[index]
+        if 0 <= index < len(self.session.preferences.blocked_patterns):
+            del self.session.preferences.blocked_patterns[index]
             self._persist_blocked_patterns()
             self.blockedPatternsChanged.emit()
-            self._set_status('Blocked pattern removed.')
+            self.alerts.set_status('Blocked pattern removed.')
 
     @Slot(int, bool)
     def setBlockedPatternEnabled(self, index, enabled):
-        if 0 <= index < len(self._preferences.blocked_patterns):
-            self._preferences.blocked_patterns[index]['enabled'] = bool(enabled)
+        if 0 <= index < len(self.session.preferences.blocked_patterns):
+            self.session.preferences.blocked_patterns[index]['enabled'] = bool(enabled)
             self._persist_blocked_patterns()
             self.blockedPatternsChanged.emit()
-            self._set_status('Blocked pattern enabled.' if enabled else 'Blocked pattern disabled.')
+            self.alerts.set_status('Blocked pattern enabled.' if enabled else 'Blocked pattern disabled.')
 
     @Slot()
     def scanAll(self):
-        self._start_scan(self.entries, follow=True)
+        self._start_scan(self.session.entries, follow=True)
 
     @Slot()
     def scanSelected(self):
-        if self._busy:
+        if self.jobs.busy:
             return
-        selected = sorted(self.row_selection)
+        selected = sorted(self.session.row_selection)
         if not selected:
-            self._info('Scan selected', 'Select one or more images in the folder list first.')
+            self.alerts.info('Scan selected', 'Select one or more images in the folder list first.')
             return
-        self._start_scan([self.entries[index] for index in selected], rescan=True, follow=True)
+        self._start_scan([self.session.entries[index] for index in selected], rescan=True, follow=True)
 
     @Slot()
     def rescanAll(self):
-        if not self._busy and self.entries and self._ask(
+        if not self.jobs.busy and self.session.entries and self.alerts.ask(
                 'Rescan all images?',
                 'Keep existing boxes and add new suggestions. All rescanned images will need review again.'):
-            self._start_scan(self.entries, rescan=True, follow=True)
+            self._start_scan(self.session.entries, rescan=True, follow=True)
 
     def _start_scan(self, entries, rescan=False, *, follow=False, area=None):
-        if self._busy:
+        if self.jobs.busy:
             return
         self._store_active()
-        plan = workflows.plan_scan(self.entries, entries, rescan=rescan, area=area)
+        plan = workflows.plan_scan(self.session.entries, entries, rescan=rescan, area=area)
         pending = plan.entries
         if not pending:
-            self._info(
+            self.alerts.info(
                 'Folder scan',
                 'Every image has been scanned or manually reviewed. '
                 'Use Find likely identifiers to rescan an image.',
@@ -1187,16 +1132,16 @@ class Controller(QObject):
             engine = self._scan_engine()
             settings = self._scan_settings()
         except OSError as error:
-            self._error('OCR unavailable', str(error), 'RETRY',
+            self.alerts.error('OCR unavailable', str(error), 'RETRY',
                         lambda: self._start_scan(entries, rescan=rescan, follow=follow, area=area))
             return
         except (ValueError, re.error) as error:
-            self._error('Invalid detection settings', str(error), 'OPEN SETTINGS',
+            self.alerts.error('Invalid detection settings', str(error), 'OPEN SETTINGS',
                         self.requestSettings)
             return
         cancel = Event()
-        enhanced = self._preferences.enhanced_ocr
-        color_assisted = self._preferences.color_ocr
+        enhanced = self.session.preferences.enhanced_ocr
+        color_assisted = self.session.preferences.color_ocr
         processed = []
         area_completed = False
 
@@ -1217,21 +1162,21 @@ class Controller(QObject):
             if error:
                 if area is None:
                     entry.error = 'Scan failed'
-                self._set_status(f'{entry.path.name} · {error}')
+                self.alerts.set_status(f'{entry.path.name} · {error}')
                 return
             outcome = workflows.apply_scan_result(entry, result, area=area)
             if outcome.error:
                 return
             area_completed = area is not None
-            if self.active is not None and entry is self.entries[self.active] and self.review.image is not None:
+            if self.session.active is not None and entry is self.session.entries[self.session.active] and self.session.review.image is not None:
                 if outcome.changed:
-                    self.review.confirmed = False
+                    self.session.review.confirmed = False
                     self._refresh_display()
                     self._emit_review()
                     self._emit_view()
                 detail = (f' Partial scan: {", ".join(outcome.incomplete)}.'
                           if outcome.incomplete else '')
-                self._set_status(
+                self.alerts.set_status(
                     f'{entry.path.name} · {outcome.count} new OCR suggestions.{detail} Review before confirming.'
                 )
 
@@ -1242,7 +1187,7 @@ class Controller(QObject):
         def finish():
             return workflows.scan_summary(processed, area=area, area_completed=area_completed)
 
-        self._run_jobs(
+        self.jobs.run(
             plan.label, list(plan.jobs), operation, track_result, finish,
             cancel=cancel, show_image=show_image if follow else None,
             metrics_settings=self._scan_metrics(), rows=plan.rows,
@@ -1250,136 +1195,29 @@ class Controller(QObject):
 
     @Slot()
     def cancelScan(self):
-        if self._runner.cancel():
-            self.progress_text = 'Canceling scan…'
-            self.progressChanged.emit()
-
-    def _show_progress(self, label, completed, total, jobs, workers=1):
-        text, current = progress_line(label, completed, total, jobs, workers)
-        self.progress_max = total
-        self.progress_value = completed
-        self.progress_text = text
-        if current:
-            self.progress_current = current
-        self.progressChanged.emit()
+        self.jobs.cancel()
 
     def _folder_rows(self):
-        return {entry.path: index for index, entry in enumerate(self.entries)}
-
-    def _run_jobs(self, label, jobs, operation, accept, finish=None, *, cancel=None,
-                  show_image=None, metrics_settings=None, rows=None, workers=None,
-                  stage_queue=None, complete=None, report_failures=True):
-        if not jobs or self._busy:
-            return
-        self._cancel_capture()
-        requested = self._preferences.parallel_images if workers is None else workers
-        if not self._runner.start(
-                label, jobs, operation, accept, finish,
-                cancel=cancel, show_image=show_image, metrics_settings=metrics_settings,
-                rows=rows, workers=requested, stage_queue=stage_queue,
-                complete=complete, report_failures=report_failures):
-            return
-        runner = self._runner
-        self._busy = True
-        self.busy_label = label
-        self.progress_max = runner.total
-        self.progress_value = 0
-        self.progress_detail = ''
-        self.progress_current = ''
-        self._set_scan_stage('')
-        self._folder_model.set_job_states(
-            {row: 'queued' for row in runner.job_rows if row is not None}
-        )
-        self.busyChanged.emit()
-        self.progressChanged.emit()
-        if not runner.paced:
-            self._show_progress(label, 0, runner.total, runner.jobs, runner.workers)
-        self._job_timer.start()
-        if runner.paced:
-            self._show_next_if_current(runner.generation)
-
-    def _show_next_if_current(self, generation):
-        runner = self._runner
-        if runner.next_paced(generation) is None:
-            return
-        self._show_progress(runner.label, runner.completed, runner.total,
-                            runner.jobs, runner.workers)
-        runner.release_paced(generation)
-
-    def _poll_jobs(self):
-        events = self._runner.poll()
-        if events is None:
-            self._job_timer.stop()
-            return
-        for text in events.stages:
-            self._set_scan_stage(text)
-        for row in events.started:
-            self._folder_model.set_job_state(row, 'running')
-        for row in events.result_rows:
-            self._folder_model.set_job_state(row, '')
-        if events.finished:
-            self._finish_job(events.summary)
-            return
-        if events.progress_changed:
-            self._folder_model.refresh()
-            self.folderChanged.emit()
-            runner = self._runner
-            if runner.completed < runner.total and not runner.cancel_pending:
-                if not runner.paced:
-                    self._show_progress(runner.label, runner.completed, runner.total,
-                                        runner.jobs, runner.workers)
-                else:
-                    percent = runner.completed * 100 // runner.total
-                    self.progress_value = runner.completed
-                    self.progress_text = (f'{runner.label} · {runner.completed}/{runner.total} '
-                                          f'processed ({percent}%)')
-                    self.progressChanged.emit()
-                    generation = runner.generation
-                    QTimer.singleShot(
-                        250, lambda: self._show_next_if_current(generation)
-                    )
-
-    def _finish_job(self, summary):
-        self._job_timer.stop()
-        self._folder_model.clear_job_states()
-        self._busy = False
-        self.busy_label = ''
-        self._folder_model.refresh()
-        self.folderChanged.emit()
-        self.progress_max = summary.total
-        self.progress_value = summary.completed
-        self.progress_current = ''
-        self._set_scan_stage('')
-        self.progress_text, self.progress_detail = summary.lines()
-        self.busyChanged.emit()
-        self.progressChanged.emit()
-        if summary.failures and summary.report_failures:
-            self._error(
-                f'{summary.label} issues',
-                f'{len(summary.failures)} of {summary.total} failed. '
-                f'First error: {summary.failures[0]}',
-            )
-        if summary.complete is not None:
-            summary.complete()
+        return {entry.path: index for index, entry in enumerate(self.session.entries)}
 
     @Slot()
     def copyBoxesToFolder(self):
-        if self._busy or self.active is None or self.review.image is None:
+        if self.jobs.busy or self.session.active is None or self.session.review.image is None:
             return
-        boxes = self.review.selected_boxes()
+        boxes = self.session.review.selected_boxes()
         if not boxes:
-            self._info('Copy selected boxes', 'Select or draw the boxes you want to copy first.')
+            self.alerts.info('Copy selected boxes', 'Select or draw the boxes you want to copy first.')
             return
-        targets = [entry for index, entry in enumerate(self.entries) if index != self.active]
+        targets = [entry for index, entry in enumerate(self.session.entries) if index != self.session.active]
         if not targets:
-            self._info('Copy selected boxes', 'Open a folder with at least two images.')
+            self.alerts.info('Copy selected boxes', 'Open a folder with at least two images.')
             return
-        if not self._ask(
+        if not self.alerts.ask(
                 'Copy selected boxes?',
                 f'Copy {len(boxes)} selected box(es) to the same positions on other images of the same size? '
                 'Check that the content lines up before confirming and saving.'):
             return
-        size = self.review.image.size
+        size = self.session.review.image.size
         applied = skipped = unchanged = 0
 
         def operation(job):
@@ -1407,8 +1245,8 @@ class Controller(QObject):
                 unchanged += 1
                 return
             applied += 1
-            if self.active is not None and self.entries[self.active] is entry and self.review.image is not None:
-                self.review.confirmed = False
+            if self.session.active is not None and self.session.entries[self.session.active] is entry and self.session.review.image is not None:
+                self.session.review.confirmed = False
                 self._refresh_display()
                 self._emit_review()
 
@@ -1416,7 +1254,7 @@ class Controller(QObject):
             return (f'{applied} updated · {skipped} skipped (size or source changed) · '
                     f'{unchanged} already selected')
 
-        self._run_jobs(
+        self.jobs.run(
             'Copying boxes',
             [(entry.path, entry.stamp) for entry in targets],
             operation, accept, finish, rows=self._folder_rows(),
@@ -1426,27 +1264,27 @@ class Controller(QObject):
         try:
             from .visual_anchor import locate_anchor, prepare_anchor, relocate_boxes
         except ImportError:
-            self._error(
+            self.alerts.error(
                 'Visual matching unavailable',
                 'Install the project dependencies with pip install -e . and restart.',
             )
             return
-        boxes = self.review.selected_boxes()
+        boxes = self.session.review.selected_boxes()
         if not boxes:
-            self._set_status('Select boxes to match across the folder.')
+            self.alerts.set_status('Select boxes to match across the folder.')
             return
         left, top, right, bottom = anchor
         if right - left < 20 or bottom - top < 20:
-            self._set_status(
+            self.alerts.set_status(
                 'Anchor too small. Click Match boxes by visual anchor and drag around a larger area.'
             )
             return
         try:
-            patch = prepare_anchor(self.review.image, anchor)
+            patch = prepare_anchor(self.session.review.image, anchor)
         except ValueError as error:
-            self._set_status(str(error))
+            self.alerts.set_status(str(error))
             return
-        targets = [entry for index, entry in enumerate(self.entries) if index != self.active]
+        targets = [entry for index, entry in enumerate(self.session.entries) if index != self.session.active]
         matched = skipped = 0
 
         def operation(job):
@@ -1467,15 +1305,15 @@ class Controller(QObject):
                 skipped += 1
                 return
             matched += 1
-            if changed and self.active is not None and self.entries[self.active] is entry:
-                self.review.confirmed = False
+            if changed and self.session.active is not None and self.session.entries[self.session.active] is entry:
+                self.session.review.confirmed = False
                 self._refresh_display()
                 self._emit_review()
 
         def finish():
             return f'{matched} matched · {skipped} skipped (no reliable placement)'
 
-        self._run_jobs(
+        self.jobs.run(
             'Matching visual anchor',
             [(entry.path, entry.stamp) for entry in targets],
             operation, accept, finish, rows=self._folder_rows(),
@@ -1483,130 +1321,126 @@ class Controller(QObject):
 
     @Slot()
     def confirmAll(self):
-        if not self._busy and self.entries:
-            self._confirm_entries(self.entries, 'Confirm all')
+        if not self.jobs.busy and self.session.entries:
+            self._confirm_entries(self.session.entries, 'Confirm all')
 
     def _confirm_entries(self, entries, title):
         self._store_active()
         pending = workflows.eligible_for_confirmation(entries)
         if not pending:
-            self._info(
+            self.alerts.info(
                 title,
                 'No eligible images are awaiting confirmation. Check whether they are already '
                 'reviewed, have no selected boxes, or have a scan error.',
             )
             return
-        if not self._ask(title, workflows.confirmation_prompt(pending, self._preferences.method)):
+        if not self.alerts.ask(title, workflows.confirmation_prompt(pending, self.session.preferences.method)):
             return
         for entry in pending:
             entry.reviewed = True
-        if self.active is not None and self.review.image is not None:
-            self.review.confirmed = self.entries[self.active].reviewed
+        if self.session.active is not None and self.session.review.image is not None:
+            self.session.review.confirmed = self.session.entries[self.session.active].reviewed
             self._refresh_display()
             self._emit_review()
         self._folder_model.refresh()
         self.folderChanged.emit()
-        self._set_status(
+        self.alerts.set_status(
             f'Confirmed {len(pending)} image(s). Use Save reviewed to export them.'
         )
 
     @Slot()
     def saveReviewed(self):
-        if self._busy:
+        if self.jobs.busy:
             return
         self._store_active()
-        pending = [(index, entry) for index, entry in enumerate(self.entries)
+        pending = [(index, entry) for index, entry in enumerate(self.session.entries)
                    if entry.reviewed and not entry.saved]
         if not pending:
-            self._info('Save reviewed', 'Confirm the selection on each image you want to save.')
+            self.alerts.info('Save reviewed', 'Confirm the selection on each image you want to save.')
             return
         self._export_entries(pending)
 
     @Slot()
     def copyRedacted(self):
-        if self.review.image is None:
+        if self.session.review.image is None:
             return
-        if not self.review.confirmed:
-            self._set_status('Confirm selection to copy the redacted image.')
+        if not self.session.review.confirmed:
+            self.alerts.set_status('Confirm selection to copy the redacted image.')
             return
-        if not self.review.selected and not self._ask(
+        if not self.session.review.selected and not self.alerts.ask(
                 'No redactions', 'No areas are selected. Copy the unredacted image?'):
             return
         if self._display_qimage.isNull():
-            self._error('Copy failed', 'The preview is not available.',
+            self.alerts.error('Copy failed', 'The preview is not available.',
                         'RETRY', self.copyRedacted)
             return
         QGuiApplication.clipboard().setImage(self._display_qimage.copy())
-        if self.review.selected:
-            self._set_status(
-                f'Copied the redacted image with {len(self.review.selected)} box(es) to the clipboard.'
+        if self.session.review.selected:
+            self.alerts.set_status(
+                f'Copied the redacted image with {len(self.session.review.selected)} box(es) to the clipboard.'
             )
         else:
-            self._set_status('Copied the unredacted image to the clipboard.')
+            self.alerts.set_status('Copied the unredacted image to the clipboard.')
 
     @Slot()
     def save(self):
-        if self._busy or self.review.image is None:
+        if self.jobs.busy or self.session.review.image is None:
             return
-        if self.active is None:
+        if self.session.active is None:
             self._save_single()
             return
         self._store_active()
-        entry = self.entries[self.active]
-        if self.review.image is None or not entry.reviewed:
-            self._set_status('Confirm the selection on this image before saving.')
+        entry = self.session.entries[self.session.active]
+        if self.session.review.image is None or not entry.reviewed:
+            self.alerts.set_status('Confirm the selection on this image before saving.')
             return
-        self._export_entries([(self.active, entry)], individual=True)
+        self._export_entries([(self.session.active, entry)], individual=True)
 
     def _save_single(self):
-        if self.review.image is None:
+        if self.session.review.image is None:
             return
-        if not self.review.confirmed:
-            self._set_status('Confirm the selection before saving.')
+        if not self.session.review.confirmed:
+            self.alerts.set_status('Confirm the selection before saving.')
             return
-        if not self.review.selected and not self._ask(
+        if not self.session.review.selected and not self.alerts.ask(
                 'No redactions', 'No areas are selected. Save an unredacted copy?'):
             return
-        initial = self.review.path.stem + '_redacted.png'
+        initial = self.session.review.path.stem + '_redacted.png'
         chosen, _ = QFileDialog.getSaveFileName(
             None, 'Save redacted copy', initial, 'PNG image (*.png)'
         )
         if not chosen:
             return
         target = Path(chosen)
-        if target.resolve() == self.review.path.resolve():
-            self._error('Choose a different file', 'The original image cannot be overwritten.')
+        if target.resolve() == self.session.review.path.resolve():
+            self.alerts.error('Choose a different file', 'The original image cannot be overwritten.')
             return
-        include_log = self._preferences.include_log
+        include_log = self.session.preferences.include_log
         trace = PerformanceRun('Saving image', 1, {
-            'method': self._preferences.method, 'coordinate_logs': include_log,
+            'method': self.session.preferences.method, 'coordinate_logs': include_log,
         })
-        self._busy = True
-        self.busy_label = 'Saving copy'
-        self.busyChanged.emit()
-        self._set_status('Saving the redacted copy…')
+        self.jobs.begin_manual('Saving copy')
+        self.alerts.set_status('Saving the redacted copy…')
         QGuiApplication.processEvents()
         error = None
         try:
             with trace.image(0):
                 job = export.snapshot(
-                    self.review.path, target, self.review.boxes, self.review.selected,
-                    self._preferences.method, image=self.review.image,
-                    pasted=self._pasted_image,
+                    self.session.review.path, target, self.session.review.boxes, self.session.review.selected,
+                    self.session.preferences.method, image=self.session.review.image,
+                    pasted=self.session.pasted_image,
                 )
                 export.write_copy(job, include_log=include_log, overwrite=True)
         except Exception as exc:
             error = exc
         finally:
             trace.finish()
-            self._busy = False
-            self.busy_label = ''
-            self.busyChanged.emit()
+            self.jobs.end_manual()
         if error is not None:
-            self._error('Save failed', str(error), 'RETRY', self.save)
+            self.alerts.error('Save failed', str(error), 'RETRY', self.save)
             return
         note = ' and coordinate log' if include_log else ''
-        self._info(
+        self.alerts.info(
             'Saved',
             f'Saved the redacted PNG{note}. Review before sharing; '
             'pixelated text can sometimes be recovered.',
@@ -1622,25 +1456,25 @@ class Controller(QObject):
         try:
             plan = workflows.plan_exports(
                 pending,
-                output_directory=self.output_directory,
-                template=self._preferences.filename_template,
-                include_log=self._preferences.include_log,
+                output_directory=self.session.output_directory,
+                template=self.session.preferences.filename_template,
+                include_log=self.session.preferences.include_log,
                 choose=choose if individual else None,
             )
         except (ValueError, KeyError, IndexError, AttributeError, OSError) as error:
-            self._error('Cannot save images', str(error), 'RETRY', self.saveReviewed)
+            self.alerts.error('Cannot save images', str(error), 'RETRY', self.saveReviewed)
             return
         if plan is None:
             return
         jobs = list(plan.jobs)
         unredacted = plan.unredacted
-        if unredacted and not self._ask(
+        if unredacted and not self.alerts.ask(
                 'Save unredacted copies?',
                 f'{unredacted} reviewed image(s) have no selected boxes. '
                 'Save them as unredacted PNG copies?'):
             return
 
-        include_log = self._preferences.include_log
+        include_log = self.session.preferences.include_log
         snapshots = [
             (entry, export.snapshot(entry.path, target, entry.boxes, entry.selected,
                                     entry.method, stamp=entry.stamp))
@@ -1656,67 +1490,67 @@ class Controller(QObject):
             entry, target = jobs[index]
             snapshot = snapshots[index][1]
             if error:
-                self._set_status(f'{entry.path.name} · {error}')
+                self.alerts.set_status(f'{entry.path.name} · {error}')
             elif workflows.export_succeeded(entry, snapshot):
                 entry.saved = True
                 entry.error = ''
-                self._set_status(f'Saved {target.name} to {target.parent}')
+                self.alerts.set_status(f'Saved {target.name} to {target.parent}')
 
-        self._run_jobs(
+        self.jobs.run(
             'Saving', snapshots, operation, accept,
-            metrics_settings={'method': self._preferences.method, 'coordinate_logs': include_log},
+            metrics_settings={'method': self.session.preferences.method, 'coordinate_logs': include_log},
             rows=self._folder_rows(),
         )
 
     def load_preferences(self):
         try:
-            self._preferences = preferences.load(self.preferences_file, self.parallel_limit)
+            self.session.preferences = preferences.load(self.session.preference_file, self.session.parallel_limit)
         except preferences.PreferencesError as error:
-            self._preferences = preferences.defaults()
-            self._set_status(str(error))
+            self.session.preferences = preferences.defaults()
+            self.alerts.set_status(str(error))
             return
         self._apply_loaded_preferences()
 
     def _apply_loaded_preferences(self):
-        directory = self._preferences.output_directory
+        directory = self.session.preferences.output_directory
         path = Path(directory) if directory else None
-        self.output_directory_override = path
-        self.output_directory = path or (self.folder / 'redacted' if self.folder else None)
-        self._preview_theme = self._preferences.theme
-        self._palette.set_theme(self._preferences.theme)
-        self._set_hint_theme(self._preferences.theme)
+        self.session.output_directory_override = path
+        self.session.output_directory = path or (self.session.folder / 'redacted' if self.session.folder else None)
+        self._preview_theme = self.session.preferences.theme
+        self._palette.set_theme(self.session.preferences.theme)
+        self.alerts.set_hint_theme(self.session.preferences.theme)
         self.themeChanged.emit()
 
     @Slot(bool)
     def setShowRules(self, enabled):
         enabled = bool(enabled)
-        if self._preferences.show_rules == enabled:
+        if self.session.preferences.show_rules == enabled:
             return
-        self._preferences.show_rules = enabled
+        self.session.preferences.show_rules = enabled
         self.settingsChanged.emit()
         try:
-            preferences.write_preferences(self.preferences_file, self._preferences)
+            preferences.write_preferences(self.session.preference_file, self.session.preferences)
         except OSError as error:
-            self._set_status(self.status_text + f' Settings could not be saved: {error}')
+            self.alerts.set_status(self.alerts.status_text + f' Settings could not be saved: {error}')
             return
-        self._set_status('Rule labels on. Hover a box or select one to inspect its rule.'
+        self.alerts.set_status('Rule labels on. Hover a box or select one to inspect its rule.'
                          if enabled else 'Rule labels hidden.')
 
     @Slot(str)
     def setRedactionMethod(self, method):
-        if self._busy or method not in ('Pixelate', 'Solid black') \
-                or method == self._preferences.method:
+        if self.jobs.busy or method not in ('Pixelate', 'Solid black') \
+                or method == self.session.preferences.method:
             return
-        self._preferences.method = method
+        self.session.preferences.method = method
         self.settingsChanged.emit()
         self._method_changed()
-        if not self.entries:
-            updated = ' Preview updated.' if self.review.confirmed else ''
-            self._set_status(f'Redaction method set to {method}.{updated}')
+        if not self.session.entries:
+            updated = ' Preview updated.' if self.session.review.confirmed else ''
+            self.alerts.set_status(f'Redaction method set to {method}.{updated}')
         try:
-            preferences.write_preferences(self.preferences_file, self._preferences)
+            preferences.write_preferences(self.session.preference_file, self.session.preferences)
         except OSError as error:
-            self._set_status(self.status_text + f' Settings could not be saved: {error}')
+            self.alerts.set_status(self.alerts.status_text + f' Settings could not be saved: {error}')
 
     @Slot(str, int, bool, bool, bool, str, 'QVariantList', str, str, str, bool, int, str, result=str)
     def applySettings(self, sensitivity, confidence, all_text, enhanced, color, engine,
@@ -1724,7 +1558,7 @@ class Controller(QObject):
                       parallel_images, theme):
         try:
             updated = preferences.apply_form(
-                self._preferences,
+                self.session.preferences,
                 {
                     'sensitivity': sensitivity,
                     'confidence': confidence,
@@ -1740,17 +1574,17 @@ class Controller(QObject):
                     'parallel_images': parallel_images,
                     'theme': theme,
                 },
-                self.parallel_limit,
-                source=self.entries[0].path if self.entries else Path('example.png'),
+                self.session.parallel_limit,
+                source=self.session.entries[0].path if self.session.entries else Path('example.png'),
             )
-            preferences.write_preferences(self.preferences_file, updated)
+            preferences.write_preferences(self.session.preference_file, updated)
         except (ValueError, re.error, KeyError, IndexError, AttributeError) as error:
             return str(error)
         except OSError as error:
             return f'Could not save settings: {error}'
 
-        method_changed = updated.method != self._preferences.method
-        self._preferences = updated
+        method_changed = updated.method != self.session.preferences.method
+        self.session.preferences = updated
         self._apply_loaded_preferences()
         self.settingsChanged.emit()
         if method_changed:
@@ -1758,29 +1592,29 @@ class Controller(QObject):
         return ''
 
     def _method_changed(self):
-        if not self.entries:
-            if self.review.confirmed:
+        if not self.session.entries:
+            if self.session.review.confirmed:
                 self._refresh_display()
             return
-        method = self._preferences.method
-        for entry in self.entries:
+        method = self.session.preferences.method
+        for entry in self.session.entries:
             if entry.method != method:
                 entry.method = method
                 entry.reviewed = entry.saved = False
-        self.review.confirmed = False
+        self.session.review.confirmed = False
         self._refresh_display()
         self._emit_review()
         self._folder_model.refresh()
         self.folderChanged.emit()
-        self._set_status(
+        self.alerts.set_status(
             f'{method} will be used across the folder. '
             'Confirm the updated redactions before saving.'
         )
 
     @Slot()
     def requestSettings(self):
-        self._preview_theme = self._preferences.theme
-        self._palette.set_theme(self._preferences.theme)
+        self._preview_theme = self.session.preferences.theme
+        self._palette.set_theme(self.session.preferences.theme)
         self.themeChanged.emit()
         self.settingsRequested.emit()
 
@@ -1790,17 +1624,17 @@ class Controller(QObject):
             return
         self._preview_theme = theme_id
         self._palette.set_theme(theme_id)
-        self._set_hint_theme(theme_id)
+        self.alerts.set_hint_theme(theme_id)
         self.themeChanged.emit()
 
     @Slot()
     def clearThemePreview(self):
-        saved = self._preferences.theme
+        saved = self.session.preferences.theme
         if self._preview_theme == saved:
             return
         self._preview_theme = saved
         self._palette.set_theme(saved)
-        self._set_hint_theme(saved)
+        self.alerts.set_hint_theme(saved)
         self.themeChanged.emit()
 
     @Slot(result=str)
@@ -1822,4 +1656,4 @@ class Controller(QObject):
             else:
                 QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory)))
         except (AttributeError, OSError):
-            self._info('Performance logs', str(directory))
+            self.alerts.info('Performance logs', str(directory))

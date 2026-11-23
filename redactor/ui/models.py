@@ -117,11 +117,11 @@ class FolderModel(QAbstractListModel):
 
 def preference_property(name, kind, notify):
     def getter(self):
-        return getattr(self._preferences, name)
+        return getattr(self.session.preferences, name)
 
     def setter(self, value):
-        if getattr(self._preferences, name) != value:
-            setattr(self._preferences, name, value)
+        if getattr(self.session.preferences, name) != value:
+            setattr(self.session.preferences, name, value)
             self.settingsChanged.emit()
 
     return Property(kind, getter, setter, notify=notify)
