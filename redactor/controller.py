@@ -16,7 +16,10 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QDesktopServices, QFontDatabase, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import (
+    QDialog, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QMessageBox, QPlainTextEdit,
+    QVBoxLayout,
+)
 
 from performance_log import PerformanceRun, log_directory
 
@@ -173,6 +176,7 @@ class Controller(QObject):
     progressChanged = Signal()
     scanStageChanged = Signal()
     settingsChanged = Signal()
+    blockedPatternsChanged = Signal()
     captureChanged = Signal()
     scrollRequested = Signal(int)
     settingsRequested = Signal()
@@ -210,6 +214,7 @@ class Controller(QObject):
         self._display_qimage = QImage()
         self._job = None
         self._job_token = 0
+        self._blocked_patterns = []
         self._folder_model = FolderModel()
         self._settings = {
             'sensitivity': 'Focused',
@@ -504,6 +509,10 @@ class Controller(QObject):
     @Property(int, constant=True)
     def parallelLimit(self):
         return self.parallel_limit
+
+    @Property(list, notify=blockedPatternsChanged)
+    def blockedPatterns(self):
+        return [dict(entry) for entry in self._blocked_patterns]
 
     def _choose_image(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -814,6 +823,11 @@ class Controller(QObject):
                     self._start_single_scan(area=anchor)
                 else:
                     self._start_scan([self.entries[self.active]], rescan=True, area=anchor)
+            elif capture == 'learn':
+                if anchor[2] - anchor[0] < 4 or anchor[3] - anchor[1] < 4:
+                    self._set_status('Area too small. Draw a tight box around the text you want to block.')
+                else:
+                    self._learn_pattern(anchor)
             else:
                 self._match_boxes_to_folder(anchor)
             return
@@ -943,7 +957,8 @@ class Controller(QObject):
         custom = self._settings['customPattern'].strip()
         if custom:
             re.compile(custom)
-        return self._settings['allText'], set(self._categories), confidence, custom
+        learned = tuple(entry['pattern'] for entry in self._blocked_patterns if entry['enabled'])
+        return self._settings['allText'], set(self._categories), confidence, custom, learned
 
     def _scan_metrics(self):
         return {
@@ -954,6 +969,7 @@ class Controller(QObject):
             'sensitivity': self._settings['sensitivity'],
             'builtin_category_count': len(self._categories),
             'custom_pattern_enabled': bool(self._settings['customPattern'].strip()),
+            'blocked_patterns': sum(1 for entry in self._blocked_patterns if entry['enabled']),
             'all_text': self._settings['allText'],
         }
 
@@ -1063,6 +1079,144 @@ class Controller(QObject):
         self.capture = 'anchor'
         self.captureChanged.emit()
         self._set_status('Drag around a distinctive logo or label near the boxes. Esc cancels.')
+
+    @Slot()
+    def beginLearnPattern(self):
+        if self._busy or self.review.image is None:
+            return
+        self._cancel_capture()
+        self.capture = 'learn'
+        self.captureChanged.emit()
+        self._set_status(
+            'Drag around the text to block. The area is read locally and turned into a pattern. Esc cancels.'
+        )
+
+    def _learn_pattern(self, area):
+        if self.review.image is None:
+            return
+        try:
+            executable = self._scan_backend()
+        except OSError as error:
+            self._error('OCR unavailable', str(error))
+            return
+        info = {'text': '', 'error': None}
+
+        def operation(job):
+            return core.read_area_text(self.review.image, executable, area)
+
+        def accept(index, result, error):
+            if error is not None:
+                info['error'] = error
+            else:
+                info['text'] = result
+
+        def finish():
+            if info['error'] is not None:
+                return 'Could not read the area'
+            return f'{len(info["text"].split())} words read'
+
+        def complete():
+            if info['error'] is not None:
+                self._error('Could not read area', f'Text recognition failed: {info["error"]}')
+                return
+            text = info['text'].strip()
+            if not text:
+                self._info('No text recognized', 'Draw a tighter box around the text and try again.')
+                return
+            pattern = self._prompt_blocked_pattern(text)
+            if pattern is not None:
+                self.addBlockedPattern(text, pattern)
+
+        self._set_status('Reading the selected text...')
+        self._run_jobs('Learning pattern', [self.review.path], operation, accept, finish,
+                       complete=complete, report_failures=False)
+
+    def _prompt_blocked_pattern(self, text):
+        suggested = core.pattern_from_text(text)
+        while True:
+            dialog = QDialog()
+            dialog.setWindowTitle('Block this text')
+            dialog.setMinimumWidth(580)
+            layout = QVBoxLayout(dialog)
+            layout.addWidget(QLabel('Recognized text'))
+            recognized = QPlainTextEdit(text)
+            recognized.setReadOnly(True)
+            recognized.setMaximumHeight(110)
+            layout.addWidget(recognized)
+            layout.addWidget(QLabel('Regex pattern (case-insensitive)'))
+            field = QLineEdit(suggested)
+            field.setSelection(0, len(suggested))
+            layout.addWidget(field)
+            note = QLabel(
+                'Enabled patterns are matched locally on future scans. '
+                'Edit the expression if the text varies.'
+            )
+            note.setWordWrap(True)
+            layout.addWidget(note)
+            buttons = QDialogButtonBox(
+                QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            )
+            buttons.accepted.connect(dialog.accept)
+            buttons.rejected.connect(dialog.reject)
+            layout.addWidget(buttons)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return None
+            pattern = field.text().strip()
+            if not pattern:
+                QMessageBox.warning(None, 'Empty pattern', 'Enter a pattern or cancel.')
+                suggested = pattern
+                continue
+            try:
+                re.compile(pattern)
+            except re.error as error:
+                QMessageBox.warning(None, 'Invalid pattern', str(error))
+                suggested = pattern
+                continue
+            return pattern
+
+    def _persist_blocked_patterns(self):
+        try:
+            core.write_preferences(self.preferences_file, self._preference_document())
+        except OSError as error:
+            self._error('Could not save blocked patterns', str(error))
+
+    def addBlockedPattern(self, text, pattern):
+        pattern = pattern.strip()
+        if not pattern:
+            return False
+        try:
+            re.compile(pattern)
+        except re.error as error:
+            self._error('Invalid pattern', str(error))
+            return False
+        if any(entry['pattern'].casefold() == pattern.casefold()
+               for entry in self._blocked_patterns):
+            self._set_status('That pattern is already in the blocked list.')
+            return False
+        if len(self._blocked_patterns) >= 100:
+            self._info('Blocked patterns', 'Remove a pattern before adding another.')
+            return False
+        self._blocked_patterns.append({'text': text.strip(), 'pattern': pattern, 'enabled': True})
+        self._persist_blocked_patterns()
+        self.blockedPatternsChanged.emit()
+        self._set_status('Blocked pattern added. It applies to the next scan.')
+        return True
+
+    @Slot(int)
+    def removeBlockedPattern(self, index):
+        if 0 <= index < len(self._blocked_patterns):
+            del self._blocked_patterns[index]
+            self._persist_blocked_patterns()
+            self.blockedPatternsChanged.emit()
+            self._set_status('Blocked pattern removed.')
+
+    @Slot(int, bool)
+    def setBlockedPatternEnabled(self, index, enabled):
+        if 0 <= index < len(self._blocked_patterns):
+            self._blocked_patterns[index]['enabled'] = bool(enabled)
+            self._persist_blocked_patterns()
+            self.blockedPatternsChanged.emit()
+            self._set_status('Blocked pattern enabled.' if enabled else 'Blocked pattern disabled.')
 
     @Slot()
     def scanAll(self):
@@ -1770,6 +1924,24 @@ class Controller(QObject):
         workers = saved.get('parallel_images')
         if type(workers) is int:
             self._settings['parallelImages'] = max(1, min(self.parallel_limit, workers))
+        blocked = saved.get('blocked_patterns')
+        if isinstance(blocked, list):
+            loaded = []
+            for entry in blocked:
+                if not isinstance(entry, dict):
+                    continue
+                text = entry.get('text')
+                pattern = entry.get('pattern')
+                if not isinstance(text, str) or not isinstance(pattern, str) or not pattern.strip():
+                    continue
+                try:
+                    re.compile(pattern)
+                except re.error:
+                    continue
+                enabled = entry.get('enabled', True)
+                loaded.append({'text': text.strip(), 'pattern': pattern.strip(),
+                               'enabled': enabled if isinstance(enabled, bool) else True})
+            self._blocked_patterns = loaded[:100]
         self._restore_output_preferences(saved)
 
     def _restore_output_preferences(self, saved):
@@ -1810,6 +1982,7 @@ class Controller(QObject):
             'filename_template': self._settings['filenameTemplate'],
             'include_log': self._settings['includeLog'],
             'parallel_images': self._settings['parallelImages'],
+            'blocked_patterns': [dict(entry) for entry in self._blocked_patterns],
         }
 
     @Slot(str)
@@ -1866,6 +2039,7 @@ class Controller(QObject):
                 'filename_template': name,
                 'include_log': include_log,
                 'parallel_images': workers,
+                'blocked_patterns': [dict(entry) for entry in self._blocked_patterns],
             }
             core.write_preferences(self.preferences_file, preferences)
         except (ValueError, re.error, KeyError, IndexError, AttributeError) as error:

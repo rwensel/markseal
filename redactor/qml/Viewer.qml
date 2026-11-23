@@ -387,7 +387,9 @@ Item {
                           ? "AREA SCAN / DRAG AROUND TEXT / ESC CANCELS"
                           : Backend.captureMode === "anchor"
                             ? "ANCHOR MATCH / DRAG AROUND A STABLE CUE / ESC CANCELS"
-                            : "SCROLL ZOOM / RIGHT-DRAG PAN / CLICK TOGGLE / DRAG TO ADD"
+                            : Backend.captureMode === "learn"
+                              ? "LEARN PATTERN / DRAG AROUND TEXT / ESC CANCELS"
+                              : "SCROLL ZOOM / RIGHT-DRAG PAN / CLICK TOGGLE / DRAG TO ADD"
                     elide: Text.ElideRight
                     color: Backend.captureMode !== "none" ? Theme.amber : Theme.steelLight
                     font.family: Backend.displayFont

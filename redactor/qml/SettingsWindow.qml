@@ -172,6 +172,13 @@ Window {
 
                 RailTab {
                     Layout.fillWidth: true
+                    text: "BLOCKED PATTERNS"
+                    active: settings.tab === "blocked"
+                    onClicked: settings.tab = "blocked"
+                }
+
+                RailTab {
+                    Layout.fillWidth: true
                     text: "DIAGNOSTICS"
                     active: settings.tab === "diagnostics"
                     onClicked: settings.tab = "diagnostics"
@@ -200,7 +207,8 @@ Window {
                     anchors.margins: 18
                     currentIndex: settings.tab === "detection" ? 0
                                   : settings.tab === "redaction" ? 1
-                                  : settings.tab === "output" ? 2 : 3
+                                  : settings.tab === "output" ? 2
+                                  : settings.tab === "blocked" ? 3 : 4
 
                     Flickable {
                         clip: true
@@ -516,6 +524,149 @@ Window {
                                 label: "Save a coordinate log with each PNG"
                                 checked: settings.includeLogValue
                                 onToggled: function(next) { settings.includeLogValue = next }
+                            }
+                        }
+                    }
+
+                    Flickable {
+                        clip: true
+                        contentWidth: width
+                        contentHeight: blockedPage.implicitHeight
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        ColumnLayout {
+                            id: blockedPage
+                            width: parent.width
+                            spacing: 10
+
+                            FieldLabel { text: "LEARN A BLOCKED PATTERN" }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Open an image, then select an area to read its text. "
+                                      + "The app generates a regular expression you can review and save."
+                                wrapMode: Text.WordWrap
+                                color: Theme.steelLight
+                                font.family: Backend.bodyFont
+                                font.pixelSize: 12
+                                lineHeight: 1.25
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 9
+
+                                ConcourseButton {
+                                    text: "LEARN FROM IMAGE AREA"
+                                    variant: "primary"
+                                    enabled: Backend.hasImage && !Backend.busy
+                                    onClicked: {
+                                        if (settings.tryApply()) {
+                                            settings.visible = false
+                                            Backend.beginLearnPattern()
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: Backend.hasImage
+                                          ? "The settings window closes; drag around the text in the viewer."
+                                          : "Open an image in the viewer first."
+                                    wrapMode: Text.WordWrap
+                                    color: Theme.mutedText
+                                    font.family: Backend.bodyFont
+                                    font.pixelSize: 10
+                                }
+                            }
+
+                            FieldLabel {
+                                Layout.topMargin: 6
+                                text: "BLOCKED PATTERNS"
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                visible: Backend.blockedPatterns.length === 0
+                                text: "No blocked patterns yet. Learn one from an image area and it will be checked on every future scan."
+                                wrapMode: Text.WordWrap
+                                color: Theme.mutedText
+                                font.family: Backend.bodyFont
+                                font.pixelSize: 11
+                            }
+
+                            Repeater {
+                                model: Backend.blockedPatterns
+
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    implicitHeight: card.implicitHeight + 20
+                                    radius: 6
+                                    color: "#101214"
+                                    border.width: 1
+                                    border.color: modelData.enabled ? "#3A3F45" : "#262A2E"
+                                    opacity: modelData.enabled ? 1 : 0.72
+
+                                    ColumnLayout {
+                                        id: card
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: 10
+                                        spacing: 5
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 8
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.text.length > 0
+                                                      ? modelData.text : "Manual pattern"
+                                                textFormat: Text.PlainText
+                                                elide: Text.ElideRight
+                                                color: Theme.white
+                                                font.family: Backend.bodyFont
+                                                font.pixelSize: 11
+                                                font.weight: Font.DemiBold
+                                            }
+
+                                            ToggleRow {
+                                                label: "ENABLED"
+                                                checked: modelData.enabled
+                                                onToggled: function(next) {
+                                                    Backend.setBlockedPatternEnabled(index, next)
+                                                }
+                                            }
+
+                                            ConcourseButton {
+                                                text: "REMOVE"
+                                                compact: true
+                                                variant: "danger"
+                                                onClicked: Backend.removeBlockedPattern(index)
+                                            }
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.pattern
+                                            textFormat: Text.PlainText
+                                            wrapMode: Text.WrapAnywhere
+                                            color: Theme.steelLight
+                                            font.family: Backend.bodyFont
+                                            font.pixelSize: 10
+                                        }
+                                    }
+                                }
+                            }
+
+                            HintText {
+                                Layout.fillWidth: true
+                                Layout.topMargin: 4
+                                text: "Patterns are matched case-insensitively in addition to the selected detection categories. "
+                                      + "Disable one to keep it without blocking it. Changes to this list are saved immediately."
                             }
                         }
                     }

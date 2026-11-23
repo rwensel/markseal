@@ -1,6 +1,7 @@
 import unittest
 import subprocess
 import json
+import re
 from pathlib import Path
 from queue import Queue
 from tempfile import TemporaryDirectory
@@ -13,7 +14,7 @@ from rapidocr_backend import result_to_tsv
 from performance_log import PerformanceRun, stage
 from redactor.core import (
     PRESETS, FolderImage, apply_redactions, batch_worker_count, detect_regions, new_ocr_boxes,
-    pixelate, recognize_regions, save_export,
+    pattern_from_text, pixelate, read_area_text, recognize_regions, save_export, text_from_tsv,
 )
 from redactor.review import Review
 
@@ -170,6 +171,38 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(len(detect_regions(tsv, (300,100), all_text=True, min_confidence=50)), 2)
         self.assertEqual(detect_regions(tsv, (300,100), categories=set(), custom_pattern='Contact', min_confidence=50), [(6,16,44,34)])
 
+    def test_generated_pattern_matches_the_selected_text_and_not_neighbors(self):
+        pattern = pattern_from_text('DemoOnly_Pass-91!q')
+        self.assertIsNotNone(re.search(pattern, 'demoOnly_pass-91!q', re.IGNORECASE))
+        self.assertIsNone(re.search(pattern, 'DemoOnly_Pass-92!q', re.IGNORECASE))
+        self.assertIsNone(re.search(pattern_from_text('Contact'), 'Contacted', re.IGNORECASE))
+        multi = pattern_from_text('Crownfern Analytics\npass 42')
+        self.assertIsNotNone(re.search(multi, 'CROWNFERN analytics', re.IGNORECASE))
+        self.assertIsNotNone(re.search(multi, 'PASS 42', re.IGNORECASE))
+        self.assertIsNone(re.search(multi, 'pass 43', re.IGNORECASE))
+        prefix = pattern_from_text('Crownfern\nCrownfern Analytics')
+        self.assertEqual(re.search(prefix, 'Crownfern Analytics', re.IGNORECASE).group(0),
+                         'Crownfern Analytics')
+
+    def test_selected_area_text_can_be_read_and_used_as_a_learned_pattern(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        tsv = header + (
+            '1\t1\t1\t1\t10\t10\t80\t20\t95\tCrownfern\n'
+            '1\t1\t1\t1\t100\t10\t70\t20\t95\tAnalytics\n'
+            '1\t1\t1\t2\t10\t40\t40\t20\t95\tpass\n'
+            '1\t1\t1\t2\t60\t40\t20\t20\t95\t42\n'
+        )
+        self.assertEqual(text_from_tsv(tsv), 'Crownfern Analytics\npass 42')
+        image = Image.new('RGB', (240, 90), 'white')
+        with patch('redactor.core.subprocess.run',
+                   return_value=SimpleNamespace(stdout=tsv.encode('utf-8'))) as run:
+            self.assertEqual(read_area_text(image, 'ocr', (10, 10, 200, 70)),
+                             'Crownfern Analytics\npass 42')
+        self.assertEqual(run.call_args.args[0][-1], 'tsv')
+        found = detect_regions(tsv, (240, 90), categories=set(),
+                               learned_patterns=[pattern_from_text('Crownfern Analytics')])
+        self.assertEqual(len(found), 2)
+
     def test_credential_values_cover_password_and_bearer_without_the_label_or_status(self):
         header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
         rows = [
@@ -242,6 +275,10 @@ class RedactionTests(unittest.TestCase):
                 with self.subTest(text=text, confidence=confidence):
                     with patch('rapidocr_backend.recognize_single_label', return_value=(text, confidence)):
                         self.assertEqual(recognize_regions(image, None, settings, area=area), expected)
+        learned = (False, set(), 40, '', (r'\b(?:CRE|DOD)\b',))
+        with patch('rapidocr_backend.recognize_words', return_value=''), \
+             patch('rapidocr_backend.recognize_single_label', return_value=('CRE', 95)):
+            self.assertEqual(recognize_regions(image, None, learned, area=area), [area])
 
     def test_nested_ocr_duplicates_are_suppressed_without_merging_neighbors(self):
         tight = (1154, 1103, 1221, 1159)

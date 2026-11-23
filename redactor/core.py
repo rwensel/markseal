@@ -144,10 +144,12 @@ def credential_boxes(lines, size, min_confidence):
 
 
 @timed('match_patterns')
-def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0, custom_pattern=''):
+def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0, custom_pattern='',
+                   learned_patterns=()):
     categories = set(PATTERNS) if categories is None else categories
     expressions = [re.compile(PATTERNS[name], re.IGNORECASE) for name in PATTERNS if name in categories]
     if custom_pattern: expressions.append(re.compile(custom_pattern, re.IGNORECASE))
+    expressions.extend(re.compile(pattern, re.IGNORECASE) for pattern in learned_patterns if pattern)
     lines = {}
     for row in csv.DictReader(io.StringIO(tsv), delimiter='\t'):
         word = row.get('text', '').strip()
@@ -450,8 +452,13 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
                                   color_assisted=color_assisted, incomplete=incomplete,
                                   area_layout='7' if crop.width >= 6*crop.height else '6',
                                   progress=progress)
-        all_text, _, confidence, pattern = settings
-        if (not boxes and executable is None and not all_text and pattern
+        all_text, _, confidence, pattern = settings[:4]
+        learned = settings[4] if len(settings) > 4 else ()
+        expressions = []
+        if pattern:
+            expressions.append(re.compile(pattern, re.IGNORECASE))
+        expressions.extend(re.compile(value, re.IGNORECASE) for value in learned if value)
+        if (not boxes and executable is None and not all_text and expressions
                 and crop.height <= 180 and crop.width <= min(600, 6*crop.height)):
             if cancel is not None and cancel.is_set():
                 raise ScanCancelled
@@ -460,7 +467,8 @@ def recognize_regions(image, executable, settings, enhanced=False, cancel=None, 
             text, score = recognize_single_label(crop)
             if cancel is not None and cancel.is_set():
                 raise ScanCancelled
-            if text and score >= confidence and re.fullmatch(pattern, text, re.IGNORECASE):
+            if (text and score >= confidence
+                    and any(expression.fullmatch(text) for expression in expressions)):
                 return [area]
         sx, sy = crop.width/enlarged.width, crop.height/enlarged.height
         return [(left+math.floor(x1*sx), top+math.floor(y1*sy),
@@ -610,6 +618,61 @@ def new_ocr_boxes(candidates, existing=()):
             added.append(box)
             kept.append(box)
     return added
+
+
+def text_from_tsv(tsv):
+    lines = {}
+    for row in csv.DictReader(io.StringIO(tsv), delimiter='\t'):
+        word = row.get('text', '').strip()
+        if not word:
+            continue
+        key = tuple(row.get(name, '') for name in ('page_num', 'block_num', 'par_num', 'line_num'))
+        lines.setdefault(key, []).append(word)
+    return '\n'.join(' '.join(words) for words in lines.values())
+
+
+def read_area_text(image, executable, area):
+    left, top, right, bottom = area
+    crop = image.crop((left, top, right, bottom))
+    if max(crop.size) > 0:
+        factor = min(3, 1600 / max(crop.size))
+        if factor > 1:
+            crop = crop.resize((max(1, round(crop.width * factor)),
+                                max(1, round(crop.height * factor))), Image.Resampling.LANCZOS)
+    border = max(6, crop.height // 20)
+    crop = ImageOps.expand(crop, border=border, fill=crop.getpixel((0, 0)))
+    if executable is None:
+        from rapidocr_backend import recognize_words
+        tsv = recognize_words(crop)
+    else:
+        data = io.BytesIO()
+        crop.save(data, format='PNG')
+        psm = '7' if crop.width >= 6 * crop.height else '6'
+        result = subprocess.run(
+            [executable, 'stdin', 'stdout', '--psm', psm, 'tsv'],
+            input=data.getvalue(), capture_output=True, timeout=30, check=True,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+            env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
+        )
+        tsv = result.stdout.decode('utf-8', errors='replace')
+    return text_from_tsv(tsv)
+
+
+def pattern_from_text(text):
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not lines:
+        return ''
+    patterns = []
+    for line in lines:
+        words = line.split()
+        body = r'\s+'.join(re.escape(word) for word in words)
+        if re.match(r'\w', words[0]):
+            body = r'\b' + body
+        if re.search(r'\w$', words[-1]):
+            body += r'\b'
+        patterns.append(body)
+    patterns.sort(key=len, reverse=True)
+    return patterns[0] if len(patterns) == 1 else '(?:' + '|'.join(patterns) + ')'
 
 
 def strip_contained_selected(boxes, selected):
