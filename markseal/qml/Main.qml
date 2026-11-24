@@ -192,6 +192,16 @@ Window {
     }
 
     Shortcut {
+        sequence: "Ctrl+Shift+Z"
+        onActivated: Backend.review.redo()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Y"
+        onActivated: Backend.review.redo()
+    }
+
+    Shortcut {
         sequence: "Ctrl+Return"
         onActivated: Backend.review.confirmSelection()
     }

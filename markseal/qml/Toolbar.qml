@@ -10,7 +10,7 @@ Item {
     signal settingsClicked()
     signal captureClicked()
 
-    readonly property bool wide: width >= 1240
+    readonly property bool wide: width >= 1360
     readonly property bool canScan: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
     readonly property bool canConfirm: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
 
@@ -105,13 +105,15 @@ Item {
 
         Rectangle {
             Layout.preferredWidth: 1
-            Layout.preferredHeight: 30
-            color: Theme.toolbarDivider
+            Layout.preferredHeight: 26
+            color: Theme.steelMid
+            opacity: 0.5
         }
 
         ConcourseButton {
             text: "OPEN IMAGE"
             compact: true
+            visible: Backend.review.hasImage
             tip: "Open an image file (Ctrl+O)"
             enabled: !Backend.batch.busy
             onClicked: Backend.openImage()
@@ -120,6 +122,7 @@ Item {
         ConcourseButton {
             text: "OPEN FOLDER"
             compact: true
+            visible: Backend.review.hasImage
             tip: "Open every image in a folder (Ctrl+Shift+O)"
             enabled: !Backend.batch.busy
             onClicked: Backend.openFolder()
@@ -138,15 +141,15 @@ Item {
             text: "CAPTURE"
             compact: true
             tip: "Capture a region of the screen"
-            visible: toolbar.wide
             enabled: !Backend.batch.busy
             onClicked: toolbar.captureClicked()
         }
 
         Rectangle {
             Layout.preferredWidth: 1
-            Layout.preferredHeight: 30
-            color: Theme.toolbarDivider
+            Layout.preferredHeight: 26
+            color: Theme.steelMid
+            opacity: 0.5
         }
 
         ConcourseButton {
@@ -162,23 +165,33 @@ Item {
             text: "SCAN REGION"
             compact: true
             tip: "Drag around one area to scan just that text"
-            visible: toolbar.wide
             enabled: toolbar.canScan
             onClicked: Backend.review.beginScanArea()
         }
 
         Rectangle {
             Layout.preferredWidth: 1
-            Layout.preferredHeight: 30
-            color: Theme.toolbarDivider
+            Layout.preferredHeight: 26
+            color: Theme.steelMid
+            opacity: 0.5
         }
 
         ConcourseButton {
             text: "UNDO"
             compact: true
+            visible: toolbar.wide
             tip: "Undo the last box (Ctrl+Z)"
             enabled: Backend.review.hasImage && Backend.review.totalBoxes > 0
             onClicked: Backend.review.undo()
+        }
+
+        ConcourseButton {
+            text: "REDO"
+            compact: true
+            visible: toolbar.wide
+            tip: "Redo the last undone box (Ctrl+Shift+Z)"
+            enabled: Backend.review.canRedo
+            onClicked: Backend.review.redo()
         }
 
         ConcourseButton {
@@ -205,10 +218,11 @@ Item {
         ConcourseButton {
             text: "REDACT ALL"
             compact: true
-            variant: toolbar.canConfirm && Backend.review.totalBoxes > 0 ? "primary" : "secondary"
+            variant: "secondary"
             tip: "Select every box and apply it in one click"
-            visible: Backend.review.hasImage && Backend.review.totalBoxes > 0
+            visible: toolbar.wide && Backend.review.hasImage && Backend.review.totalBoxes > 0
                      && !Backend.review.confirmed
+                     && Backend.review.selectedCount < Backend.review.totalBoxes
             enabled: toolbar.canConfirm && Backend.review.totalBoxes > 0
             onClicked: Backend.review.redactAll()
         }
@@ -254,6 +268,21 @@ Item {
         }
 
         MenuAction {
+            text: "Open image  (Ctrl+O)"
+            enabled: !Backend.batch.busy
+            onTriggered: Backend.openImage()
+        }
+        MenuAction {
+            text: "Open folder  (Ctrl+Shift+O)"
+            enabled: !Backend.batch.busy
+            onTriggered: Backend.openFolder()
+        }
+        MenuAction {
+            text: "Capture region"
+            enabled: !Backend.batch.busy
+            onTriggered: toolbar.captureClicked()
+        }
+        MenuAction {
             text: "Paste image  (Ctrl+V)"
             onTriggered: Backend.pasteImage()
         }
@@ -261,6 +290,22 @@ Item {
             text: "Scan a region"
             enabled: toolbar.canScan && !Backend.batch.busy
             onTriggered: Backend.review.beginScanArea()
+        }
+        MenuAction {
+            text: "Undo last box  (Ctrl+Z)"
+            enabled: Backend.review.hasImage && Backend.review.totalBoxes > 0
+            onTriggered: Backend.review.undo()
+        }
+        MenuAction {
+            text: "Redo last undo  (Ctrl+Shift+Z)"
+            enabled: Backend.review.canRedo
+            onTriggered: Backend.review.redo()
+        }
+        MenuAction {
+            text: "Redact all boxes"
+            enabled: toolbar.canConfirm && Backend.review.totalBoxes > 0
+                      && Backend.review.selectedCount < Backend.review.totalBoxes
+            onTriggered: Backend.review.redactAll()
         }
         MenuAction {
             text: "Clear all boxes"

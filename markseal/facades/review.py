@@ -400,6 +400,20 @@ class ReviewFacade(QObject):
         if self.session.review.image is not None:
             self.alerts.set_status(self.review_status())
 
+    @Property(bool, notify=reviewChanged)
+    def canRedo(self):
+        return self.session.review.can_redo()
+
+    @Slot()
+    def redo(self):
+        if self.session.review.redo():
+            self.refresh_display()
+            self.session.store_active()
+            self.emit_review()
+            self.emit_view()
+        if self.session.review.image is not None:
+            self.alerts.set_status(self.review_status())
+
     @Slot()
     def editBoxes(self):
         if self.session.review.image is None or not self.session.review.confirmed:

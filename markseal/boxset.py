@@ -104,6 +104,7 @@ class BoxSet:
         self.boxes = list(boxes)
         self.rules = {box: tuple(labels) for box, labels in (rules or {}).items() if labels}
         self.selected = set(selected)
+        self._redo = []
 
     def selected_boxes(self):
         return [box for index, box in enumerate(self.boxes) if index in self.selected]
@@ -112,6 +113,7 @@ class BoxSet:
         self.boxes.append(box)
         self.rules[box] = (label,)
         self.selected.add(len(self.boxes) - 1)
+        self._redo.clear()
 
     def toggle(self, index):
         if index in self.selected:
@@ -125,14 +127,32 @@ class BoxSet:
         removed = self.boxes.pop(index)
         self.rules.pop(removed, None)
         self.selected = {i if i < index else i - 1 for i in self.selected if i != index}
+        self._redo.clear()
         return True
 
     def undo(self):
         if not self.boxes:
             return False
-        self.selected.discard(len(self.boxes) - 1)
+        index = len(self.boxes) - 1
+        was_selected = index in self.selected
+        self.selected.discard(index)
         removed = self.boxes.pop()
-        self.rules.pop(removed, None)
+        rule = self.rules.pop(removed, None)
+        self._redo.append((removed, rule, was_selected))
+        return True
+
+    def can_redo(self):
+        return bool(self._redo)
+
+    def redo(self):
+        if not self._redo:
+            return False
+        box, rule, was_selected = self._redo.pop()
+        self.boxes.append(box)
+        if rule:
+            self.rules[box] = rule
+        if was_selected:
+            self.selected.add(len(self.boxes) - 1)
         return True
 
     def clear(self):
@@ -141,6 +161,7 @@ class BoxSet:
         self.boxes.clear()
         self.rules.clear()
         self.selected.clear()
+        self._redo.clear()
         return True
 
     def merge(self, boxes, rules=None, source='Copied box'):
@@ -170,6 +191,8 @@ class BoxSet:
             self.selected.clear()
             self.selected.update(kept_selected)
         changed = self.boxes != before_boxes or self.selected != before_selected
+        if changed:
+            self._redo.clear()
         selected_boxes = set(self.selected_boxes())
         return Merge(sum(1 for box in new_boxes if box in selected_boxes), changed)
 

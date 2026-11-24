@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Redactor 1.0
 
@@ -65,9 +66,20 @@ Item {
         }
 
         FlipTile {
+            id: stateTile
             value: Backend.review.confirmed ? "APPLIED" : "PENDING"
             label: "STATE"
             accent: Backend.review.confirmed ? Theme.amber : Theme.steelMid
+            Accessible.description: Backend.review.confirmed
+                                    ? "Boxes are applied to the preview."
+                                    : "Boxes exist but are not confirmed."
+
+            HoverHandler { id: stateHover }
+            ToolTip.visible: stateHover.hovered
+            ToolTip.delay: 500
+            ToolTip.text: Backend.review.confirmed
+                          ? "The selected boxes are applied to the preview."
+                          : "Boxes exist but are not confirmed. Press Confirm to apply them."
         }
     }
 }

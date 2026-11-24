@@ -144,6 +144,15 @@ class Review:
         self.confirmed = False
         return True
 
+    def can_redo(self):
+        return self._state.can_redo()
+
+    def redo(self):
+        if not self._state.redo():
+            return False
+        self.confirmed = False
+        return True
+
     def clear(self):
         if not self._state.clear():
             return False

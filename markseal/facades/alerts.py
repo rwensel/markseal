@@ -10,7 +10,8 @@ from .. import themes
 def box_hint(theme_id):
     entry = themes.spec(theme_id)
     return (f'Space includes or excludes. '
-            f'{entry.selected_name.capitalize()} = selected; {entry.excluded_name} = excluded.')
+            f'{entry.selected_name.capitalize()} = selected; {entry.excluded_name} = excluded. '
+            f'× removes a box.')
 
 
 class Alerts(QObject):

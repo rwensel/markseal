@@ -145,3 +145,21 @@ class ReviewSessionTests(unittest.TestCase):
         self.assertEqual(state.selected, {0})
         self.assertTrue(state.clear())
         self.assertEqual(state.boxes, [])
+
+    def test_redo_restores_the_undone_box_and_selection(self):
+        state = BoxSet(boxes=[(0, 0, 5, 5), (10, 10, 20, 20)],
+                       rules={(10, 10, 20, 20): ('Secrets',)}, selected={0, 1})
+        self.assertTrue(state.undo())
+        self.assertTrue(state.can_redo())
+        self.assertEqual(state.selected, {0})
+        self.assertTrue(state.redo())
+        self.assertEqual(state.boxes, [(0, 0, 5, 5), (10, 10, 20, 20)])
+        self.assertEqual(state.rules[(10, 10, 20, 20)], ('Secrets',))
+        self.assertEqual(state.selected, {0, 1})
+        self.assertFalse(state.can_redo())
+
+    def test_new_box_clears_redo(self):
+        state = BoxSet(boxes=[(0, 0, 5, 5)])
+        state.undo()
+        state.add((1, 1, 6, 6))
+        self.assertFalse(state.can_redo())

@@ -1043,6 +1043,13 @@ Window {
 
                             ToggleRow {
                                 Layout.fillWidth: true
+                                label: "Download updates automatically"
+                                checked: Backend.settings.downloadAutomatically
+                                onToggled: function(next) { Backend.settings.setDownloadAutomatically(next) }
+                            }
+
+                            ToggleRow {
+                                Layout.fillWidth: true
                                 label: "Beta channel"
                                 checked: Backend.settings.betaChannel
                                 onToggled: function(next) { Backend.settings.setBetaChannel(next) }
@@ -1058,19 +1065,22 @@ Window {
                                 font.pixelSize: 11
                             }
 
-                            ToggleRow {
-                                Layout.fillWidth: true
-                                label: "Download updates automatically"
-                                checked: Backend.settings.downloadAutomatically
-                                onToggled: function(next) { Backend.settings.setDownloadAutomatically(next) }
-                            }
-
                             ConcourseButton {
                                 Layout.preferredHeight: 32
                                 text: "CHECK NOW"
                                 compact: true
-                                enabled: !Backend.updates.busy
+                                enabled: Backend.settings.checkForUpdates && !Backend.updates.busy
                                 onClicked: Backend.updates.check()
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                visible: !Backend.settings.checkForUpdates
+                                text: "Turn on Check for updates to run a manual check."
+                                wrapMode: Text.WordWrap
+                                color: Theme.mutedText
+                                font.family: Theme.bodyFont
+                                font.pixelSize: 10
                             }
 
                             Text {
@@ -1174,21 +1184,37 @@ Window {
                         }
                     }
 
-                    Flickable {
+                    Item {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        clip: true
-                        contentWidth: width
-                        contentHeight: licensesText.implicitHeight
 
-                        Text {
-                            id: licensesText
-                            width: parent.width
-                            text: Backend.settings.thirdPartyNotices
-                            wrapMode: Text.WordWrap
-                            color: Theme.steelLight
-                            font.family: Theme.bodyFont
-                            font.pixelSize: 10
+                        Flickable {
+                            id: licensesView
+                            anchors.fill: parent
+                            clip: true
+                            contentWidth: width
+                            contentHeight: licensesText.implicitHeight
+
+                            Text {
+                                id: licensesText
+                                width: licensesView.width - 8
+                                text: Backend.settings.thirdPartyNotices
+                                wrapMode: Text.WordWrap
+                                color: Theme.steelLight
+                                font.family: Theme.bodyFont
+                                font.pixelSize: 10
+                            }
+                        }
+
+                        Rectangle {
+                            visible: licensesView.contentHeight > licensesView.height
+                            width: 3
+                            height: Math.max(24, licensesView.visibleArea.heightRatio * licensesView.height)
+                            radius: 1.5
+                            color: Theme.steelMid
+                            opacity: 0.7
+                            x: licensesView.width - 5
+                            y: licensesView.visibleArea.yPosition * licensesView.height
                         }
                     }
 

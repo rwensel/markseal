@@ -70,7 +70,7 @@ Item {
             text: Backend.review.imageSizeText
             color: Theme.steelLight
             font.family: Theme.displayFont
-            font.pixelSize: 9
+            font.pixelSize: 10
             font.letterSpacing: 0.7
         }
 
@@ -84,7 +84,7 @@ Item {
             text: "METHOD"
             color: Theme.mutedText
             font.family: Theme.displayFont
-            font.pixelSize: 9
+            font.pixelSize: 10
             font.letterSpacing: 0.8
         }
 
@@ -219,7 +219,8 @@ Item {
             activeFocusOnTab: true
             Accessible.role: Accessible.Pane
             Accessible.name: "Screenshot review area"
-            Accessible.description: "Arrow keys move between boxes, Space includes or excludes, Delete removes, Shift with arrows pans, Ctrl+Enter confirms."
+            Accessible.description: "Image with " + Backend.review.totalBoxes
+                                  + " boxes. Arrow keys move between boxes, Space includes or excludes, Delete removes, Shift with arrows pans, Ctrl+Enter confirms."
 
             onWidthChanged: Backend.review.setViewSize(width, height)
             onHeightChanged: Backend.review.setViewSize(width, height)
@@ -409,10 +410,12 @@ Item {
                     Item {
                         id: removeHandle
                         z: 10
-                        width: 16
-                        height: 16
-                        x: Math.max(-box.x + 2, Math.min(stage.width - box.x - 18, box.width + 2))
-                        y: Math.max(-box.y + 2, Math.min(stage.height - box.y - 18, -8))
+                        width: 20
+                        height: 20
+                        x: Math.max(-box.x + 2, Math.min(stage.width - box.x - 22, box.width + 2))
+                        y: Math.max(-box.y + 2, Math.min(stage.height - box.y - 22, -10))
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "Remove box"
 
                         Rectangle {
                             anchors.fill: parent
@@ -444,7 +447,11 @@ Item {
                             anchors.fill: parent
                             anchors.margins: -4
                             acceptedButtons: Qt.LeftButton
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
+                            ToolTip.visible: containsMouse
+                            ToolTip.delay: 500
+                            ToolTip.text: "Remove box (Delete)"
                             onClicked: Backend.review.removeBox(index)
                         }
                     }
