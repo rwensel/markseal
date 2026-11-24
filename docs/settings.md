@@ -8,7 +8,9 @@ Settings open in a separate window. **Apply** saves preferences; Cancel, Escape,
 - **Suggest all detected text** bypasses pattern filtering and marks every word above the threshold.
 - **Enhanced OCR** adds noise reduction, contrast adjustment, and a different layout pass. It is slower and can recover text from photos of screens.
 - **Color-assisted OCR** adds a local-contrast pass and up to two color-contrast passes, including a strikethrough-reduced copy. Extra versions exist only in memory and use the original coordinates.
-- **Parallel image jobs** controls how many images a batch scan, copy, match, or export handles at once. Higher values use more CPU and memory; RapidOCR keeps an engine per active worker.
+- **Parallel image jobs** controls how many images a batch scan, copy, match, or export handles at once. Higher values use more CPU and memory; RapidOCR keeps an engine per active worker. The batch runner uses a bounded worker pool, not one thread per image.
+
+![OCR settings with four parallel image jobs](images/settings-ocr.png)
 
 Extra passes use copies capped at 2400 pixels on the longest side and share a 35-second budget. Once spent, remaining passes are skipped and the image is marked as a partial scan; a pass that already started is not interrupted. Review partial scans before confirming.
 

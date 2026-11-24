@@ -50,6 +50,8 @@ Pixelation changes only the marked rectangles, using coarse blocks, but it can l
 
 Folder review status and markings last for the current session. Image files and optional logs are saved to disk. **Batch tools** holds Rescan all, Copy boxes to matching, and Match by anchor, with a count of how many can run now.
 
+![Folder mode with queued and running rows](images/batch.png)
+
 ## Reuse fixed redaction areas
 
 Draw or select the boxes for recurring areas on one image and click **Copy boxes to matching**. The app applies those rectangles at the same pixel coordinates on every other image with matching dimensions; existing boxes stay. Affected images need review before export. Use this when the framing and layout match, and check alignment before saving.

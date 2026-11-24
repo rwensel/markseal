@@ -39,7 +39,9 @@ All builds and `SHA256SUMS.txt` are on the [releases page](https://github.com/rw
 - Reviewable boxes with include/exclude, rule tags, undo/redo, and keyboard navigation.
 - Pixelate, solid black, blur, or erase; pixels outside the selected boxes are preserved.
 - Full-image scan, region scan, screen capture, clipboard paste, and drag-and-drop.
-- Folder scanning, batch confirm/export, box reuse, and anchor matching for shifted screenshots.
+- Folder scanning with **Scan all**, **Scan selected**, **Confirm all**, **Save reviewed**, queued/running rows, and cancel.
+- Bounded parallel jobs: set **1–16 parallel image jobs**; each active worker owns a local OCR engine.
+- Box reuse and anchor matching for screenshots with matching or shifted framing.
 - **Learn your own identifiers.** Draw a box around a value and save a reusable blocked pattern for the IDs specific to your team.
 - Six themes, from Split-flap Concourse to Midnight Transit Diagram.
 - Optional update check and beta channel; nothing installs without a click.
@@ -71,6 +73,14 @@ Pixelate, solid black, blur, or erase — switch on the live preview and see exa
 From the default Split-flap Concourse to Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram.
 
 ![Switching between MarkSeal themes](docs/images/themes.gif)
+
+## Batch without the busywork
+
+Open a folder, scan all or only the rows you select, confirm in bulk, and save every reviewed image. Rows show queued, running, saved, and partial states; **Cancel scan** stops queued work while keeping completed results.
+
+Concurrency is yours to tune: **Settings → OCR → Parallel image jobs** accepts 1–16 images at once. Each active worker owns a local OCR engine, so higher values finish faster on a large machine but use more CPU and memory. The app uses a bounded worker pool, not one thread per image, and the scan banner reports how many workers are active.
+
+![Folder mode with queued and running rows](docs/images/batch.png)
 
 ## Screenshots
 
