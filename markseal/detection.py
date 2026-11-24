@@ -7,6 +7,7 @@ import ipaddress
 import math
 import re
 
+from .boxset import same_region
 from .performance_log import timed
 
 
@@ -218,7 +219,7 @@ VALIDATORS = {'Card numbers': luhn_ok, 'IBANs': iban_ok, 'Phone numbers': phone_
 
 @timed('match_patterns')
 def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0, custom_pattern='',
-                   learned_patterns=(), rules=None):
+                   learned_patterns=(), rules=None, personal=False):
     categories = set(PATTERNS) if categories is None else categories
     expressions = [(name, re.compile(PATTERNS[name], re.IGNORECASE))
                    for name in PATTERNS if name in categories]
@@ -293,6 +294,22 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
                 box = (left, top, right, bottom)
                 boxes.append(box)
                 box_rules[box] = ['Secrets']
+    if personal and not all_text:
+        from . import field_detection, ner
+        personal_lines = list(lines.values())
+        for finder in (field_detection.field_boxes, ner.detect_entities):
+            found, found_rules = finder(personal_lines, size, min_confidence, categories)
+            for box in found:
+                labels = found_rules.get(box, ())
+                match = next((existing for existing in boxes
+                              if same_region(existing, box)), None)
+                if match is None:
+                    boxes.append(box)
+                    box_rules[box] = list(labels)
+                else:
+                    for label in labels:
+                        if label not in box_rules.get(match, ()):
+                            box_rules.setdefault(match, []).append(label)
     if rules is not None:
         rules.clear()
         rules.update({box: tuple(labels) for box, labels in box_rules.items()})

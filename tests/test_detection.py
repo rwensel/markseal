@@ -83,6 +83,23 @@ class DetectionTests(unittest.TestCase):
         self.assertNotIn('Personal names', PRESETS['Faces & codes'])
         self.assertEqual(PRESETS['Everything'], set(CATEGORIES))
 
+    def test_personal_detection_runs_only_when_enabled(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        tsv = header + (
+            '1\t1\t1\t1\t10\t20\t60\t20\t99\tName:\n'
+            '1\t1\t1\t1\t80\t20\t60\t20\t99\tKatie\n'
+            '1\t1\t1\t1\t150\t20\t60\t20\t99\tMiller\n')
+        self.assertEqual(detect_regions(tsv, (400, 200), categories={'Personal names'},
+                                        personal=False), [])
+        boxes = detect_regions(tsv, (400, 200), categories={'Personal names'},
+                               personal=True)
+        self.assertTrue(boxes)
+
+    def test_all_text_skips_personal_detection(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        tsv = header + '1\t1\t1\t1\t10\t20\t60\t20\t99\tKatie\n'
+        self.assertEqual(len(detect_regions(tsv, (400, 200), all_text=True, personal=True)), 1)
+
     def test_preset_sets_and_descriptions_stay_complete(self):
         self.assertEqual(PRESETS['Everything'], set(CATEGORIES))
         self.assertEqual(set(PRESET_DESCRIPTIONS), set(PRESETS))

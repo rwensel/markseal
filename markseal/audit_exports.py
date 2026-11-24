@@ -66,10 +66,11 @@ def verify_export(export_path, originals, *, patterns=(), run_ocr=False):
             masked_percent=round(100 * mask.histogram()[255] / (mask.width * mask.height), 3),
         )
         if run_ocr:
-            from .detection import PRESETS
+            from .detection import PERSONAL_CATEGORIES, TEXT_CATEGORIES
             from .ocr import make_engine, recognize_regions
             engine = make_engine()
-            settings = (False, PRESETS['Broad'], 40, '', patterns)
+            settings = (False, set(TEXT_CATEGORIES) - set(PERSONAL_CATEGORIES), 40, '',
+                        patterns)
             suggested = recognize_regions(original, engine, settings)
             item['ocr_candidates'] = classify_coverage(mask, suggested)
             residual = recognize_regions(exported, engine, settings)
@@ -83,7 +84,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('originals', type=Path)
     parser.add_argument('exports', type=Path)
-    parser.add_argument('--ocr', action='store_true', help='Run local RapidOCR Broad passes on originals and exports.')
+    parser.add_argument('--ocr', action='store_true',
+                        help='Run local RapidOCR identifier passes on originals and exports.')
     parser.add_argument('--use-app-pattern', action='store_true',
                         help='Also test enabled blocked patterns without printing them.')
     args = parser.parse_args(argv)

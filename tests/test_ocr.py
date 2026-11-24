@@ -1,6 +1,7 @@
 """OCR pipeline and engine adapter behavior."""
 import unittest
 
+from markseal.ocr import add_boxes
 from tests.support import (
     FakeEngine,
     FolderImage,
@@ -46,6 +47,26 @@ class OcrPipelineTests(unittest.TestCase):
         found = detect_regions(tsv, (240, 90), categories=set(),
                                learned_patterns=[pattern_from_text('Crownfern Analytics')])
         self.assertEqual(len(found), 2)
+
+    def test_same_region_boxes_merge_rule_labels(self):
+        boxes, rules = add_boxes([], {}, [(10, 10, 100, 40)],
+                                 {(10, 10, 100, 40): ('Emails',)})
+        boxes, rules = add_boxes(boxes, rules, [(10, 10, 100, 40)],
+                                 {(10, 10, 100, 40): ('Personal names',)})
+        self.assertEqual(rules[boxes[0]], ('Emails', 'Personal names'))
+
+    def test_personal_detection_runs_once_on_the_standard_pass(self):
+        calls = []
+
+        def record(*args, **kwargs):
+            calls.append(kwargs.get('personal'))
+            return []
+
+        image = Image.new('RGB', (120, 80), 'white')
+        with patch('markseal.ocr.detect_regions', side_effect=record), \
+             patch('markseal.ocr_preprocess.small_text_tiles', return_value=[]):
+            recognize_regions(image, FakeEngine(outcomes=['', '']), (False,), enhanced=True)
+        self.assertEqual(calls, [True, False])
 
     def test_enhanced_pass_errors_propagate(self):
         image = Image.new('RGB', (120, 80), 'white')

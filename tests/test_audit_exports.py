@@ -2,6 +2,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -28,6 +29,16 @@ class VerifyExportTests(unittest.TestCase):
         self.assertTrue(result['outside_pixels_unchanged'])
         self.assertEqual(result['logged_boxes'], 1)
         self.assertIsNone(result['issue'])
+
+    def test_ocr_mode_uses_identifiers_without_the_model(self):
+        with TemporaryDirectory() as folder:
+            originals, exported = self.make_export(folder)
+            with patch('markseal.ocr.make_engine', return_value=object()), \
+                 patch('markseal.ocr.recognize_regions', return_value=[]):
+                result = audit_exports.verify_export(exported, originals, run_ocr=True)
+        self.assertIsNone(result['issue'])
+        self.assertEqual(result['ocr_candidates'],
+                         {'covered': 0, 'partial': 0, 'uncovered': 0})
 
     def test_missing_log_reports_issue_without_raising(self):
         with TemporaryDirectory() as folder:

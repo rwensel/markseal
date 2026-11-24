@@ -11,10 +11,26 @@ from PIL import Image, ImageFilter, ImageOps
 
 from .performance_log import stage
 
-from .boxset import BoxList, new_ocr_boxes, same_region
+from .boxset import BoxList, same_region
 from .detection import detect_regions, learned_pattern_rules
 from .images import read_folder_image
 from .jobs import ScanCancelled
+
+
+def add_boxes(boxes, rules, candidates, candidate_rules):
+    for candidate in candidates:
+        labels = tuple(candidate_rules.get(candidate, ()))
+        match = next((box for box in boxes if same_region(box, candidate)), None)
+        if match is None:
+            boxes.append(candidate)
+            rules[candidate] = labels
+            continue
+        merged = list(rules.get(match, ()))
+        for label in labels:
+            if label not in merged:
+                merged.append(label)
+        rules[match] = tuple(merged)
+    return boxes, rules
 
 
 class RapidEngine:
@@ -95,18 +111,18 @@ def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
         if cancel is not None and cancel.is_set():
             raise ScanCancelled
 
-    def run(source):
+    def run(source, personal=True):
         check_cancel()
         detected = {}
         tsv = engine.recognize(source, cancel=cancel)
         check_cancel()
-        return detect_regions(tsv, source.size, *settings, rules=detected), detected
+        return detect_regions(tsv, source.size, *settings, rules=detected,
+                              personal=personal), detected
 
     with stage('standard_ocr_pass') as timing:
         report('Recognizing text')
         found, pass_rules = run(image)
-        boxes = new_ocr_boxes(found)
-        rules = {box: pass_rules.get(box, ()) for box in boxes}
+        boxes, rules = add_boxes([], {}, found, pass_rules)
         if timing is not None:
             timing['new_suggestions'] = len(boxes)
 
@@ -134,19 +150,19 @@ def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
             note_incomplete('remaining enhancement passes skipped')
             return False
         with stage('additional_ocr_pass', pass_name=name) as timing:
-            found, found_rules = run(source)
+            found, found_rules = run(source, personal=False)
         previous_count = len(boxes)
         left, top, right, bottom = bounds or (0, 0, image.width, image.height)
         scale_x = (right-left) / source.width
         scale_y = (bottom-top) / source.height
+        mapped = []
+        mapped_rules = {}
         for x1, y1, x2, y2 in found:
             candidate = (left+math.floor(x1*scale_x), top+math.floor(y1*scale_y),
                          min(right, left+math.ceil(x2*scale_x)), min(bottom, top+math.ceil(y2*scale_y)))
-            if not any(same_region(candidate, existing) for existing in boxes):
-                boxes.append(candidate)
-                labels = found_rules.get((x1, y1, x2, y2), ())
-                if labels:
-                    rules[candidate] = labels
+            mapped.append(candidate)
+            mapped_rules[candidate] = found_rules.get((x1, y1, x2, y2), ())
+        add_boxes(boxes, rules, mapped, mapped_rules)
         if timing is not None:
             timing['new_suggestions'] = len(boxes) - previous_count
         return True
