@@ -50,6 +50,7 @@ The page is capped at 40 million pixels to keep a very large PDF from exhausting
 - Full-image scan, region scan, screen capture, clipboard paste, and drag-and-drop.
 - Open PDFs page by page: render locally at 200 DPI, navigate pages, and save the current redacted page as PNG.
 - Folder scanning with **Scan all**, **Scan selected**, **Confirm all**, **Save reviewed**, queued/running rows, and cancel.
+- Watched folders: register folders once and see new captures in the inbox. Manual watches wait for you; automatic watches scan and export new images while the app runs.
 - Bounded parallel jobs: set **1–16 parallel image jobs**; each active worker owns a local OCR engine.
 - Box reuse and anchor matching for screenshots with matching or shifted framing.
 - **Learn your own identifiers.** Draw a box around a value and save a reusable blocked pattern for the IDs specific to your team.
@@ -68,7 +69,7 @@ The built-in detectors cover common personal and engineering identifiers. MarkSe
 
 Open an image, go to **Settings → Blocked patterns**, and click **Learn from scan area**. Drag a tight box around one example. MarkSeal reads that area locally, shows the recognized text and a generated regular expression, and lets you choose fixed-text matching or a detected value class such as IPv4/IPv6, CIDR, UUID, email, URL, MAC, ISO date, integer, or long hex token. Review it, name it, and save; every future scan includes it. Nothing leaves the machine.
 
-![Learning a blocked pattern from a selected area](docs/images/settings-blocked.png)
+![Blocked patterns with two saved entries](docs/images/settings-blocked.png)
 
 ## Methods and themes
 
@@ -90,7 +91,32 @@ Open a folder, scan all or only the rows you select, confirm in bulk, and save e
 
 Concurrency is yours to tune: **Settings → OCR → Parallel image jobs** accepts 1–16 images at once. Each active worker owns a local OCR engine, so higher values finish faster on a large machine but use more CPU and memory. The app uses a bounded worker pool, and the scan banner reports how many workers are active.
 
-![Folder mode with queued and running rows](docs/images/batch.png)
+![Folder mode with scanned, saved, and unprocessed rows](docs/images/batch.png)
+
+## Watch folders
+
+Register the folders where your screenshots pile up, and new captures arrive in the app instead of waiting to be found. MarkSeal sweeps each watched folder when it starts and keeps watching while it runs. There is no tray icon, autostart entry, or background service.
+
+Add a folder in **Settings → Watched folders**, or open the inbox with **WATCHES** and choose **Add folder**. A new watch starts as MANUAL, and the files already in the folder are recorded without being processed.
+
+- **MANUAL**: new images wait in the inbox. Opening the folder adds them to the review board and scans them; the usual review, confirm, and save steps follow.
+- **AUTO**: new images are scanned and, when the scan is complete and finds at least one box, confirmed and exported. Exports go to a `redacted` subfolder beside the originals, using the current method and filename template. The coordinate log follows the **Coordinate log** setting. Every file keeps an intake record with its export path.
+
+Automatic work never overwrites an export. A partial scan, a scan that finds nothing, a filename collision, or a read error stops processing that file and marks it for review; nothing is exported. The inbox shows the reason, and opening the folder hands the file to the normal review flow.
+
+**PROCESS EXISTING (N)** is a deliberate action. For an automatic watch it marks the files recorded when the watch was added, along with any waiting for review, for automatic processing. For a manual watch it makes those files count as new, so the next folder open scans them.
+
+**STOP** appears while automatic work runs. It stops the remaining files and keeps everything already finished. Automatic processing stays paused until you choose **PROCESS EXISTING** or change the watch's policy.
+
+Limits worth knowing:
+
+- MarkSeal must be running. Closing the app pauses every watch.
+- A watch covers PNG, JPEG, BMP, and TIFF images directly inside the folder. PDFs and subfolders are not included.
+- Automatic export is review after the fact, not a guarantee. The scan must finish cleanly and find at least one box, but detection can still miss something sensitive. Review exported copies before sharing them, or use MANUAL for material that needs a person first.
+- A tool that overwrites one filename exports its first version, then sends later versions to review as collisions.
+- The original is never modified.
+- A watched folder that disappears keeps its row and records until it returns. Two app instances watching the same folder race; the second reports a collision.
+- MarkSeal ignores its own exports and the sidecars it writes, so a watch does not loop on its output.
 
 ## Screenshots
 
@@ -100,16 +126,16 @@ Concurrency is yours to tune: **Settings → OCR → Parallel image jobs** accep
 
 ## Documentation
 
-- [Getting started](docs/getting-started.md) — install, open, scan, review, save.
-- [Reviewing and redacting](docs/reviewing.md) — boxes, rules, zoom, capture, folders, reuse.
-- [Settings](docs/settings.md) — OCR, presets, personal fields, blocked patterns, output, themes, updates.
-- [Building from source](docs/building.md) — local builds, tests, notices.
-- [Privacy](PRIVACY.md) — what stays on the machine.
-- [Third-party notices](THIRD_PARTY_NOTICES.txt) — bundled components and licenses.
+- [Getting started](docs/getting-started.md): install, open, scan, review, save.
+- [Reviewing and redacting](docs/reviewing.md): boxes, rules, zoom, capture, folders, the inbox, reuse.
+- [Settings](docs/settings.md): OCR, presets, personal fields, blocked patterns, watched folders, output, themes, updates.
+- [Building from source](docs/building.md): local builds, tests, notices, releases.
+- [Privacy](PRIVACY.md): what stays on the machine.
+- [Third-party notices](THIRD_PARTY_NOTICES.txt): bundled components and licenses.
 
 ## Privacy and security
 
-MarkSeal has no telemetry, accounts, or upload integrations. The PII model and OCR run locally; recognized text never leaves the machine. The app reads the images you open, the files you export, and its local settings. The optional update check exchanges release metadata and the installer, never image data. See [Privacy](PRIVACY.md) for the full statement.
+MarkSeal has no telemetry, accounts, or upload integrations. The PII model and OCR run locally; recognized text never leaves the machine. The app reads the images you open, images in folders you ask it to watch, the files it exports, and its local settings and watch list. The optional update check exchanges release metadata and the installer, never image data. See [Privacy](PRIVACY.md) for the full statement.
 
 ## Contributing
 

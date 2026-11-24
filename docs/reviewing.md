@@ -56,7 +56,25 @@ Only the current page is saved, as `document_page-001_redacted.png`; the coordin
 
 Folder review status and markings last for the current session. Image files and optional logs are saved to disk. **Batch tools** holds Rescan all, Copy boxes to matching, and Match by anchor, with a count of how many can run now.
 
-![Folder mode with queued and running rows](images/batch.png)
+![Folder mode with scanned, saved, and unprocessed rows](images/batch.png)
+
+## Watched folders and the inbox
+
+**WATCHES** in the toolbar opens the inbox and shows a count when new files have arrived. Escape or **Close** dismisses it.
+
+Each row shows the **MANUAL** or **AUTO** badge, the folder path, and the counts for new or changed files, files that need review, ready files, and auto-redacted copies. Up to five review reasons follow, such as `shot 7.png · Nothing found`. **Open** closes the inbox and opens the folder in the review board. **Process existing (N)** appears when there are baseline or review records.
+
+Ready counts files that were in the folder when the watch was added. They are not processed automatically, and a manual watch also marks new arrivals as ready when you open its folder.
+
+Opening a MANUAL watch appends unseen images to the bottom of the folder list and scans them. The active row and your selection do not move. A manual save writes to that watch's `redacted` subfolder.
+
+Opening an AUTO watch pauses new automatic work for that folder. New images are appended and scanned like a manual folder, so you can review or save them by hand; anything still unsaved is processed automatically after you close the folder.
+
+Automatic review failures wait in the inbox. A partial scan, a scan that finds nothing, a filename collision, or a read error becomes a review item with its reason and no export. Open the folder, inspect the image, and save a reviewed copy yourself.
+
+Automatic exports still leave an audit trail: the watch records each export, and the coordinate log sits beside the PNG when that setting is on. The auto-redacted count includes only exports that still exist on disk. A file interrupted mid-run is picked up on the next launch.
+
+The footer holds **Add folder**, the automatic progress line, and **Stop** while automatic work runs. Stop ends the current work and keeps finished exports; automatic processing stays paused until you choose **Process existing** or change the watch's policy.
 
 ## Reuse fixed redaction areas
 

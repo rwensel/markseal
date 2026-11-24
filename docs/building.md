@@ -63,6 +63,18 @@ Regenerate `THIRD_PARTY_NOTICES.txt` after dependency changes:
 
 The generator reads the installed runtime packages and their license files, including pypdfium2/PDFium, and adds the GLiNER PII model, GLiNER runtime, Ettin encoder, and tokenizers entries. The resulting file is bundled by the spec and copied beside the executable by the installer.
 
+## Versioning and releases
+
+Classify a release before publishing it:
+
+- **Patch**: fixes only, with no new capability and no change to saved settings, exports, or workflow.
+- **Minor**: a backward-compatible capability. Existing settings, exports, and workflow keep working.
+- **Major**: a breaking change to saved settings, exports, or workflow.
+
+The version is written in `markseal/__init__.py`, `packaging/markseal.iss`, and the Windows line of the README download table. Change all three together, update any other page that names the current version (today `docs/getting-started.md`), commit, and tag the release.
+
+Watched folders is a minor release and targets 2.1.0. The bump happens when the release is published, not on the feature branch.
+
 ## Manual builds
 
 The GitHub Actions **build** workflow (`.github/workflows/build.yml`) can be started manually. It builds the Windows installer, a Linux x64 tarball, and a macOS arm64 zip, and uploads them as workflow artifacts.

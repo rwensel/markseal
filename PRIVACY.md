@@ -6,4 +6,4 @@ MarkSeal includes a bundled local PII model (GLiNER PII Small) for personal name
 
 The only network access is the optional update check. It is off by default. When enabled, it fetches a small public release manifest and, if an update exists, the installer; it exchanges release metadata (version, notes, download URL, SHA-256) and never image data. No account is required.
 
-The application reads and writes only the images and PDFs you open, the files you export, and its local settings and performance logs. Nothing is sent to the maintainer.
+The application reads and writes only the images and PDFs you open, images in folders you ask it to watch, the files it exports, and its local settings, watch list, and performance logs. Nothing is sent to the maintainer.

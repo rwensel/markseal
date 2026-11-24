@@ -1,6 +1,6 @@
 # Settings
 
-Settings open in a separate window. **Apply** saves preferences; Cancel, Escape, or closing the window discards edits. Blocked-pattern changes save immediately. Preferences are stored locally.
+Settings open in a separate window. **Apply** saves preferences; Cancel, Escape, or closing the window discards edits. Blocked-pattern and watched-folder changes save immediately. Preferences are stored locally.
 
 ## OCR
 
@@ -42,7 +42,7 @@ Patterns are matched case-insensitively. **Suggest all detected text** bypasses 
 
 Blocked patterns cover identifiers unique to your team: a customer number format, a device serial prefix, an internal account code. Teach one example and MarkSeal catches the rest.
 
-![Learning a blocked pattern from a scan area](images/settings-blocked.png)
+![Blocked patterns with two saved entries](images/settings-blocked.png)
 
 Open **Settings → Blocked patterns** and click **Learn from scan area**. The Settings window closes and the viewer asks for a tight box around the text. The app reads that area locally and shows the recognized text and an editable regular expression.
 
@@ -64,6 +64,16 @@ The **Method** toggle in the viewer caption and **Settings → Redaction** share
 Exports use PNG and refuse to overwrite existing files. A reviewed image with no selected boxes requires a separate confirmation before exporting an unredacted copy.
 
 Run `.venv\Scripts\python.exe -m markseal.performance_log` to summarize the latest trace, or pass a trace path. It reports mean and 95th-percentile timings and, for OCR runs, how many new suggestions each pass contributed. Pass timings include nested stages, so do not add them together.
+
+## Watched folders
+
+MarkSeal sweeps these folders at launch and watches them while it runs. **Add folder** opens the directory picker and creates a MANUAL watch. Choose **AUTO** on a row to let new images scan, confirm, and export without review.
+
+Each row shows the folder name and path, a **MANUAL** or **AUTO** control, the export folder, and **Remove**. Removing asks first and drops that folder's intake records. Adding the folder again records whatever is there at that moment.
+
+Exports from a watch go to that folder's own `redacted` subfolder, not to the global output folder. That keeps one watch's files from colliding with another's, and a manual save from a watched folder uses the same destination. The **Coordinate log** setting still applies.
+
+Changes on this page save immediately, even if you cancel the settings window. See [Watch folders](../README.md#watch-folders) for the two policies and [Reviewing and redacting](reviewing.md#watched-folders-and-the-inbox) for the inbox.
 
 ## Appearance
 
