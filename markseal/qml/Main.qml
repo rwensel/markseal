@@ -12,8 +12,8 @@ Window {
     visible: true
     color: Theme.bg
     title: Backend.review.imageName.length > 0
-           ? Backend.review.imageName + " - Markseal"
-           : "Markseal"
+           ? Backend.review.imageName + " - MarkSeal"
+           : "MarkSeal"
 
     Rectangle {
         anchors.fill: parent

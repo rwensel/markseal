@@ -1,4 +1,4 @@
-"""Shared imports and fakes for the Markseal test suite."""
+"""Shared imports and fakes for the MarkSeal test suite."""
 import subprocess
 import json
 import re

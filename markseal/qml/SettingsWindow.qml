@@ -15,7 +15,7 @@ Window {
     flags: Qt.Dialog
     transientParent: parentWindow
     color: Theme.bg
-    title: "Settings - Markseal"
+    title: "Settings - MarkSeal"
     visible: false
 
     property string tab: "engine"

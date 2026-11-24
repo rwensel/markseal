@@ -1,6 +1,6 @@
 # Packaging
 
-Builds the standalone Markseal desktop app with PyInstaller. The bundle includes
+Builds the standalone MarkSeal desktop app with PyInstaller. The bundle includes
 the QML shell and the bundled RapidOCR models, so the installed app needs no
 Python, pip, or network access.
 

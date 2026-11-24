@@ -1,4 +1,4 @@
-"""PySide6 entry point for Markseal."""
+"""PySide6 entry point for MarkSeal."""
 from __future__ import annotations
 
 import sys
@@ -18,7 +18,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName('Markseal')
     app.setOrganizationName('Markseal')
-    app.setApplicationDisplayName('Markseal')
+    app.setApplicationDisplayName('MarkSeal')
     app.setWindowIcon(QIcon(str(Path(__file__).resolve().parent / 'assets' / 'markseal-256.png')))
     controller = Controller()
     qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', controller)

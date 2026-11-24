@@ -148,7 +148,7 @@ def summarize(path):
 def main(argv=None):
     import argparse
 
-    parser = argparse.ArgumentParser(description='Summarize timings from an offline Markseal run.')
+    parser = argparse.ArgumentParser(description='Summarize timings from an offline MarkSeal run.')
     parser.add_argument('trace', type=Path, nargs='?', help='JSONL file. Defaults to the latest run.')
     args = parser.parse_args(argv)
     path = args.trace or max(log_directory().glob('*.jsonl'), default=None, key=lambda p: p.stat().st_mtime)

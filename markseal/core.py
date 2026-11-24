@@ -1,4 +1,4 @@
-"""Compatibility facade re-exporting Markseal's local processing modules.
+"""Compatibility facade re-exporting MarkSeal's local processing modules.
 
 Nothing imported here touches the network or the desktop UI.
 """

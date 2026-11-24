@@ -144,7 +144,7 @@ class UpdateFacade(QObject):
             if self.session.preferences.download_updates_automatically:
                 self.download()
         else:
-            self._set_status(f'Markseal {self.currentVersion} is up to date.')
+            self._set_status(f'MarkSeal {self.currentVersion} is up to date.')
 
     def _downloaded(self, path):
         self._installer = path
