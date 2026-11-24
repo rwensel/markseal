@@ -11,7 +11,7 @@ datas += collect_data_files('PySide6', subdir='qml')
 datas += [(str(root / 'THIRD_PARTY_NOTICES.txt'), '.')]
 binaries = []
 hiddenimports = []
-for package in ('rapidocr', 'onnxruntime'):
+for package in ('rapidocr', 'onnxruntime', 'pypdfium2'):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(package)
     datas += pkg_datas
     binaries += pkg_binaries

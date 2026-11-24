@@ -21,6 +21,8 @@ COMPONENTS = (
      ('LICENSE.txt', 'LICENSE-3RD-PARTY.txt'), None),
     ('NumPy', 'numpy', 'BSD-3-Clause', ('LICENSE.txt',), None),
     ('Pillow', 'pillow', 'HPND', ('LICENSE',), None),
+    ('pypdfium2 (PDFium)', 'pypdfium2', 'BSD-3-Clause AND Apache-2.0',
+     ('BSD-3-Clause.txt', 'Apache-2.0.txt', 'pdfium.txt', 'pdfium-binaries.txt'), None),
     ('PyYAML', 'PyYAML', 'MIT', ('LICENSE',), None),
     ('tqdm', 'tqdm', 'MPL-2.0 AND MIT', ('LICENCE',), None),
     ('Shapely', 'shapely', 'BSD-3-Clause',
