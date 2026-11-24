@@ -1,19 +1,19 @@
 {
-  "version": "2.0.6",
-  "notes": "FEATURES\n• Settings → Updates lists every bundled third-party component and its license, and opens the full notice text.\n• The Windows installer places THIRD_PARTY_NOTICES.txt beside the app.\n\nENHANCEMENTS\n• Update notes are grouped into categories and scroll in the banner instead of being truncated.",
-  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.0.6",
+  "version": "2.0.7",
+  "notes": "FEATURES\n• Open local PDF files page by page in the redactor.\n• Keep separate boxes, rules, and confirmation for each PDF page.\n• Save the current page as a page-specific PNG and record source_page in the coordinate log.\n\nENHANCEMENTS\n• Navigate with PREV / NEXT, PAGE n / N, and PageUp / PageDown.\n• Render PDF pages locally at 200 DPI with a 40 million-pixel safety cap.\n• Show clear errors for corrupt, password-protected, and oversized PDFs.\n• Add PDF support to the landing page, user guides, privacy text, and third-party notices.\n\nFIXES\n• Ask once before discarding unsaved PDF or folder markings.\n• Ship complete PDFium license text without unexpanded include directives.\n\nOPTIMIZATIONS\n• Bundle PDFium directly; no Ghostscript, Poppler, or external PDF tool is required.\n\nNOTES\n• The Windows build is an unsigned preview; Linux and macOS builds remain untested.\n• PDF text extraction, PDF output, password entry, and folder-mode PDFs are not included.",
+  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.0.7",
   "downloads": {
     "windows-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.6/Markseal-Setup.exe",
-      "sha256": "9e5ad9a94c966e9e6e615053e0c0138e267ba4ab4dc12f72c51b0fc17c58903b"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.7/Markseal-Setup.exe",
+      "sha256": "361a6656c3c12d287895d7eafff395c6df7819b01c7b033cfef2eae7abfb3925"
     },
     "linux-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.6/Markseal-linux-x64.tar.gz",
-      "sha256": "a0dbbb709e5864679323382822b15ad47364d696d423c5570488502dfa26af4a"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.7/Markseal-linux-x64.tar.gz",
+      "sha256": "7857acfd0302eefa5dd9ff63f3c4aaa658bb2e99deb851fba593af86cf177bf9"
     },
     "macos-aarch64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.6/Markseal-macos-arm64.zip",
-      "sha256": "b3114a4f01764af19b7813b25a2b0566d6d83349c6f94e541094b23f345b1af4"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.7/Markseal-macos-arm64.zip",
+      "sha256": "c2a59a9dfb498883dd35400721dc3bd8a8710a4294a7784da89e055d9b84bac7"
     }
   }
 }
