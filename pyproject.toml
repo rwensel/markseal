@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "markseal"
-description = "Local, offline screenshot redaction with a PySide6/Qt Quick interface."
+description = "Private, offline screenshot redaction with reviewable OCR suggestions and pixel-accurate PNG export."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
