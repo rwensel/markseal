@@ -101,6 +101,12 @@ Concurrency is yours to tune: **Settings → OCR → Parallel image jobs** accep
 
 MarkSeal has no telemetry, accounts, or upload integrations. The app reads the images you open, the files you export, and its local settings. The optional update check exchanges release metadata and the installer, never image data. See [Privacy](PRIVACY.md) for the full statement.
 
+## Contributing
+
+Bug reports and feature ideas are welcome in [Issues](https://github.com/rwensel/markseal/issues). For code changes, keep the app offline, run the test suite, and see [Building from source](docs/building.md).
+
+If MarkSeal saves you a cleanup pass, a star helps other people find it.
+
 ## License
 
 MIT. See [LICENSE](LICENSE). Third-party components and their licenses are listed in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and under **Settings → Updates → Third-party licenses**.
