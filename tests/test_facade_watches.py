@@ -108,6 +108,25 @@ class WatchFacadeTests(unittest.TestCase):
         self.assertEqual(record.state, 'exported')
         self.assertEqual(self.watches.watchRows[0]['exported'], 0)  # file absent
 
+    def test_policy_rows_report_auto_and_set_policy_accepts_aliases(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'auto')
+        self.assertEqual(self.watches.watchRows[0]['policy'], 'AUTO')
+        self.assertEqual(self.watches.watch_for(self.folder).policy, 'automatic')
+        self.watches.setPolicy(str(self.folder), 'MANUAL')
+        self.assertEqual(self.watches.watchRows[0]['policy'], 'MANUAL')
+        self.assertEqual(self.watches.watch_for(self.folder).policy, 'manual')
+
+    def test_output_for_matches_only_the_watch_folder_itself(self):
+        self.watches.addWatch(str(self.folder))
+        sub = self.folder / 'sub'
+        sub.mkdir()
+        self.assertEqual(self.watches.output_for(self.folder), self.folder / 'redacted')
+        self.assertIsNone(self.watches.output_for(sub))
+        self.controller.session.output_directory_override = self.root / 'global'
+        self.assertEqual(
+            self.controller.session.output_directory_for(sub), self.root / 'global')
+
     def test_remove_drops_the_watch_and_its_records(self):
         self.watches.addWatch(str(self.folder))
         self.watches.removeWatch(str(self.folder))

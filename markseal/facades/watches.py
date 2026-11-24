@@ -17,6 +17,13 @@ from PySide6.QtWidgets import QFileDialog
 
 from .. import watches as watch_store
 
+POLICY_LABELS = {'manual': 'MANUAL', 'automatic': 'AUTO'}
+POLICY_ALIASES = {
+    'manual': 'manual',
+    'automatic': 'automatic',
+    'auto': 'automatic',
+}
+
 
 def _unsettled(stamp, moment):
     """A file that is still young enough to be mid-write."""
@@ -63,7 +70,7 @@ class WatchFacade(QObject):
             rows.append({
                 'path': str(folder.path),
                 'name': folder.path.name,
-                'policy': folder.policy.upper(),
+                'policy': POLICY_LABELS[folder.policy],
                 'new': result.new,
                 'existing': result.existing,
                 'needs_review': result.needs_review,
@@ -168,12 +175,12 @@ class WatchFacade(QObject):
     @Slot(str, str)
     def setPolicy(self, path, policy):
         folder = watch_store.find(self.store, path)
-        policy = (policy or '').lower()
-        if folder is None or policy not in watch_store.POLICIES:
+        value = POLICY_ALIASES.get((policy or '').lower())
+        if folder is None or value is None:
             return
-        if folder.policy == policy:
+        if folder.policy == value:
             return
-        folder.policy = policy
+        folder.policy = value
         self._save()
         self.watchesChanged.emit()
 
@@ -212,7 +219,7 @@ class WatchFacade(QObject):
         return folder
 
     def output_for(self, path):
-        folder = self.watch_for(path)
+        folder = watch_store.find(self.store, path)
         return folder.export_directory if folder is not None else None
 
     def note_export(self, path, target):
