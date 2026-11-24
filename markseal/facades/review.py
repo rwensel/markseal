@@ -10,7 +10,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtGui import QGuiApplication, QImage
 from PySide6.QtWidgets import QFileDialog
 
-from .. import export, images, ocr, redaction
+from .. import documents, export, images, ocr, redaction
 from ..audit_exports import verify_export
 from ..performance_log import PerformanceRun
 
@@ -36,10 +36,24 @@ class ReviewFacade(QObject):
         self.batch = None
         self.last_export = None
         self.last_verify = None
+        self._pdf = None
+        self._pdf_index = 0
 
     @Property(bool, notify=imageChanged)
     def hasImage(self):
         return self.session.review.image is not None
+
+    @Property(bool, notify=imageChanged)
+    def isPdf(self):
+        return self._pdf is not None
+
+    @Property(int, notify=imageChanged)
+    def pdfPage(self):
+        return self._pdf_index + 1 if self._pdf is not None else 0
+
+    @Property(int, notify=imageChanged)
+    def pdfPageCount(self):
+        return self._pdf.page_count if self._pdf is not None else 0
 
     @Property(str, notify=imageChanged)
     def imageName(self):
@@ -180,6 +194,7 @@ class ReviewFacade(QObject):
                 f'{len(self.session.review.boxes)}. Confirm to apply.')
 
     def load_image(self, image, path, pasted=False):
+        self._close_pdf()
         self.session.pasted_image = pasted
         self.session.review.load(image, path)
         self.refresh_display()
@@ -187,7 +202,31 @@ class ReviewFacade(QObject):
         self.emit_review()
         self.emit_view()
 
+    def load_pdf(self, path):
+        document = documents.PdfDocument(path)
+        try:
+            page = document.render_page(0)
+        except Exception:
+            document.close()
+            raise
+        self._close_pdf()
+        self._pdf = document
+        self._pdf_index = 0
+        self.session.pasted_image = False
+        self.session.review.load(page.image, path)
+        self.refresh_display()
+        self.imageChanged.emit()
+        self.emit_review()
+        self.emit_view()
+
+    def _close_pdf(self):
+        if self._pdf is not None:
+            self._pdf.close()
+        self._pdf = None
+        self._pdf_index = 0
+
     def adopt_entry(self, entry):
+        self._close_pdf()
         self.session.pasted_image = False
         self.session.review.path = entry.path
         self.session.review.boxset = entry.boxset

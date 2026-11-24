@@ -40,27 +40,32 @@ def render_scale(width_points: float, height_points: float, dpi: int = PDF_RENDE
 class PdfDocument:
     def __init__(self, path):
         self.path = Path(path)
-        self._document = None
         self._closed = False
+        document = self._open_document()
         try:
-            self._document = pdfium.PdfDocument(str(self.path))
-            self.page_count = len(self._document)
-        except (pdfium.PdfiumError, OSError) as error:
-            self.close()
-            raise PdfError(self._message(error)) from error
+            self.page_count = len(document)
+        finally:
+            document.close()
         if self.page_count <= 0:
             self.close()
             raise PdfError('This PDF has no pages.')
 
+    def _open_document(self):
+        try:
+            return pdfium.PdfDocument(str(self.path))
+        except (pdfium.PdfiumError, OSError) as error:
+            raise PdfError(self._message(error)) from error
+
     def render_page(self, index):
-        if self._document is None or self._closed:
+        if self._closed:
             raise PdfError('This PDF is no longer open.')
         if not 0 <= index < self.page_count:
             raise PdfError(f'Page {index + 1} does not exist in this PDF.')
+        document = self._open_document()
         page = None
         bitmap = None
         try:
-            page = self._document[index]
+            page = document[index]
             width, height = page.get_size()
             scale, actual_dpi = render_scale(width, height)
             bitmap = page.render(scale=scale)
@@ -80,12 +85,11 @@ class PdfDocument:
                 bitmap.close()
             if page is not None:
                 page.close()
+            document.close()
 
     def close(self):
-        if self._document is not None and not self._closed:
-            self._document.close()
         self._closed = True
-        self._document = None
+
 
     def _message(self, error):
         detail = str(error).lower()

@@ -8,7 +8,7 @@ from PySide6.QtCore import Property, QBuffer, QIODevice, QObject, QUrl, Signal, 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QFileDialog
 
-from . import images
+from . import documents, images
 from .facades import (
     Alerts, BatchFacade, FolderFacade, JobCenter, ReviewFacade, SessionState,
     SettingsFacade, UpdateFacade,
@@ -116,7 +116,9 @@ class Controller(QObject):
     def _choose_image(self):
         path, _ = QFileDialog.getOpenFileName(
             None, 'Open image', '',
-            'Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;All files (*.*)',
+            'Images and PDFs (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.pdf);;'
+            'Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;'
+            'PDF documents (*.pdf);;All files (*.*)',
         )
         return Path(path) if path else None
 
@@ -150,6 +152,9 @@ class Controller(QObject):
         chosen = self._choose_image()
         if chosen is None:
             return
+        if chosen.suffix.lower() in documents.PDF_SUFFIXES:
+            self._load_pdf(chosen)
+            return
         try:
             with Image.open(chosen) as source:
                 image = source.convert('RGB')
@@ -157,6 +162,17 @@ class Controller(QObject):
             self.alerts.error('Cannot open image', str(error))
             return
         self._present_image(image, chosen)
+
+    def _load_pdf(self, path):
+        try:
+            self._review.load_pdf(path)
+        except documents.PdfError as error:
+            self.alerts.error('Cannot open PDF', str(error))
+            return False
+        self.alerts.set_status(
+            f'{path.name} · PDF · page 1 of {self._review.pdfPageCount}. Review the page.'
+        )
+        return True
 
     @Slot()
     def openFolder(self):
@@ -176,24 +192,30 @@ class Controller(QObject):
             url = value if isinstance(value, QUrl) else QUrl(str(value))
             if url.isLocalFile():
                 paths.append(Path(url.toLocalFile()))
-        image_paths = [path for path in paths
-                       if path.is_file() and path.suffix.lower() in images.IMAGE_SUFFIXES]
-        if image_paths:
+        supported = [path for path in paths
+                     if path.is_file() and (path.suffix.lower() in images.IMAGE_SUFFIXES
+                                             or path.suffix.lower() in documents.PDF_SUFFIXES)]
+        if supported:
             if not self._prepare_image_open():
                 return
+            candidate = supported[0]
+            if candidate.suffix.lower() in documents.PDF_SUFFIXES:
+                self._load_pdf(candidate)
+                return
             try:
-                with Image.open(image_paths[0]) as source:
+                with Image.open(candidate) as source:
                     image = source.convert('RGB')
             except Exception as error:
                 self.alerts.error('Cannot open image', str(error))
                 return
-            self._present_image(image, image_paths[0])
+            self._present_image(image, candidate)
             return
         folders = [path for path in paths if path.is_dir()]
         if folders:
             self._folder.open_path(folders[0])
             return
-        self.alerts.info('Drop an image', 'Drop a PNG, JPEG, BMP, TIFF image, or an image folder.')
+        self.alerts.info('Drop an image or PDF',
+                         'Drop a PNG, JPEG, BMP, TIFF, or PDF file, or an image folder.')
 
     def _clipboard_image(self):
         clipboard = QGuiApplication.clipboard()

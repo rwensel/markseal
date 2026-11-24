@@ -24,6 +24,11 @@ TSV = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\t
        '1\t1\t1\t1\t10\t20\t100\t20\t95\ta@example.com\n')
 
 
+def write_pdf(path, count=2):
+    pages = [Image.new('RGB', (612, 792), 'white') for _ in range(count)]
+    pages[0].save(path, 'PDF', save_all=True, append_images=pages[1:], resolution=72)
+
+
 class ControllerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -119,6 +124,44 @@ class ControllerTests(unittest.TestCase):
         self.controller.review.verifyCurrent()
         self.assertIsNone(self.controller.review.last_verify['issue'])
         self.assertTrue(self.controller.review.last_verify['outside_pixels_unchanged'])
+
+    def test_open_image_accepts_a_pdf(self):
+        path = Path(self.temporary.name) / 'two-pages.pdf'
+        write_pdf(path)
+        with patch.object(self.controller, '_choose_image', return_value=path):
+            self.controller.openImage()
+        self.assertEqual(self.errors, [])
+        self.assertTrue(self.controller.review.isPdf)
+        self.assertEqual(self.controller.review.pdfPage, 1)
+        self.assertEqual(self.controller.review.pdfPageCount, 2)
+        self.assertTrue(self.controller.review.hasImage)
+
+    def test_drop_pdf_loads_first_page(self):
+        path = Path(self.temporary.name) / 'two-pages.pdf'
+        write_pdf(path)
+        self.controller.openDropped([QUrl.fromLocalFile(str(path))])
+        self.assertEqual(self.errors, [])
+        self.assertTrue(self.controller.review.isPdf)
+        self.assertEqual(self.controller.review.pdfPage, 1)
+        self.assertEqual(self.controller.review.pdfPageCount, 2)
+
+    def test_corrupt_pdf_reports_an_error(self):
+        path = Path(self.temporary.name) / 'broken.pdf'
+        path.write_bytes(b'%PDF-1.7\nnot a real pdf')
+        with patch.object(self.controller, '_choose_image', return_value=path):
+            self.controller.openImage()
+        self.assertEqual(len(self.errors), 1)
+        self.assertEqual(self.errors[0][0], 'Cannot open PDF')
+        self.assertFalse(self.controller.review.hasImage)
+
+    def test_drop_message_mentions_pdf(self):
+        messages = []
+        self.controller.alerts.info = lambda *args, **kwargs: messages.append(args)
+        path = Path(self.temporary.name) / 'notes.txt'
+        path.write_text('not an image')
+        self.controller.openDropped([QUrl.fromLocalFile(str(path))])
+        self.assertTrue(messages)
+        self.assertIn('PDF', messages[0][1])
 
     def test_main_qml_loads_with_the_backend(self):
         qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', self.controller)
