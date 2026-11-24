@@ -73,7 +73,7 @@ Classify a release before publishing it:
 
 The version is written in `markseal/__init__.py`, `packaging/markseal.iss`, and the Windows line of the README download table. Change all three together, update any other page that names the current version (today `docs/getting-started.md`), commit, and tag the release.
 
-Watched folders is a minor release and targets 2.1.0. The bump happens when the release is published, not on the feature branch.
+Watched folders shipped as a minor release in 2.1.0.
 
 ## Manual builds
 
