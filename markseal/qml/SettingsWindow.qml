@@ -171,6 +171,13 @@ Window {
 
                 RailTab {
                     Layout.fillWidth: true
+                    text: "WATCHED FOLDERS"
+                    active: settings.tab === "watched"
+                    onClicked: settings.tab = "watched"
+                }
+
+                RailTab {
+                    Layout.fillWidth: true
                     text: "BLOCKED PATTERNS"
                     active: settings.tab === "blocked"
                     onClicked: settings.tab = "blocked"
@@ -216,8 +223,9 @@ Window {
                                   : settings.tab === "patterns" ? 1
                                   : settings.tab === "redaction" ? 2
                                   : settings.tab === "output" ? 3
-                                  : settings.tab === "blocked" ? 4
-                                  : settings.tab === "appearance" ? 5 : 6
+                                  : settings.tab === "watched" ? 4
+                                  : settings.tab === "blocked" ? 5
+                                  : settings.tab === "appearance" ? 6 : 7
 
                     Flickable {
                         id: engineFlick
@@ -714,6 +722,166 @@ Window {
                                     Layout.fillWidth: true
                                     text: "Coordinate logs still contain source filenames. Inspect them before sharing. "
                                           + "This application does not download or install OCR."
+                                }
+                            }
+                        }
+                    }
+
+                    Flickable {
+                        id: watchedFlick
+                        clip: true
+                        contentWidth: width
+                        contentHeight: watchedPage.implicitHeight
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                            visible: watchedFlick.contentHeight > watchedFlick.height
+                            background: Item {}
+                            contentItem: Rectangle {
+                                implicitWidth: 4
+                                radius: 2
+                                color: Theme.steelMid
+                                opacity: 0.6
+                            }
+                        }
+
+                        ColumnLayout {
+                            id: watchedPage
+                            width: parent.width
+                            spacing: 10
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "MarkSeal watches these folders while it runs. Automatic watches "
+                                      + "redact and export new images without review; every file stays "
+                                      + "in the inbox with its coordinate log."
+                                wrapMode: Text.WordWrap
+                                color: Theme.steelLight
+                                font.family: Theme.bodyFont
+                                font.pixelSize: 12
+                                lineHeight: 1.25
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "CHANGES ON THIS PAGE SAVE IMMEDIATELY, EVEN IF YOU CANCEL"
+                                wrapMode: Text.WordWrap
+                                color: Theme.amber
+                                font.family: Theme.displayFont
+                                font.pixelSize: 9
+                                font.letterSpacing: 0.8
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 9
+
+                                ConcourseButton {
+                                    text: "ADD FOLDER"
+                                    onClicked: Backend.watches.chooseFolder()
+                                }
+
+                                Item { Layout.fillWidth: true }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                visible: Backend.watches.watchRows.length === 0
+                                text: "No watched folders. Add a folder to collect screenshots here."
+                                wrapMode: Text.WordWrap
+                                color: Theme.mutedText
+                                font.family: Theme.bodyFont
+                                font.pixelSize: 11
+                            }
+
+                            Repeater {
+                                model: Backend.watches.watchRows
+
+                                delegate: Rectangle {
+                                    required property var modelData
+
+                                    Layout.fillWidth: true
+                                    implicitHeight: watchBody.implicitHeight + 20
+                                    radius: Theme.radiusCard
+                                    color: Theme.fieldFace
+                                    border.width: 1
+                                    border.color: Theme.hairline
+
+                                    ColumnLayout {
+                                        id: watchBody
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: 10
+                                        spacing: 4
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 8
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.name
+                                                elide: Text.ElideRight
+                                                color: Theme.white
+                                                font.family: Theme.displayFont
+                                                font.pixelSize: 12
+                                                font.letterSpacing: 0.4
+                                                font.weight: Font.DemiBold
+                                            }
+
+                                            ConcourseComboBox {
+                                                Layout.preferredWidth: 130
+                                                model: ["MANUAL", "AUTO"]
+                                                currentIndex: modelData.policy === "AUTO" ? 1 : 0
+                                                onActivated: Backend.watches.setPolicy(
+                                                    modelData.path, currentText.toLowerCase())
+                                            }
+
+                                            ConcourseButton {
+                                                text: "REMOVE"
+                                                compact: true
+                                                variant: "danger"
+                                                tip: "Stop watching this folder"
+                                                onClicked: Backend.watches.removeWatch(
+                                                    modelData.path)
+                                            }
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.path
+                                            textFormat: Text.PlainText
+                                            elide: Text.ElideMiddle
+                                            color: Theme.mutedText
+                                            font.family: Theme.bodyFont
+                                            font.pixelSize: 10
+                                        }
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 6
+
+                                            Text {
+                                                text: "OUTPUT"
+                                                color: Theme.steelLight
+                                                font.family: Theme.displayFont
+                                                font.pixelSize: 9
+                                                font.letterSpacing: 1.1
+                                            }
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.output
+                                                textFormat: Text.PlainText
+                                                elide: Text.ElideMiddle
+                                                color: Theme.steelLight
+                                                font.family: Theme.bodyFont
+                                                font.pixelSize: 10
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
