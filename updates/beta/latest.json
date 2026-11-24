@@ -1,19 +1,19 @@
 {
-  "version": "2.0.7",
-  "notes": "FEATURES\n• Open local PDF files page by page in the redactor.\n• Keep separate boxes, rules, and confirmation for each PDF page.\n• Save the current page as a page-specific PNG and record source_page in the coordinate log.\n\nENHANCEMENTS\n• Navigate with PREV / NEXT, PAGE n / N, and PageUp / PageDown.\n• Render PDF pages locally at 200 DPI with a 40 million-pixel safety cap.\n• Show clear errors for corrupt, password-protected, and oversized PDFs.\n• Add PDF support to the landing page, user guides, privacy text, and third-party notices.\n\nFIXES\n• Ask once before discarding unsaved PDF or folder markings.\n• Ship complete PDFium license text without unexpanded include directives.\n\nOPTIMIZATIONS\n• Bundle PDFium directly; no Ghostscript, Poppler, or external PDF tool is required.\n\nNOTES\n• The Windows build is an unsigned preview; Linux and macOS builds remain untested.\n• PDF text extraction, PDF output, password entry, and folder-mode PDFs are not included.",
-  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.0.7",
+  "version": "2.0.8",
+  "notes": "FEATURES\n\u2022 Local personal-data detection: names and postal addresses from context, with birth dates and license/ID numbers read from field labels.\n\u2022 Four new categories: Personal names, Postal addresses, Dates of birth, License & ID numbers. Share a screenshot and Financial details enable them by default.\n\u2022 A bundled GLiNER PII Small model runs offline and only loads when personal fields are enabled.\n\nENHANCEMENTS\n\u2022 Stored presets gain the new categories when they match an unmodified preset; Custom selections stay untouched.\n\u2022 The export audit's --ocr mode stays model-free and compares the text identifier categories only.\n\u2022 Settings explains the local model and the field-label behavior.\n\nFIXES\n\u2022 verify_export(run_ocr=True) no longer raises KeyError on the retired Broad preset.\n\u2022 Keep house numbers in labeled address values and suppress duplicate NER boxes inside the same field.\n\u2022 Update the stale preset names in the product notes.\n\nOPTIMIZATIONS\n\u2022 Personal detection runs once per standard scan; enhanced and color passes skip the model.\n\u2022 The model is fetched and SHA-verified at build time, not downloaded at runtime.\n\nThe Windows installer remains unsigned; Windows may show an unknown-publisher warning. Builds include the local PII model and are larger than 2.0.7.",
+  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.0.8",
   "downloads": {
     "windows-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.7/Markseal-Setup.exe",
-      "sha256": "361a6656c3c12d287895d7eafff395c6df7819b01c7b033cfef2eae7abfb3925"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.8/Markseal-Setup.exe",
+      "sha256": "e67da9dc0d00508a0c7e4bf7a41e7037c584580d2ad078727c77b40ed2dea1a6"
     },
     "linux-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.7/Markseal-linux-x64.tar.gz",
-      "sha256": "7857acfd0302eefa5dd9ff63f3c4aaa658bb2e99deb851fba593af86cf177bf9"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.8/Markseal-linux-x64.tar.gz",
+      "sha256": "f9fb37ba3c45c7242bfdfc1670404650d746107ff5de58dad45780110f571968"
     },
     "macos-aarch64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.7/Markseal-macos-arm64.zip",
-      "sha256": "c2a59a9dfb498883dd35400721dc3bd8a8710a4294a7784da89e055d9b84bac7"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.0.8/Markseal-macos-arm64.zip",
+      "sha256": "b66b328b82b1de1a77716c92ef88ed0c01fc35a5e0ce1cf6ad29f501b945038a"
     }
   }
 }
