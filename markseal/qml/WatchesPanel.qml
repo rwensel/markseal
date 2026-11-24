@@ -116,6 +116,12 @@ Item {
                     activeFocusOnTab: true
                     Accessible.role: Accessible.List
                     Accessible.name: "Watched folder inbox"
+                    signal openWatch(string path)
+
+                    onOpenWatch: {
+                        root.close()
+                        Backend.watches.openFolder(path)
+                    }
 
                     delegate: Rectangle {
                         id: row
@@ -180,10 +186,7 @@ Item {
                                     text: "OPEN"
                                     compact: true
                                     tip: "Open this folder in the review board"
-                                    onClicked: {
-                                        Backend.watches.openFolder(row.modelData.path)
-                                        root.close()
-                                    }
+                                    onClicked: row.ListView.view.openWatch(row.modelData.path)
                                 }
                             }
 
