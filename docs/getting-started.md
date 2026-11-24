@@ -4,7 +4,7 @@
 
 Download the build for your platform from the [latest release](https://github.com/rwensel/markseal/releases/latest):
 
-- **Windows x64:** `Markseal-Setup.exe`. The 2.0.7 build is an unsigned preview; Windows code signing is provided by the SignPath Foundation, and signed builds will follow approval.
+- **Windows x64:** `Markseal-Setup.exe`. The 2.0.7 build is unsigned; no code-signing certificate is currently available, so Windows may show an unknown-publisher warning.
 - **Linux x64:** `Markseal-linux-x64.tar.gz`. Extract it and run `Markseal/Markseal`. This build is untested.
 - **macOS arm64:** `Markseal-macos-arm64.zip`. It contains `MarkSeal.app`; the build is untested, unsigned, and not notarized, so Gatekeeper requires an override.
 
