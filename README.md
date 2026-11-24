@@ -40,6 +40,7 @@ All builds and `SHA256SUMS.txt` are on the [releases page](https://github.com/rw
 - Pixelate, solid black, blur, or erase; pixels outside the selected boxes are preserved.
 - Full-image scan, region scan, screen capture, clipboard paste, and drag-and-drop.
 - Folder scanning, batch confirm/export, box reuse, and anchor matching for shifted screenshots.
+- **Learn your own identifiers.** Draw a box around a value and save a reusable blocked pattern for the IDs specific to your team.
 - Six themes, from Split-flap Concourse to Midnight Transit Diagram.
 - Optional update check and beta channel; nothing installs without a click.
 
@@ -48,6 +49,14 @@ All builds and `SHA256SUMS.txt` are on the [releases page](https://github.com/rw
 1. **Open** an image, paste it, or capture a region.
 2. **Scan** and review the suggested boxes; include, exclude, or draw your own.
 3. **Confirm**, then save or copy the redacted PNG.
+
+## Teach it your own patterns
+
+The built-in detectors cover common personal and engineering identifiers. For the ones specific to your team — an internal customer ID, a device serial, an account code — MarkSeal can learn from a scan area.
+
+Open an image, go to **Settings → Blocked patterns**, and click **Learn from scan area**. Drag a tight box around one example. MarkSeal reads that area locally, shows the recognized text and a generated regular expression, and lets you choose fixed-text matching or a detected value class such as IPv4/IPv6, CIDR, UUID, email, URL, MAC, ISO date, integer, or long hex token. Review it, name it, and save; every future scan includes it. Nothing leaves the machine.
+
+![Learning a blocked pattern from a selected area](docs/images/settings-blocked.png)
 
 ## Screenshots
 

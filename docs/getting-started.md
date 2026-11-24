@@ -36,6 +36,8 @@ Use **Open image**, **Paste** (Ctrl+V), or drag an image anywhere onto the windo
 
 The bottom signal board always shows selected, excluded, and total counts, plus whether the preview is applied or pending.
 
+If a value keeps slipping through, teach it once: select it with **Settings → Blocked patterns → Learn from scan area** and save the generated expression. See [Blocked patterns](settings.md#blocked-patterns).
+
 ## Save and share
 
 After confirming:

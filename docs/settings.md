@@ -32,7 +32,11 @@ Patterns are matched case-insensitively. **Suggest all detected text** bypasses 
 
 ## Blocked patterns
 
-Open **Settings → Blocked patterns** and click **Learn from image area**. The Settings window closes and the viewer asks for a tight box around the text. The app reads that area locally and shows the recognized text and an editable regular expression.
+This is the feature for identifiers unique to your team: a customer number format, a device serial prefix, an internal account code. Teach one example and MarkSeal will catch the rest.
+
+![Learning a blocked pattern from a scan area](images/settings-blocked.png)
+
+Open **Settings → Blocked patterns** and click **Learn from scan area**. The Settings window closes and the viewer asks for a tight box around the text. The app reads that area locally and shows the recognized text and an editable regular expression.
 
 If the text is a single recognizable value, choose a **Match type**: fixed text or a detected value class such as IPv4/IPv6 address, CIDR range, integer, UUID, email, URL, MAC address, ISO date, or long hex token. Fixed text is the default; changing the type updates the expression, which stays editable. Use **Add pattern** for a manual expression; the label is optional. Edit a saved row to rename it, or disable/remove it from the same tab. Changes save immediately.
 
