@@ -240,6 +240,36 @@ class ControllerTests(unittest.TestCase):
         self.controller.session.review.boxset.clear()
         self.assertFalse(self.controller.review.unsaved_pdf_work())
 
+    def test_pdf_current_page_markings_prompt_once(self):
+        self.open_pdf()
+        self.controller.session.review.boxset.add((10, 10, 20, 20), 'Current page')
+        image_path = Path(self.temporary.name) / 'replacement.png'
+        Image.new('RGB', (80, 60), 'white').save(image_path)
+        asks = []
+        self.controller.alerts.ask = lambda *args, **kwargs: asks.append(args) or True
+        with patch.object(self.controller, '_choose_image', return_value=image_path) as choose:
+            self.controller.openImage()
+        choose.assert_called_once()
+        self.assertEqual(len(asks), 1)
+        self.assertNotIn('another page', asks[0][1])
+        self.assertFalse(self.controller.review.isPdf)
+
+    def test_open_folder_prompts_once_for_unsaved_work(self):
+        folders = []
+        for name in ('first', 'second'):
+            folder = Path(self.temporary.name) / name
+            folder.mkdir()
+            Image.new('RGB', (80, 60), 'white').save(folder / 'one.png')
+            folders.append(folder)
+        with patch.object(self.controller, '_choose_folder', return_value=folders[0]):
+            self.controller.openFolder()
+        self.controller.session.review.boxset.add((10, 10, 20, 20), 'Unsaved')
+        asks = []
+        self.controller.alerts.ask = lambda *args, **kwargs: asks.append(args) or True
+        with patch.object(self.controller, '_choose_folder', return_value=folders[1]):
+            self.controller.openFolder()
+        self.assertEqual(len(asks), 1)
+
     def test_opening_an_image_prompts_when_pdf_has_markings(self):
         self.open_pdf()
         self.controller.session.review.boxset.add((10, 10, 20, 20), 'Page one')

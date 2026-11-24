@@ -21,3 +21,9 @@ class NoticesTests(unittest.TestCase):
         self.assertTrue(summary.startswith('THIRD-PARTY NOTICES'))
         self.assertIn('COMPONENTS', summary)
         self.assertTrue(bodies.strip())
+
+    def test_notices_do_not_ship_unexpanded_license_templates(self):
+        text = third_party_notices_path().read_text(encoding='utf-8')
+        self.assertNotIn('#include ./SHARED/Apache-2.0.txt', text)
+        self.assertNotIn('Copyright (c) <year> <owner>.', text)
+        self.assertIn('Copyright 2014 The PDFium Authors', text)

@@ -22,7 +22,7 @@ COMPONENTS = (
     ('NumPy', 'numpy', 'BSD-3-Clause', ('LICENSE.txt',), None),
     ('Pillow', 'pillow', 'HPND', ('LICENSE',), None),
     ('pypdfium2 (PDFium)', 'pypdfium2', 'BSD-3-Clause AND Apache-2.0',
-     ('BSD-3-Clause.txt', 'Apache-2.0.txt', 'pdfium.txt', 'pdfium-binaries.txt'), None),
+     ('LICENSES/Apache-2.0.txt', 'BUILD_LICENSES/pdfium.txt'), None),
     ('PyYAML', 'PyYAML', 'MIT', ('LICENSE',), None),
     ('tqdm', 'tqdm', 'MPL-2.0 AND MIT', ('LICENCE',), None),
     ('Shapely', 'shapely', 'BSD-3-Clause',
@@ -76,7 +76,9 @@ def license_paths(name, filenames):
         return []
     found = []
     for recorded in files:
-        if Path(str(recorded)).name not in filenames:
+        text = str(recorded).replace('\\', '/')
+        if not any(text == candidate or text.endswith('/' + candidate)
+                   for candidate in filenames):
             continue
         path = Path(metadata.distribution(name).locate_file(recorded))
         if path.is_file():
@@ -127,6 +129,10 @@ def main():
             if not path or not path.is_file():
                 continue
             text = path.read_text(encoding='utf-8', errors='replace').strip()
+            text = '\n'.join(
+                line for line in text.splitlines()
+                if line.strip() != '#include ./SHARED/Apache-2.0.txt'
+            )
             digest = hashlib.sha256(text.encode('utf-8')).hexdigest()
             if digest in seen:
                 continue

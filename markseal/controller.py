@@ -126,18 +126,19 @@ class Controller(QObject):
         path = QFileDialog.getExistingDirectory(None, title)
         return Path(path) if path else None
 
-    def _prepare_image_open(self):
+    def _prepare_image_open(self, check_folder=True):
         if self.jobs.busy:
             return False
-        if not self._folder.can_leave():
+        if check_folder and not self._folder.can_leave():
             return False
-        if not self.session.entries and self.session.review.boxes:
+        if self._review.isPdf:
+            if self._review.unsaved_pdf_work():
+                if not self.alerts.ask(
+                        'Discard PDF markings?',
+                        'This PDF has unsaved markings. Discard them?'):
+                    return False
+        elif not self.session.entries and self.session.review.boxes:
             if not self.alerts.ask('Open another image', 'Discard the current unsaved markings?'):
-                return False
-        if self._review.unsaved_pdf_work():
-            if not self.alerts.ask(
-                    'Discard PDF markings?',
-                    'This PDF has unsaved markings on another page. Discard them?'):
                 return False
         return True
 
@@ -183,7 +184,7 @@ class Controller(QObject):
     def openFolder(self):
         if self.jobs.busy:
             return
-        if not self._prepare_image_open():
+        if not self._prepare_image_open(check_folder=False):
             return
         chosen = self._choose_folder('Open image folder')
         if chosen is None:
@@ -219,7 +220,7 @@ class Controller(QObject):
             return
         folders = [path for path in paths if path.is_dir()]
         if folders:
-            if not self._prepare_image_open():
+            if not self._prepare_image_open(check_folder=False):
                 return
             self._folder.open_path(folders[0])
             return
