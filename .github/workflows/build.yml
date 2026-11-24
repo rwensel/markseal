@@ -21,6 +21,8 @@ jobs:
           .venv\Scripts\python.exe -m pip install -e ".[build]"
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
+      - name: Fetch PII model
+        run: .venv\Scripts\python.exe packaging\fetch_ner_model.py
       - name: Build
         run: powershell -ExecutionPolicy Bypass -File packaging\build.ps1 -SkipTests
       - uses: actions/upload-artifact@v4
@@ -43,6 +45,8 @@ jobs:
           python -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[build]"
+      - name: Fetch PII model
+        run: .venv/bin/python packaging/fetch_ner_model.py
       - name: Build
         env:
           SKIP_TESTS: '1'
@@ -67,6 +71,8 @@ jobs:
           python -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[build]"
+      - name: Fetch PII model
+        run: .venv/bin/python packaging/fetch_ner_model.py
       - name: Build
         env:
           SKIP_TESTS: '1'

@@ -6,6 +6,8 @@ if (-not $SkipTests) {
     & .venv\Scripts\python.exe -m unittest
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed; fix them before building.' }
 }
+& .venv\Scripts\python.exe packaging\fetch_ner_model.py
+if ($LASTEXITCODE -ne 0) { throw 'PII model fetch failed.' }
 & .venv\Scripts\python.exe -m PyInstaller --noconfirm --clean packaging\markseal.spec
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed.' }
 Write-Host 'Built dist\Markseal\Markseal.exe'

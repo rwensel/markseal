@@ -31,6 +31,7 @@ dependencies = [
     "PySide6==6.9.3",
     "rapidocr==3.10.0",
     "onnxruntime==1.23.2",
+    "tokenizers==0.23.3",
 ]
 
 [project.optional-dependencies]
@@ -57,7 +58,7 @@ version = {attr = "markseal.__version__"}
 include = ["markseal*"]
 
 [tool.setuptools.package-data]
-markseal = ["qml/*", "assets/*", "qml/assets/*"]
+markseal = ["qml/*", "assets/*", "qml/assets/*", "models/*", "models/ner/*"]
 
 [tool.ruff]
 line-length = 100
