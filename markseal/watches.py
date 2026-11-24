@@ -192,8 +192,11 @@ def add(store, folder):
     problem = validate(store, folder)
     if problem is not None:
         raise WatchError(problem)
+    images = _images(folder)
+    if images is None:
+        raise WatchError('The folder could not be read.')
     baseline = {}
-    for name, _path, stamp in _images(folder) or ():
+    for name, _path, stamp in images:
         baseline[name] = SeenFile(stamp.st_size, stamp.st_mtime_ns, PRESENTED)
     store.seen[key(folder.path)] = baseline
     store.folders.append(folder)

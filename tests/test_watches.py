@@ -4,6 +4,7 @@ import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 from PIL import Image
 
@@ -40,6 +41,14 @@ class WatchTests(unittest.TestCase):
         counts = watches.counts(self.store, folder)
         self.assertEqual((counts.new, counts.existing, counts.available), (0, 2, True))
         self.assertEqual(watches.unseen(self.store, folder), [])
+
+    def test_add_refuses_an_unlistable_folder(self):
+        self.write('a.png')
+        with mock.patch('markseal.watches._images', return_value=None):
+            with self.assertRaises(watches.WatchError):
+                self.add()
+        self.assertEqual(self.store.folders, [])
+        self.assertEqual(self.store.seen, {})
 
     def test_later_image_is_new_only_after_it_settles(self):
         folder = self.add()
