@@ -80,11 +80,12 @@ def save_export(image, target, log, *, overwrite=False):
             path.unlink(missing_ok=True)
 
 
-def coordinate_log(source, target, dimensions, boxes, method, *, note=NOTE, pasted=False):
+def coordinate_log(source, target, dimensions, boxes, method, *, note=NOTE, pasted=False,
+                   source_page=None):
     message = note
     if pasted:
         message += ' No source file exists; this copy came from an in-memory image (paste or screen capture).'
-    return {
+    log = {
         'source_filename': Path(source).name,
         'output_filename': Path(target).name,
         'image_dimensions': list(dimensions),
@@ -93,6 +94,9 @@ def coordinate_log(source, target, dimensions, boxes, method, *, note=NOTE, past
         'method': method,
         'note': message,
     }
+    if source_page is not None:
+        log['source_page'] = source_page
+    return log
 
 
 @dataclass(frozen=True)
@@ -105,13 +109,15 @@ class ExportJob:
     stamp: tuple | None = None
     image: object | None = None
     pasted: bool = False
+    page: int | None = None
 
     @property
     def selected_boxes(self):
         return [box for index, box in enumerate(self.boxes) if index in self.selected]
 
 
-def snapshot(source, target, boxes, selected, method, *, stamp=None, image=None, pasted=False):
+def snapshot(source, target, boxes, selected, method, *, stamp=None, image=None, pasted=False,
+             page=None):
     return ExportJob(
         source=Path(source),
         target=Path(target),
@@ -121,6 +127,7 @@ def snapshot(source, target, boxes, selected, method, *, stamp=None, image=None,
         stamp=stamp,
         image=image,
         pasted=pasted,
+        page=page,
     )
 
 
@@ -133,7 +140,7 @@ def write_copy(job, *, include_log=True, overwrite=False):
     rendered = apply_redactions(image, boxes, job.method)
     rendered.info.clear()
     log = (coordinate_log(job.source, job.target, image.size, boxes, job.method,
-                          pasted=job.pasted)
+                          pasted=job.pasted, source_page=job.page)
            if include_log else None)
     save_export(rendered, job.target, log, overwrite=overwrite)
 

@@ -4,6 +4,7 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import unittest
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -276,6 +277,52 @@ class ControllerTests(unittest.TestCase):
             self.controller.openFolder()
         self.assertEqual(len(self.controller.session.entries), 1)
         self.assertEqual(self.controller.session.entries[0].path.name, 'one.png')
+
+    def test_pdf_page_export_uses_page_specific_name_and_log(self):
+        self.open_pdf()
+        self.controller.session.review.boxset.add((10, 10, 20, 20), 'Account')
+        self.controller.review.confirmSelection()
+        target = Path(self.temporary.name) / 'two-pages_page-001_redacted.png'
+        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+                   return_value=(str(target), 'PNG image (*.png)')) as dialog:
+            self.controller.review.save_single()
+        self.assertEqual(self.errors, [])
+        self.assertEqual(dialog.call_args.args[2], 'two-pages_page-001_redacted.png')
+        self.assertTrue(target.is_file())
+        log = json.loads(target.with_suffix('.redactions.json').read_text(encoding='utf-8'))
+        self.assertEqual(log['source_page'], 1)
+
+    def test_image_export_does_not_add_source_page(self):
+        source = self.open_image()
+        self.controller.session.review.boxset.add((10, 10, 20, 20), 'Account')
+        self.controller.review.confirmSelection()
+        target = Path(self.temporary.name) / 'screenshot_redacted.png'
+        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+                   return_value=(str(target), 'PNG image (*.png)')):
+            self.controller.review.save_single()
+        self.assertEqual(self.errors, [])
+        log = json.loads(target.with_suffix('.redactions.json').read_text(encoding='utf-8'))
+        self.assertNotIn('source_page', log)
+
+    def test_verify_is_unavailable_for_pdf(self):
+        self.open_pdf()
+        messages = []
+        self.controller.alerts.info = lambda *args, **kwargs: messages.append(args)
+        self.controller.review.verifyCurrent()
+        self.assertEqual(self.errors, [])
+        self.assertTrue(messages)
+        self.assertIn('PDF page exports', messages[0][1])
+        self.assertIsNone(self.controller.review.last_verify)
+
+    def test_blank_pdf_page_can_be_saved_after_confirmation(self):
+        self.open_pdf()
+        self.controller.review.confirmSelection()
+        target = Path(self.temporary.name) / 'blank_page-001_redacted.png'
+        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+                   return_value=(str(target), 'PNG image (*.png)')):
+            self.controller.review.save_single()
+        self.assertEqual(self.errors, [])
+        self.assertTrue(target.is_file())
 
     def test_main_qml_loads_with_the_backend(self):
         qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', self.controller)

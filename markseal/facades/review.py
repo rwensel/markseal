@@ -775,6 +775,9 @@ class ReviewFacade(QObject):
                 'No redactions', 'No areas are selected. Save an unredacted copy?'):
             return
         initial = self.session.review.path.stem + '_redacted.png'
+        page = self.pdfPage if self._pdf is not None else None
+        if page is not None:
+            initial = f'{self.session.review.path.stem}_page-{page:03d}_redacted.png'
         chosen, _ = QFileDialog.getSaveFileName(
             None, 'Save redacted copy', initial, 'PNG image (*.png)'
         )
@@ -799,6 +802,7 @@ class ReviewFacade(QObject):
                     self.session.review.path, target, self.session.review.boxes,
                     self.session.review.selected, self.session.preferences.method,
                     image=self.session.review.image, pasted=self.session.pasted_image,
+                    page=page,
                 )
                 export.write_copy(job, include_log=include_log, overwrite=True)
         except Exception as exc:

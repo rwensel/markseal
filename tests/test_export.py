@@ -54,6 +54,24 @@ class ExportPipelineTests(unittest.TestCase):
         self.assertTrue(log['note'].endswith(
             'No source file exists; this copy came from an in-memory image (paste or screen capture).'))
 
+    def test_source_page_is_optional_and_recorded_when_given(self):
+        image_log = export.coordinate_log(Path('source.png'), Path('out.png'), (10, 10),
+                                          [], 'Pixelate')
+        pdf_log = export.coordinate_log(Path('source.pdf'), Path('out.png'), (10, 10),
+                                         [], 'Pixelate', source_page=3)
+        self.assertNotIn('source_page', image_log)
+        self.assertEqual(pdf_log['source_page'], 3)
+
+    def test_snapshot_carries_the_page_into_the_log(self):
+        with TemporaryDirectory() as folder:
+            source = self.make_source(folder)
+            target = Path(folder) / 'copy.png'
+            job = export.snapshot(source, target, [(10, 10, 40, 30)], {0}, 'Pixelate', page=2)
+            self.assertEqual(job.page, 2)
+            export.write_copy(job)
+            log = json.loads(target.with_suffix('.redactions.json').read_text(encoding='utf-8'))
+            self.assertEqual(log['source_page'], 2)
+
     def test_export_refuses_to_overwrite_and_rolls_back_the_sidecar(self):
         with TemporaryDirectory() as folder:
             source = self.make_source(folder)
