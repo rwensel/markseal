@@ -62,12 +62,14 @@ class WatchTests(unittest.TestCase):
         folder = self.add()
         (self.folder / 'notes.txt').write_text('x', encoding='utf-8')
         (self.folder / 'a.redactions.json').write_text('{}', encoding='utf-8')
-        source = self.write('a.png')
+        exported = self.write('source.png')
         target = self.folder / 'b_redacted.png'
         make_image(target)
-        watches.mark(self.store, folder, source, state=watches.EXPORTED, export=str(target))
+        watches.mark(self.store, folder, exported, state=watches.EXPORTED,
+                     export=str(target))
+        candidate = self.write('a.png')
         found = watches.unseen(self.store, folder, now=time.time() + 3)
-        self.assertEqual(found, [source])
+        self.assertEqual(found, [candidate])
 
     def test_prune_drops_only_the_names_absent_from_the_listing(self):
         self.write('a.png')

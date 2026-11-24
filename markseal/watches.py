@@ -145,18 +145,6 @@ def _sorted(paths):
     return sorted(paths, key=lambda path: (path.name.casefold(), path.name))
 
 
-def _trusted(record, folder):
-    """Whether a matching record means the source is already handled.
-
-    Validation refuses an export directory equal to the watch folder, so a
-    record that claims an export directly inside the watch root cannot describe
-    a supported export; the source stays visible instead of hiding behind it.
-    """
-    if not record.export:
-        return True
-    return key(Path(record.export).parent) != key(folder.path)
-
-
 def _within(parent, child):
     """Whether ``child`` is ``parent`` or sits inside it, across drives safe."""
     parent_text = key(parent)
@@ -241,7 +229,7 @@ def unseen(store, folder, *, now=None):
         if key(path) in targets or not _settled(stamp, moment):
             continue
         previous = records.get(name)
-        if (previous is not None and _trusted(previous, folder)
+        if (previous is not None
                 and previous.stamp() == (stamp.st_size, stamp.st_mtime_ns)):
             continue
         found.append(path)
@@ -278,7 +266,7 @@ def counts(store, folder, *, now=None):
         if key(path) in targets:
             continue
         previous = records.get(name)
-        matched = (previous is not None and _trusted(previous, folder)
+        matched = (previous is not None
                    and previous.stamp() == (stamp.st_size, stamp.st_mtime_ns))
         if not matched:
             if _settled(stamp, moment):
