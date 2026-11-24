@@ -62,8 +62,10 @@ class VersionTests(unittest.TestCase):
 
     def test_manifest_url_selects_the_channel_and_honours_the_override(self):
         with unittest.mock.patch.dict(os.environ, {'MARKSEAL_UPDATE_URL': ''}):
-            self.assertEqual(updates.manifest_url('beta'), updates.BETA_MANIFEST_URL)
-            self.assertEqual(updates.manifest_url('stable'), updates.DEFAULT_MANIFEST_URL)
+            self.assertEqual(updates.manifest_url('beta'),
+                             'https://updates.staginglane.app/beta/latest.json')
+            self.assertEqual(updates.manifest_url('stable'),
+                             'https://updates.staginglane.app/stable/latest.json')
         with unittest.mock.patch.dict(
                 os.environ, {'MARKSEAL_UPDATE_URL': 'https://example.test/x.json'}):
             self.assertEqual(updates.manifest_url('beta'), 'https://example.test/x.json')

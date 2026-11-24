@@ -60,7 +60,7 @@ class DetectionTests(unittest.TestCase):
         for text in ('+1 (415) 555-2671', '415-555-2671', '+44 20 7946 0958'):
             with self.subTest(text=text):
                 self.assertTrue(found(text))
-        for text in ('2024-01-01', '123-45-6789', '4111 1111 1111 1111',
+        for text in ('2024-01-01', '2024.11.24.10', '123-45-6789', '4111 1111 1111 1111',
                      '192.168.0.1', '1234567890', '000-000-0000'):
             with self.subTest(text=text):
                 self.assertFalse(found(text))

@@ -193,7 +193,10 @@ def iban_ok(text):
 
 def phone_ok(text):
     digits = ''.join(ch for ch in str(text) if ch.isdigit())
-    return 10 <= len(digits) <= 15 and len(set(digits)) > 1
+    if not 10 <= len(digits) <= 15 or len(set(digits)) == 1:
+        return False
+    groups = re.findall(r'\d+', str(text))
+    return not (len(groups) >= 4 and len(groups[0]) == 4)
 
 
 VALIDATORS = {'Card numbers': luhn_ok, 'IBANs': iban_ok, 'Phone numbers': phone_ok}
