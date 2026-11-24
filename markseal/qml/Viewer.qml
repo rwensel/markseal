@@ -159,10 +159,62 @@ Item {
             Layout.preferredHeight: 26
             text: "VERIFY"
             compact: true
-            visible: Backend.review.confirmed
+            visible: Backend.review.confirmed && Backend.review.canVerify
             tip: "Prove pixels outside the redactions are unchanged"
             enabled: !Backend.batch.busy
             onClicked: Backend.review.verifyCurrent()
+        }
+    }
+
+    RowLayout {
+        id: pdfBar
+        objectName: "pdfBar"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: caption.bottom
+        anchors.leftMargin: 22
+        anchors.rightMargin: 24
+        anchors.topMargin: 2
+        height: 24
+        spacing: 8
+        visible: Backend.review.isPdf
+
+        ConcourseButton {
+            Layout.preferredHeight: 24
+            text: "PREV"
+            compact: true
+            enabled: Backend.review.canPreviousPdfPage && !Backend.batch.busy
+            tip: "Previous PDF page (PageUp)"
+            onClicked: Backend.review.previousPdfPage()
+        }
+
+        Text {
+            id: pdfPageLabel
+            objectName: "pdfPageLabel"
+            text: "PAGE " + Backend.review.pdfPage + " / " + Backend.review.pdfPageCount
+            color: Theme.white
+            font.family: Theme.displayFont
+            font.pixelSize: 10
+            font.letterSpacing: 0.8
+        }
+
+        ConcourseButton {
+            Layout.preferredHeight: 24
+            text: "NEXT"
+            compact: true
+            enabled: Backend.review.canNextPdfPage && !Backend.batch.busy
+            tip: "Next PDF page (PageDown)"
+            onClicked: Backend.review.nextPdfPage()
+        }
+
+        Item { Layout.fillWidth: true }
+
+        Text {
+            text: "PDF · RENDERED LOCALLY"
+            color: Theme.mutedText
+            font.family: Theme.displayFont
+            font.pixelSize: 9
+            font.letterSpacing: 0.8
         }
     }
 
@@ -170,7 +222,8 @@ Item {
         id: frame
         anchors.fill: parent
         anchors.margins: 20
-        anchors.topMargin: Backend.review.hasImage ? 54 : 20
+        anchors.topMargin: Backend.review.hasImage
+                          ? (Backend.review.isPdf ? 84 : 54) : 20
 
         Rectangle {
             id: cardBackground

@@ -147,6 +147,16 @@ Window {
     }
 
     Shortcut {
+        sequence: "PageUp"
+        onActivated: Backend.review.previousPdfPage()
+    }
+
+    Shortcut {
+        sequence: "PageDown"
+        onActivated: Backend.review.nextPdfPage()
+    }
+
+    Shortcut {
         sequence: "Ctrl+C"
         onActivated: Backend.review.copyRedacted()
     }

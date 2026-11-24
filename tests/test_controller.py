@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from PySide6.QtCore import QEventLoop, QTimer, QUrl, qInstallMessageHandler
+from PySide6.QtCore import QEventLoop, QObject, QTimer, QUrl, qInstallMessageHandler
 from PySide6.QtGui import QImage
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonInstance
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -255,6 +255,21 @@ class ControllerTests(unittest.TestCase):
         self.assertTrue(engine.rootObjects(), f'Main.qml did not load: {messages}')
         qml_warnings = [message for message in messages if 'qml' in message.lower()]
         self.assertEqual(qml_warnings, [])
+        root = engine.rootObjects()[0]
+        bar = root.findChild(QObject, 'pdfBar')
+        label = root.findChild(QObject, 'pdfPageLabel')
+        self.assertIsNotNone(bar)
+        self.assertIsNotNone(label)
+        self.assertFalse(bar.property('visible'))
+        path = Path(self.temporary.name) / 'two-pages.pdf'
+        write_pdf(path)
+        self.controller._review.load_pdf(path)
+        self.app.processEvents()
+        self.assertTrue(bar.property('visible'))
+        self.assertEqual(label.property('text'), 'PAGE 1 / 2')
+        self.controller.review.nextPdfPage()
+        self.app.processEvents()
+        self.assertEqual(label.property('text'), 'PAGE 2 / 2')
 
 
 if __name__ == '__main__':
