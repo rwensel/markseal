@@ -84,6 +84,10 @@ Pixelation changes only marked rectangles, using coarse blocks, but it can leave
 
 Updates are off by default. **Settings → Updates** has three switches: **Check for updates**, **Download updates automatically**, and **Beta channel**. When checking is on, the app fetches a small public release manifest (the newest version, its notes, and the installer's SHA-256) and, if a newer version exists, shows a soft banner. **NOTES** reveals the changelist; **UPDATE** downloads the installer, verifies its checksum, and opens the OS installer; **LATER** dismisses it. **Beta channel** switches the manifest to `beta/latest.json`, which carries pre-release builds; it is off by default, and switching back to stable does not downgrade until a stable release catches up. The check sends no data about you or your screenshots, and nothing installs without your click.
 
+## Third-party licenses
+
+**Settings → Updates → THIRD-PARTY LICENSES** lists the bundled components and their licenses. The full texts ship as `THIRD_PARTY_NOTICES.txt` beside the executable and in the install directory.
+
 ## Themes
 
 Open **Settings → Appearance** to pick one of six worlds: Split-flap Concourse (the default), Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram. Clicking a card previews it across the whole window; **Apply** keeps it, while Cancel, Escape, or closing the window restores the saved theme. The choice persists in the local settings file. The bottom status line names the current theme's selected and excluded colors (for example, in Crouwel Grid Specimen: "Blue = selected; black = excluded"). No network calls are involved.

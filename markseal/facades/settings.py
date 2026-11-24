@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
@@ -13,6 +14,19 @@ from .. import detection, dialogs, ocr, patterns, preferences, themes
 from ..performance_log import log_directory
 from ..themes import Palette
 from ..ui.models import preference_property
+
+NOTICES_FILENAME = 'THIRD_PARTY_NOTICES.txt'
+
+
+def third_party_notices_path():
+    roots = [Path(__file__).resolve().parents[2],
+             Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[2])),
+             Path(sys.executable).resolve().parent]
+    for root in roots:
+        candidate = root / NOTICES_FILENAME
+        if candidate.is_file():
+            return candidate
+    return roots[0] / NOTICES_FILENAME
 
 
 class SettingsFacade(QObject):
@@ -173,6 +187,22 @@ class SettingsFacade(QObject):
     @Property(bool, notify=settingsChanged)
     def betaChannel(self):
         return self.session.preferences.beta_channel
+
+    @Property(str, constant=True)
+    def thirdPartyNotices(self):
+        try:
+            text = third_party_notices_path().read_text(encoding='utf-8')
+        except OSError:
+            return 'Third-party notices could not be read.'
+        return text.split('\nLICENSE TEXTS\n', 1)[0].strip()
+
+    @Slot()
+    def openThirdPartyNotices(self):
+        path = third_party_notices_path()
+        if not path.is_file():
+            self.alerts.set_status('Third-party notices file is missing.')
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     @Slot(bool)
     def setBetaChannel(self, enabled):

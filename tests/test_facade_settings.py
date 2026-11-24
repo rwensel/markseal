@@ -60,13 +60,14 @@ class SettingsFacadeTests(unittest.TestCase):
                      'includeLog', 'parallelImages', 'parallelLimit', 'blockedPatterns',
                      'palette', 'themeChoices', 'methodNames',
                      'presetNames', 'presetCategories', 'presetDescriptions', 'categoryNames',
-                     'betaChannel'):
+                     'betaChannel', 'thirdPartyNotices'):
             self.assertTrue(hasattr(self.settings, name), name)
         for name in ('applySettings', 'setRedactionMethod', 'requestSettings',
                      'previewThemeById', 'clearThemePreview', 'chooseOutputFolder',
                      'performanceLogsDirectory', 'openPerformanceLogs',
                      'addBlockedPatternManually', 'renameBlockedPattern',
-                     'removeBlockedPattern', 'setBlockedPatternEnabled', 'setBetaChannel'):
+                     'removeBlockedPattern', 'setBlockedPatternEnabled', 'setBetaChannel',
+                     'openThirdPartyNotices'):
             self.assertTrue(hasattr(self.settings, name), name)
         self.assertFalse(hasattr(self.controller, 'applySettings'))
 
@@ -88,6 +89,12 @@ class SettingsFacadeTests(unittest.TestCase):
         self.assertTrue(document['beta_channel'])
         self.settings.setBetaChannel(False)
         self.assertFalse(self.settings.betaChannel)
+
+    def test_third_party_notices_summary_excludes_license_bodies(self):
+        summary = self.settings.thirdPartyNotices
+        self.assertTrue(summary.startswith('THIRD-PARTY NOTICES'))
+        self.assertIn('Qt for Python', summary)
+        self.assertNotIn('LICENSE TEXTS', summary)
 
     def test_blocked_pattern_saves_immediately(self):
         self.assertTrue(self.settings.addBlockedPattern('Account', r'\bACCT-\d+\b'))

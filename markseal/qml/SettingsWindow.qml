@@ -1014,6 +1014,13 @@ Window {
                                 }
                             }
 
+                            ConcourseButton {
+                                Layout.preferredHeight: 30
+                                text: "THIRD-PARTY LICENSES"
+                                compact: true
+                                onClicked: licensesPanel.visible = true
+                            }
+
                             FieldLabel { text: "UPDATES" }
 
                             Text {
@@ -1116,4 +1123,81 @@ Window {
             }
         }
     }
+
+    Rectangle {
+        id: licensesPanel
+            objectName: "licensesPanel"
+            anchors.fill: parent
+            visible: false
+            color: Qt.rgba(0.04, 0.04, 0.05, 0.72)
+            z: 100
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: licensesPanel.visible = false
+            }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: Math.min(parent.width - 80, 720)
+                height: parent.height - 100
+                radius: Theme.radiusPanel
+                color: Theme.panelRaised
+                border.width: 1
+                border.color: Theme.hairline
+
+                MouseArea { anchors.fill: parent }
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 18
+                    spacing: 10
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: "THIRD-PARTY LICENSES"
+                            color: Theme.white
+                            font.family: Theme.displayFont
+                            font.pixelSize: 11
+                            font.letterSpacing: 1.0
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        ConcourseButton {
+                            text: "CLOSE"
+                            compact: true
+                            onClicked: licensesPanel.visible = false
+                        }
+                    }
+
+                    Flickable {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        contentWidth: width
+                        contentHeight: licensesText.implicitHeight
+
+                        Text {
+                            id: licensesText
+                            width: parent.width
+                            text: Backend.settings.thirdPartyNotices
+                            wrapMode: Text.WordWrap
+                            color: Theme.steelLight
+                            font.family: Theme.bodyFont
+                            font.pixelSize: 10
+                        }
+                    }
+
+                    ConcourseButton {
+                        Layout.preferredHeight: 30
+                        text: "OPEN FULL NOTICES"
+                        compact: true
+                        onClicked: Backend.settings.openThirdPartyNotices()
+                    }
+                }
+            }
+        }
 }

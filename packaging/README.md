@@ -10,6 +10,12 @@ Python, pip, or network access.
 .venv\Scripts\python.exe -m pip install -e ".[build]"
 ```
 
+Regenerate `THIRD_PARTY_NOTICES.txt` after dependency changes:
+
+```
+.venv\Scripts\python.exe packaging\generate_notices.py
+```
+
 ## Windows (primary target)
 
 ```
