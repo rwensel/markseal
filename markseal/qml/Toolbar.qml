@@ -70,8 +70,9 @@ Item {
             Layout.preferredWidth: 232
 
             Image {
-                width: 46
-                height: 46
+                Layout.preferredWidth: 46
+                Layout.preferredHeight: 46
+                Layout.alignment: Qt.AlignVCenter
                 source: "assets/mark-92.png"
                 sourceSize.width: 92
                 sourceSize.height: 92
