@@ -3,7 +3,7 @@
 No Qt imports live here: settings validation and contrast checks use this
 module directly, and the QML Palette adapter wraps it in ``themes.py``.
 
-The six themes are the curated worlds from ``docs/history/world-picker.html``. A theme is
+The six themes are curated worlds. A theme is
 seven base values, two font stacks, and the authored signal names; every
 other token is derived here so the QML shell has one palette to read.
 """
