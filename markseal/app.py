@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QUrl
+from PySide6.QtGui import QIcon
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonInstance
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
@@ -18,6 +19,7 @@ def main():
     app.setApplicationName('Markseal')
     app.setOrganizationName('Markseal')
     app.setApplicationDisplayName('Markseal')
+    app.setWindowIcon(QIcon(str(Path(__file__).resolve().parent / 'assets' / 'markseal-256.png')))
     controller = Controller()
     qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', controller)
     engine = QQmlApplicationEngine()

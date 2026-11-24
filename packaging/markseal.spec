@@ -38,6 +38,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
+    icon=str(packaging_dir / 'icons' / 'markseal.ico'),
 )
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='Markseal')
 if sys.platform == 'darwin':

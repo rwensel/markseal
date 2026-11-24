@@ -11,7 +11,9 @@ OutputDir=..\dist
 OutputBaseFilename=Markseal-Setup
 Compression=lzma2
 SolidCompression=yes
-SetupIconFile=
+SetupIconFile=icons\markseal.ico
+WizardImageFile=icons\wizard-large.bmp
+WizardSmallImageFile=icons\wizard-small.bmp
 
 [Files]
 Source: "..\dist\Markseal\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion

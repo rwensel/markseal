@@ -69,29 +69,15 @@ Item {
             spacing: 10
             Layout.preferredWidth: 232
 
-            Rectangle {
+            Image {
                 width: 46
                 height: 46
-                radius: 8
-                color: Theme.panelRaised
-                border.width: 1
-                border.color: Theme.buttonBorder
-
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    radius: 4
-                    color: Theme.amber
-
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: 1
-                        color: Theme.shadow
-                        opacity: 0.5
-                    }
-                }
+                source: "assets/mark-92.png"
+                sourceSize.width: 92
+                sourceSize.height: 92
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
             }
 
             Column {

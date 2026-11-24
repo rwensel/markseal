@@ -39,7 +39,7 @@ version = {attr = "markseal.__version__"}
 include = ["markseal*"]
 
 [tool.setuptools.package-data]
-markseal = ["qml/*"]
+markseal = ["qml/*", "assets/*", "qml/assets/*"]
 
 [tool.ruff]
 line-length = 100
