@@ -12,6 +12,7 @@ Item {
     signal watchesClicked()
 
     readonly property bool wide: width >= 1360
+    readonly property bool scanWide: width >= 1240
     readonly property bool canScan: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
     readonly property bool canConfirm: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
 
@@ -175,7 +176,7 @@ Item {
         ConcourseButton {
             text: "SCAN REGION"
             compact: true
-            visible: toolbar.wide
+            visible: toolbar.scanWide
             tip: "Drag around one area to scan just that text"
             enabled: toolbar.canScan
             onClicked: Backend.review.beginScanArea()
