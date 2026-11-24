@@ -983,6 +983,7 @@ Window {
 
                                         Text {
                                             text: "Version " + Backend.updates.currentVersion
+                                                  + (Backend.settings.betaChannel ? "  ·  Beta" : "")
                                             color: Theme.white
                                             font.family: Theme.displayFont
                                             font.pixelSize: 15
@@ -1030,6 +1031,23 @@ Window {
                                 label: "Check for updates"
                                 checked: Backend.settings.checkForUpdates
                                 onToggled: function(next) { Backend.settings.setCheckForUpdates(next) }
+                            }
+
+                            ToggleRow {
+                                Layout.fillWidth: true
+                                label: "Beta channel"
+                                checked: Backend.settings.betaChannel
+                                onToggled: function(next) { Backend.settings.setBetaChannel(next) }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Beta builds are pre-release and may be less stable. "
+                                      + "Switching back to stable will not downgrade until a stable release catches up."
+                                wrapMode: Text.WordWrap
+                                color: Theme.mutedText
+                                font.family: Theme.bodyFont
+                                font.pixelSize: 11
                             }
 
                             ToggleRow {

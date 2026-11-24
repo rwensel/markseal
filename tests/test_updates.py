@@ -1,6 +1,7 @@
 """Update manifest parsing, version comparison, and checksum verification."""
 import hashlib
 import json
+import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -50,6 +51,22 @@ class VersionTests(unittest.TestCase):
         self.assertFalse(updates.is_newer('2.0.0', '2.0.0'))
         self.assertFalse(updates.is_newer('1.9.9', '2.0.0'))
         self.assertTrue(updates.is_newer('2.0.10', '2.0.9'))
+
+    def test_prereleases_sort_below_their_release(self):
+        self.assertTrue(updates.is_newer('2.1.0', '2.1.0-beta.2'))
+        self.assertFalse(updates.is_newer('2.1.0-beta.2', '2.1.0'))
+        self.assertTrue(updates.is_newer('2.1.0-beta.2', '2.1.0-beta.1'))
+        self.assertTrue(updates.is_newer('2.1.0-rc.1', '2.1.0-beta.9'))
+        self.assertFalse(updates.is_newer('2.1.0-beta.1', '2.1.0-rc.1'))
+        self.assertEqual(updates.parse_version('v2.1.0-beta.1'), (2, 1, 0))
+
+    def test_manifest_url_selects_the_channel_and_honours_the_override(self):
+        with unittest.mock.patch.dict(os.environ, {'MARKSEAL_UPDATE_URL': ''}):
+            self.assertEqual(updates.manifest_url('beta'), updates.BETA_MANIFEST_URL)
+            self.assertEqual(updates.manifest_url('stable'), updates.DEFAULT_MANIFEST_URL)
+        with unittest.mock.patch.dict(
+                os.environ, {'MARKSEAL_UPDATE_URL': 'https://example.test/x.json'}):
+            self.assertEqual(updates.manifest_url('beta'), 'https://example.test/x.json')
 
 
 class PlatformTests(unittest.TestCase):

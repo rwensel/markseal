@@ -65,6 +65,7 @@ class Preferences:
     include_log: bool = True
     check_for_updates: bool = False
     download_updates_automatically: bool = False
+    beta_channel: bool = False
     parallel_images: int = 1
     theme: str = DEFAULT_ID
     categories: tuple = ()
@@ -84,6 +85,7 @@ class Preferences:
             'include_log': self.include_log,
             'check_for_updates': self.check_for_updates,
             'download_updates_automatically': self.download_updates_automatically,
+            'beta_channel': self.beta_channel,
             'parallel_images': self.parallel_images,
             'show_rules': self.show_rules,
             'theme': self.theme,
@@ -146,7 +148,8 @@ def from_document(document, parallel_limit=MAX_PARALLEL):
                            ('color_ocr', 'color_ocr'), ('show_rules', 'show_rules'),
                            ('include_log', 'include_log'),
                            ('check_for_updates', 'check_for_updates'),
-                           ('download_updates_automatically', 'download_updates_automatically')):
+                           ('download_updates_automatically', 'download_updates_automatically'),
+                           ('beta_channel', 'beta_channel')):
         if isinstance(document.get(key), bool):
             setattr(preferences, attribute, document[key])
     method = document.get('redaction_method')
@@ -260,6 +263,7 @@ def apply_form(current, form, parallel_limit, source=None):
         include_log=bool(form['include_log']),
         check_for_updates=current.check_for_updates,
         download_updates_automatically=current.download_updates_automatically,
+        beta_channel=current.beta_channel,
         parallel_images=workers,
         theme=theme,
         categories=_category_names(form['categories']),

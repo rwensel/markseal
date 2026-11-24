@@ -59,13 +59,14 @@ class SettingsFacadeTests(unittest.TestCase):
                      'redactionMethod', 'outputDirectory', 'filenameTemplate',
                      'includeLog', 'parallelImages', 'parallelLimit', 'blockedPatterns',
                      'palette', 'themeChoices', 'methodNames',
-                     'presetNames', 'presetCategories', 'presetDescriptions', 'categoryNames'):
+                     'presetNames', 'presetCategories', 'presetDescriptions', 'categoryNames',
+                     'betaChannel'):
             self.assertTrue(hasattr(self.settings, name), name)
         for name in ('applySettings', 'setRedactionMethod', 'requestSettings',
                      'previewThemeById', 'clearThemePreview', 'chooseOutputFolder',
                      'performanceLogsDirectory', 'openPerformanceLogs',
                      'addBlockedPatternManually', 'renameBlockedPattern',
-                     'removeBlockedPattern', 'setBlockedPatternEnabled'):
+                     'removeBlockedPattern', 'setBlockedPatternEnabled', 'setBetaChannel'):
             self.assertTrue(hasattr(self.settings, name), name)
         self.assertFalse(hasattr(self.controller, 'applySettings'))
 
@@ -79,6 +80,14 @@ class SettingsFacadeTests(unittest.TestCase):
         error = self.apply(confidence=500)
         self.assertIn('confidence', error.lower())
         self.assertEqual(self.settings.confidence, 55)
+
+    def test_beta_channel_saves_immediately(self):
+        self.settings.setBetaChannel(True)
+        self.assertTrue(self.settings.betaChannel)
+        document = json.loads(self.preferences_file.read_text(encoding='utf-8'))
+        self.assertTrue(document['beta_channel'])
+        self.settings.setBetaChannel(False)
+        self.assertFalse(self.settings.betaChannel)
 
     def test_blocked_pattern_saves_immediately(self):
         self.assertTrue(self.settings.addBlockedPattern('Account', r'\bACCT-\d+\b'))

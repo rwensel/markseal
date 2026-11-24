@@ -42,6 +42,7 @@ class PreferencesTests(unittest.TestCase):
         self.assertEqual(defaults.method, 'Pixelate')
         self.assertEqual(defaults.parallel_images, 1)
         self.assertEqual(defaults.blocked_patterns, [])
+        self.assertFalse(defaults.beta_channel)
 
     def test_document_round_trip_preserves_settings(self):
         with TemporaryDirectory() as folder:
@@ -51,6 +52,7 @@ class PreferencesTests(unittest.TestCase):
                 color_ocr=True, show_rules=True,
                 method='Solid black', output_directory=folder,
                 filename_template='shot-{index}', include_log=False, parallel_images=3,
+                beta_channel=True,
                 categories=('Emails', 'Secrets'),
                 blocked_patterns=[{'text': 'Token', 'pattern': r'\btoken-\d+\b',
                                    'enabled': False}],
@@ -68,9 +70,11 @@ class PreferencesTests(unittest.TestCase):
         current = preferences.defaults()
         current.check_for_updates = True
         current.download_updates_automatically = True
+        current.beta_channel = True
         updated = preferences.apply_form(current, self.form(), 16)
         self.assertTrue(updated.check_for_updates)
         self.assertTrue(updated.download_updates_automatically)
+        self.assertTrue(updated.beta_channel)
 
     def test_legacy_preset_names_load_as_the_new_presets(self):
         for old, new in (('Focused', 'Share a screenshot'),

@@ -50,8 +50,9 @@ Install the release extra, then provide R2 credentials (`R2_ACCOUNT_ID`,
 ```
 
 Artifacts go to `releases/<version>/<platform>/<file>` with an immutable cache
-policy; the manifest is written to `stable/latest.json` with a 60-second cache so
-a release appears quickly. Drop `--dry-run` to upload. Both are served from the
+policy; the manifest is written to `stable/latest.json` (or `beta/latest.json`
+with `--channel beta`) with a 60-second cache so a release appears quickly. Drop
+`--dry-run` to upload. Both are served from the
 `updates.staginglane.app` custom domain on the bucket; no server runs.
 
 Instead of exporting `R2_*` variables, pass `--vault-path secret/prod/markseal/r2`
@@ -70,8 +71,9 @@ powershell -ExecutionPolicy Bypass -File packaging\release.ps1 -Notes "Initial r
 
 It reads the version from `markseal/__init__.py`, runs the tests and the PyInstaller +
 Inno build, publishes the installer and manifest to R2 through Vault AppRole, and prints
-the manifest URL. `-DryRun` prints the upload plan without contacting Vault or R2, and
-`-SkipBuild` reuses an existing `dist\Markseal-Setup.exe`.
+the manifest URL. `-DryRun` prints the upload plan without contacting Vault or R2,
+`-SkipBuild` reuses an existing `dist\Markseal-Setup.exe`, and `-Channel beta`
+publishes the same artifact to the beta manifest instead of stable.
 
 ## Verifying a build
 

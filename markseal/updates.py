@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import tempfile
@@ -16,8 +17,15 @@ from urllib.parse import urlparse
 from . import __version__
 
 DEFAULT_MANIFEST_URL = 'https://updates.staginglane.app/stable/latest.json'
+BETA_MANIFEST_URL = os.environ.get(
+    'MARKSEAL_BETA_UPDATE_URL', 'https://updates.staginglane.app/beta/latest.json')
 MANIFEST_URL = os.environ.get('MARKSEAL_UPDATE_URL', DEFAULT_MANIFEST_URL)
 TIMEOUT = 8
+
+
+def manifest_url(channel='stable'):
+    override = os.environ.get('MARKSEAL_UPDATE_URL', '').strip()
+    return override or (BETA_MANIFEST_URL if channel == 'beta' else DEFAULT_MANIFEST_URL)
 
 
 class UpdateError(Exception):
@@ -34,19 +42,36 @@ class UpdateInfo:
 
 
 def parse_version(text):
+    base = str(text).strip().lstrip('vV').split('+', 1)[0].split('-', 1)[0]
     parts = []
-    for piece in str(text).strip().lstrip('vV').split('.'):
+    for piece in base.split('.'):
         digits = ''.join(ch for ch in piece if ch.isdigit())
         parts.append(int(digits) if digits else 0)
     return tuple(parts) or (0,)
 
 
+_PRERELEASE_RANKS = {'dev': 0, 'alpha': 1, 'a': 1, 'beta': 2, 'b': 2,
+                     'pre': 3, 'preview': 3, 'rc': 3}
+
+
+def _release_key(text):
+    raw = str(text).strip().lstrip('vV').split('+', 1)[0]
+    base, separator, suffix = raw.partition('-')
+    if not separator:
+        return parse_version(base), (4, 0)
+    label = re.match(r'[a-z]+', suffix.lower())
+    rank = _PRERELEASE_RANKS.get(label.group(0) if label else '', 0)
+    number = int(''.join(ch for ch in suffix if ch.isdigit()) or 0)
+    return parse_version(base), (rank, number)
+
+
 def is_newer(latest, current):
-    a, b = parse_version(latest), parse_version(current)
-    length = max(len(a), len(b))
-    a += (0,) * (length - len(a))
-    b += (0,) * (length - len(b))
-    return a > b
+    a_base, a_pre = _release_key(latest)
+    b_base, b_pre = _release_key(current)
+    length = max(len(a_base), len(b_base))
+    a_base += (0,) * (length - len(a_base))
+    b_base += (0,) * (length - len(b_base))
+    return (a_base, a_pre) > (b_base, b_pre)
 
 
 def platform_key():

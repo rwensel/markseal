@@ -170,6 +170,22 @@ class SettingsFacade(QObject):
         self.settingsChanged.emit()
         self._persist_settings()
 
+    @Property(bool, notify=settingsChanged)
+    def betaChannel(self):
+        return self.session.preferences.beta_channel
+
+    @Slot(bool)
+    def setBetaChannel(self, enabled):
+        enabled = bool(enabled)
+        if self.session.preferences.beta_channel == enabled:
+            return
+        self.session.preferences.beta_channel = enabled
+        self.settingsChanged.emit()
+        self._persist_settings()
+        self.alerts.set_status(
+            'Beta channel on. Update checks will offer pre-release builds.'
+            if enabled else 'Beta channel off. Update checks use stable releases.')
+
     def _persist_settings(self):
         try:
             preferences.write_preferences(self.session.preference_file, self.session.preferences)

@@ -87,8 +87,10 @@ class UpdateFacade(QObject):
     def check(self):
         if not self.session.preferences.check_for_updates or self._jobs:
             return
+        channel = 'beta' if self.session.preferences.beta_channel else 'stable'
+        url = updates.manifest_url(channel)
         self._set_status('Checking for updates…')
-        self._run(lambda progress: updates.check_for_update(), self._found)
+        self._run(lambda progress: updates.check_for_update(url=url), self._found)
 
     @Slot()
     def download(self):

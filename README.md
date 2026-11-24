@@ -82,7 +82,7 @@ Pixelation changes only marked rectangles, using coarse blocks, but it can leave
 
 ## Updates
 
-Updates are off by default. **Settings → Updates** has two switches: **Check for updates** and **Download updates automatically**. When checking is on, the app fetches a small public release manifest (the newest version, its notes, and the installer's SHA-256) and, if a newer version exists, shows a soft banner. **NOTES** reveals the changelist; **UPDATE** downloads the installer, verifies its checksum, and opens the OS installer; **LATER** dismisses it. The check sends no data about you or your screenshots, and nothing installs without your click.
+Updates are off by default. **Settings → Updates** has three switches: **Check for updates**, **Download updates automatically**, and **Beta channel**. When checking is on, the app fetches a small public release manifest (the newest version, its notes, and the installer's SHA-256) and, if a newer version exists, shows a soft banner. **NOTES** reveals the changelist; **UPDATE** downloads the installer, verifies its checksum, and opens the OS installer; **LATER** dismisses it. **Beta channel** switches the manifest to `beta/latest.json`, which carries pre-release builds; it is off by default, and switching back to stable does not downgrade until a stable release catches up. The check sends no data about you or your screenshots, and nothing installs without your click.
 
 ## Themes
 
