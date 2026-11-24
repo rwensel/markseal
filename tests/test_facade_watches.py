@@ -243,6 +243,47 @@ class WatchFacadeTests(unittest.TestCase):
         self.wait_for_auto()
         self.assertTrue((self.folder / 'redacted' / 'old_redacted.png').is_file())
 
+    def test_stop_reports_waiting_files_and_process_existing_resumes_them(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.watches.cancelAuto()
+        path = self.image('waiting.png')
+        watch_store.mark(self.watches.store, self.watches.watch_for(self.folder), path,
+                         state=watch_store.QUEUED)
+        self.watches.sweep()
+        row = self.watches.watchRows[0]
+        self.assertEqual(row['queued'], 1)
+        self.assertFalse(self.watches.autoRunning)
+        self.assertIn('1 waiting', self.watches.autoStatus)
+        self.assertIn('PROCESS EXISTING', self.watches.autoStatus)
+        self.watches.processExisting(str(self.folder))
+        self.wait_for_auto()
+        self.assertTrue((self.folder / 'redacted' / 'waiting_redacted.png').is_file())
+        self.assertEqual(self.watches.watchRows[0]['queued'], 0)
+
+    def test_ocr_retry_requeues_the_failed_files(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.image('done.png')
+        self.watches.sweep()
+        self.wait_for_auto()
+        self.assertIn('finished', self.watches.autoStatus)
+        self.image('blocked.png')
+        captured = {}
+        self.controller.alerts.error = (
+            lambda title, text, *actions: captured.update(title=title, actions=actions))
+        self.controller.session.scan_engine = (
+            lambda: (_ for _ in ()).throw(OSError('OCR unavailable')))
+        self.watches.sweep()
+        row = self.watches.watchRows[0]
+        self.assertEqual(row['needs_review'], 1)
+        self.assertEqual(self.watches.autoStatus, '')
+        self.assertEqual(captured['actions'][0], 'RETRY')
+        self.controller.session.scan_engine = lambda: FakeEngine(TSV)
+        captured['actions'][1]()
+        self.wait_for_auto()
+        self.assertTrue((self.folder / 'redacted' / 'blocked_redacted.png').is_file())
+
     def test_stop_hold_survives_sweeps_until_process_existing(self):
         self.watches.addWatch(str(self.folder))
         self.watches.setPolicy(str(self.folder), 'automatic')

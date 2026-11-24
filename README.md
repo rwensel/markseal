@@ -100,13 +100,13 @@ Register the folders where your screenshots pile up, and new captures arrive in 
 Add a folder in **Settings → Watched folders**, or open the inbox with **WATCHES** and choose **Add folder**. A new watch starts as MANUAL, and the files already in the folder are recorded without being processed.
 
 - **MANUAL**: new images wait in the inbox. Opening the folder adds them to the review board and scans them; the usual review, confirm, and save steps follow.
-- **AUTO**: new images are scanned and, when the scan is complete and finds at least one box, confirmed and exported. Exports go to a `redacted` subfolder beside the originals, using the current method and filename template. The coordinate log follows the **Coordinate log** setting. Every file keeps an intake record with its export path.
+- **AUTO**: new images are scanned and, when the scan is complete and finds at least one box, confirmed and exported. Exports go to a `redacted` subfolder beside the originals, using the current method and filename template. The coordinate log follows the **Coordinate log** setting. Every automatic export keeps its intake record, including the export path.
 
 Automatic work never overwrites an export. A partial scan, a scan that finds nothing, a filename collision, or a read error stops processing that file and marks it for review; nothing is exported. The inbox shows the reason, and opening the folder hands the file to the normal review flow.
 
 **PROCESS EXISTING (N)** is a deliberate action. For an automatic watch it marks the files recorded when the watch was added, along with any waiting for review, for automatic processing. For a manual watch it makes those files count as new, so the next folder open scans them.
 
-**STOP** appears while automatic work runs. It stops the remaining files and keeps everything already finished. Automatic processing stays paused until you choose **PROCESS EXISTING** or change the watch's policy.
+**STOP** appears while automatic work runs. It stops the remaining files and keeps everything already finished. Automatic processing stays paused until you choose **PROCESS EXISTING** or switch the watch back to **AUTO**. The row shows how many files are waiting.
 
 Limits worth knowing:
 
@@ -116,7 +116,8 @@ Limits worth knowing:
 - A tool that overwrites one filename exports its first version, then sends later versions to review as collisions.
 - The original is never modified.
 - A watched folder that disappears keeps its row and records until it returns. Two app instances watching the same folder race; the second reports a collision.
-- MarkSeal ignores its own exports and the sidecars it writes, so a watch does not loop on its output.
+- MarkSeal ignores the export copies it recorded and their sidecars, so a watch does not loop on its output.
+- A single-image **SAVE** you direct into a watched folder is treated as a new source image on the next sweep. Only recorded export copies are skipped.
 
 ## Screenshots
 

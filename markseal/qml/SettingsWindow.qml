@@ -823,6 +823,7 @@ Window {
                                             Text {
                                                 Layout.fillWidth: true
                                                 text: modelData.name
+                                                textFormat: Text.PlainText
                                                 elide: Text.ElideRight
                                                 color: Theme.white
                                                 font.family: Theme.displayFont

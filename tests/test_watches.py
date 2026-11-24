@@ -97,6 +97,26 @@ class WatchTests(unittest.TestCase):
         os.utime(path, (later, later))
         self.assertEqual(watches.pending_queued(self.store, folder), [])
 
+    def test_counts_report_queued_records(self):
+        path = self.write('a.png')
+        folder = self.add()
+        watches.mark(self.store, folder, path, state=watches.QUEUED)
+        counts = watches.counts(self.store, folder)
+        self.assertEqual((counts.new, counts.queued), (0, 1))
+
+    def test_mark_can_pin_the_scanned_stamp(self):
+        path = self.write('a.png')
+        folder = self.add()
+        scanned = watches.record(path).stamp()
+        later = time.time() + 100
+        os.utime(path, (later, later))
+        watches.mark(self.store, folder, path, state=watches.EXPORTED,
+                     export=str(self.root / 'redacted' / 'a_redacted.png'),
+                     stamp=scanned)
+        moment = later + 3
+        self.assertEqual(watches.unseen(self.store, folder, now=moment), [path])
+        self.assertEqual(watches.counts(self.store, folder, now=moment).new, 1)
+
     def test_round_trip_and_remove(self):
         path = self.write('a.png')
         folder = self.add('automatic')

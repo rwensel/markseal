@@ -22,6 +22,8 @@ Item {
         var parts = []
         if (row.new > 0)
             parts.push(row.new + " new")
+        if (row.queued > 0)
+            parts.push(row.queued + " waiting")
         if (row.needs_review > 0)
             parts.push(row.needs_review + " needs review")
         if (row.existing > 0)
@@ -151,6 +153,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     text: row.modelData.name
+                                    textFormat: Text.PlainText
                                     elide: Text.ElideRight
                                     color: Theme.white
                                     font.family: Theme.displayFont
@@ -193,6 +196,7 @@ Item {
                             Text {
                                 Layout.fillWidth: true
                                 text: row.modelData.path
+                                textFormat: Text.PlainText
                                 elide: Text.ElideMiddle
                                 color: Theme.mutedText
                                 font.family: Theme.bodyFont
@@ -212,6 +216,7 @@ Item {
                                 Layout.fillWidth: true
                                 visible: row.modelData.error.length > 0
                                 text: row.modelData.error
+                                textFormat: Text.PlainText
                                 elide: Text.ElideRight
                                 color: Theme.dangerText
                                 font.family: Theme.bodyFont
@@ -227,6 +232,7 @@ Item {
                                     Layout.fillWidth: true
                                     text: row.modelData.issues[index].name + " · "
                                           + row.modelData.issues[index].detail
+                                    textFormat: Text.PlainText
                                     elide: Text.ElideRight
                                     color: Theme.dangerText
                                     font.family: Theme.bodyFont
@@ -238,8 +244,10 @@ Item {
                                 Layout.topMargin: 4
                                 visible: row.modelData.existing > 0
                                          || row.modelData.needs_review > 0
+                                         || row.modelData.queued > 0
                                 text: "PROCESS EXISTING ("
-                                      + (row.modelData.existing + row.modelData.needs_review) + ")"
+                                      + (row.modelData.existing + row.modelData.needs_review
+                                         + row.modelData.queued) + ")"
                                 compact: true
                                 tip: "Requeue the files this watch already has"
                                 onClicked: Backend.watches.processExisting(row.modelData.path)
@@ -317,7 +325,7 @@ Item {
                     compact: true
                     variant: "danger"
                     visible: Backend.watches.autoRunning
-                    tip: "Stop automatic processing until you resume it with Process existing or by changing the policy."
+                    tip: "Stop automatic processing until you resume it with Process existing or by switching the watch back to AUTO."
                     onClicked: Backend.watches.cancelAuto()
                 }
 

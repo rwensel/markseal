@@ -92,6 +92,7 @@ class WatchFacade(QObject):
                 'name': folder.path.name,
                 'policy': POLICY_LABELS[folder.policy],
                 'new': result.new,
+                'queued': result.queued,
                 'existing': result.existing,
                 'needs_review': result.needs_review,
                 'exported': result.exported,
@@ -118,6 +119,10 @@ class WatchFacade(QObject):
     def autoStatus(self):
         if self._auto_jobs.busy:
             return self._auto_jobs.progressText
+        if self._auto_stopped:
+            waiting = sum(result.queued for result in self._counts.values())
+            if waiting:
+                return f'Stopped · {waiting} waiting · PROCESS EXISTING to resume'
         return self._auto_status
 
     @Slot()
@@ -311,6 +316,9 @@ class WatchFacade(QObject):
                 self._save()
                 self.watchesChanged.emit()
             self._auto_hold = False
+            self._auto_stopped = False
+            self._auto_status = ''
+            self.autoChanged.emit()
             self._dispatch_auto()
             return
         for name, record in list(records.items()):
@@ -368,6 +376,8 @@ class WatchFacade(QObject):
             jobs.append((watch, path))
         if not jobs:
             return
+        self._auto_status = ''
+        self.autoChanged.emit()
         touched = {}
         for watch, _path in jobs:
             touched[watch_store.key(watch.path)] = watch
@@ -382,7 +392,7 @@ class WatchFacade(QObject):
         except OSError as error:
             self._auto_records_failed(jobs, str(error))
             self.alerts.error('OCR unavailable', str(error), 'RETRY',
-                              self._dispatch_auto)
+                              lambda: self._retry_auto(jobs))
             return
         except (ValueError, re.error) as error:
             self._auto_records_failed(jobs, str(error))
@@ -440,13 +450,13 @@ class WatchFacade(QObject):
             if current is None:
                 return
             if error is not None:
-                state, target, detail = watch_store.NEEDS_REVIEW, None, error
+                state, target, detail, stamp = watch_store.NEEDS_REVIEW, None, error, None
             else:
-                _path, _stamp, state, target, detail = result
+                _path, stamp, state, target, detail = result
             if state == _PAUSED:
                 self._auto_hold = True
                 if current.policy != 'automatic' and self._write_record(
-                        current, path, watch_store.PRESENTED):
+                        current, path, watch_store.PRESENTED, stamp=stamp):
                     self._counts[watch_store.key(current.path)] = (
                         watch_store.counts(self.store, current))
                     self._save()
@@ -456,7 +466,8 @@ class WatchFacade(QObject):
                 stats['exported'] += 1
             elif state == watch_store.NEEDS_REVIEW:
                 stats['needs_review'] += 1
-            if self._write_record(current, path, state, export=target, detail=detail):
+            if self._write_record(current, path, state, export=target, detail=detail,
+                                  stamp=stamp):
                 self._counts[watch_store.key(current.path)] = watch_store.counts(
                     self.store, current)
                 self._save()
@@ -502,13 +513,34 @@ class WatchFacade(QObject):
         return (open_folder is not None
                 and watch_store.key(open_folder) == watch_store.key(watch.path))
 
-    def _write_record(self, watch, path, state, *, export=None, detail=''):
+    def _write_record(self, watch, path, state, *, export=None, detail='', stamp=None):
         try:
             watch_store.mark(self.store, watch, path, state=state,
-                             export=export, detail=detail)
+                             export=export, detail=detail, stamp=stamp)
             return True
         except OSError:
             return False
+
+    def _retry_auto(self, jobs):
+        """Requeue the files an unavailable OCR engine blocked and run again."""
+        touched = {}
+        for watch, path in jobs:
+            current = watch_store.find(self.store, watch.path)
+            if current is None or current.policy != 'automatic':
+                continue
+            if self._write_record(current, path, watch_store.QUEUED):
+                touched[watch_store.key(current.path)] = current
+        if touched:
+            for watch in touched.values():
+                self._counts[watch_store.key(watch.path)] = watch_store.counts(
+                    self.store, watch)
+            self._save()
+            self.watchesChanged.emit()
+        self._auto_hold = False
+        self._auto_stopped = False
+        self._auto_status = ''
+        self.autoChanged.emit()
+        self._dispatch_auto()
 
     def _mark_queued_presented(self, folder):
         records = self.store.seen.get(watch_store.key(folder.path), {})

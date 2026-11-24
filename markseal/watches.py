@@ -72,6 +72,7 @@ class WatchStore:
 @dataclass
 class WatchCounts:
     new: int = 0
+    queued: int = 0
     existing: int = 0
     needs_review: int = 0
     exported: int = 0
@@ -210,12 +211,19 @@ def remove(store, path):
     store.seen.pop(target, None)
 
 
-def mark(store, folder, path, *, state, export=None, detail=''):
-    """Write one record for a source file using its current stamp."""
+def mark(store, folder, path, *, state, export=None, detail='', stamp=None):
+    """Write one record for a source file.
+
+    ``stamp`` pins the ``(size, mtime_ns)`` the file had when it was scanned,
+    so a source replaced before the record is written stays new. Without it the
+    current stamp is read.
+    """
     path = Path(path)
-    stamp = path.stat()
+    if stamp is None:
+        measured = path.stat()
+        stamp = (measured.st_size, measured.st_mtime_ns)
     records = store.seen.setdefault(key(folder.path), {})
-    records[path.name] = SeenFile(stamp.st_size, stamp.st_mtime_ns, state,
+    records[path.name] = SeenFile(stamp[0], stamp[1], state,
                                   str(export) if export else '', detail)
 
 
@@ -263,7 +271,7 @@ def counts(store, folder, *, now=None):
     moment = time.time() if now is None else now
     records = store.seen.get(key(folder.path), {})
     targets = export_targets(store)
-    fresh = existing = review = exported = 0
+    fresh = queued = existing = review = exported = 0
     issues = []
     for name, path, stamp in images:
         if key(path) in targets:
@@ -277,6 +285,8 @@ def counts(store, folder, *, now=None):
             continue
         if previous.state == PRESENTED:
             existing += 1
+        elif previous.state == QUEUED:
+            queued += 1
         elif previous.state == NEEDS_REVIEW:
             review += 1
             if len(issues) < 5:
@@ -284,7 +294,9 @@ def counts(store, folder, *, now=None):
         elif previous.state == EXPORTED and previous.export:
             if Path(previous.export).is_file():
                 exported += 1
-    return WatchCounts(fresh, existing, review, exported, tuple(issues), True)
+    return WatchCounts(new=fresh, queued=queued, existing=existing,
+                       needs_review=review, exported=exported,
+                       issues=tuple(issues), available=True)
 
 
 def automatic_outcome(entry):
