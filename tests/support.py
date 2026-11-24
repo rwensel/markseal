@@ -1,5 +1,4 @@
 """Shared imports and fakes for the MarkSeal test suite."""
-import subprocess
 import json
 import re
 import time
@@ -41,8 +40,8 @@ class FakeEngine:
         self.single_label = False
         self.label = ('', 0.0)
 
-    def recognize(self, image, *, psm=None, cancel=None, timeout=120):
-        self.calls.append({'psm': psm, 'timeout': timeout, 'size': image.size})
+    def recognize(self, image, *, cancel=None):
+        self.calls.append({'size': image.size})
         if self.outcomes is None:
             return self.tsv
         outcome = self.outcomes.pop(0)

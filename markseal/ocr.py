@@ -5,7 +5,6 @@ import csv
 import io
 import math
 import re
-import subprocess
 from time import monotonic
 
 from PIL import Image, ImageFilter, ImageOps
@@ -21,7 +20,7 @@ from .jobs import ScanCancelled
 class RapidEngine:
     single_label = True
 
-    def recognize(self, image, *, psm=None, cancel=None, timeout=120):
+    def recognize(self, image, *, cancel=None):
         from .rapidocr_backend import recognize_words
         with stage('rapidocr_inference', width=image.width, height=image.height):
             return recognize_words(image)
@@ -48,7 +47,7 @@ def image_boxes(image, categories):
 
 
 def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
-                      color_assisted=False, incomplete=None, area=None, area_layout=None,
+                      color_assisted=False, incomplete=None, area=None, area_scan=False,
                       progress=None):
     def report(text):
         if progress is not None:
@@ -62,7 +61,7 @@ def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
         enlarged = crop.resize((max(1, round(crop.width*factor)), max(1, round(crop.height*factor))), Image.Resampling.LANCZOS)
         boxes = recognize_regions(enlarged, engine, settings, enhanced, cancel,
                                   color_assisted=color_assisted, incomplete=incomplete,
-                                  area_layout='7' if crop.width >= 6*crop.height else '6',
+                                  area_scan=True,
                                   progress=progress)
         all_text, _, confidence, pattern = settings[:4]
         learned = settings[4] if len(settings) > 4 else ()
@@ -96,23 +95,20 @@ def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
         if cancel is not None and cancel.is_set():
             raise ScanCancelled
 
-    def run(source, psm=None, timeout=120):
+    def run(source):
         check_cancel()
         detected = {}
-        tsv = engine.recognize(source, psm=psm, cancel=cancel, timeout=timeout)
+        tsv = engine.recognize(source, cancel=cancel)
         check_cancel()
         return detect_regions(tsv, source.size, *settings, rules=detected), detected
 
-    try:
-        with stage('standard_ocr_pass') as timing:
-            report('Recognizing text')
-            found, pass_rules = run(image, psm=area_layout)
-            boxes = new_ocr_boxes(found)
-            rules = {box: pass_rules.get(box, ()) for box in boxes}
-            if timing is not None:
-                timing['new_suggestions'] = len(boxes)
-    except subprocess.TimeoutExpired as error:
-        raise TimeoutError('Standard OCR timed out. Try a smaller photo or mark redactions manually.') from error
+    with stage('standard_ocr_pass') as timing:
+        report('Recognizing text')
+        found, pass_rules = run(image)
+        boxes = new_ocr_boxes(found)
+        rules = {box: pass_rules.get(box, ()) for box in boxes}
+        if timing is not None:
+            timing['new_suggestions'] = len(boxes)
 
     categories = settings[1] if len(settings) > 1 else set()
     for box, label in image_boxes(image, categories):
@@ -134,19 +130,11 @@ def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
 
     def add_pass(source, name, bounds=None):
         check_cancel()
-        remaining = enhancement_deadline - monotonic()
-        if remaining <= 0:
+        if monotonic() >= enhancement_deadline:
             note_incomplete('remaining enhancement passes skipped')
             return False
-        try:
-            with stage('additional_ocr_pass', pass_name=name) as timing:
-                found, found_rules = run(source, psm=area_layout or '11', timeout=min(15, remaining))
-        except subprocess.TimeoutExpired:
-            note_incomplete(f'{name} timed out')
-            return True
-        except subprocess.CalledProcessError:
-            note_incomplete(f'{name} failed')
-            return True
+        with stage('additional_ocr_pass', pass_name=name) as timing:
+            found, found_rules = run(source)
         previous_count = len(boxes)
         left, top, right, bottom = bounds or (0, 0, image.width, image.height)
         scale_x = (right-left) / source.width
@@ -178,7 +166,7 @@ def recognize_regions(image, engine, settings, enhanced=False, cancel=None, *,
             contrast = ImageOps.autocontrast(ImageOps.grayscale(working).filter(ImageFilter.MedianFilter(3)), cutoff=1)
         if not add_pass(contrast, 'enhanced OCR'):
             return BoxList(boxes, rules)
-        if engine.single_label and area_layout is None:
+        if engine.single_label and not area_scan:
             from .ocr_preprocess import small_text_tiles
             for index, (bounds, tile) in enumerate(small_text_tiles(image), 1):
                 report(f'Reading small-text section {index}')
@@ -217,8 +205,7 @@ def read_area_text(image, engine, area):
                                 max(1, round(crop.height * factor))), Image.Resampling.LANCZOS)
     border = max(6, crop.height // 20)
     crop = ImageOps.expand(crop, border=border, fill=crop.getpixel((0, 0)))
-    psm = '7' if crop.width >= 6 * crop.height else '6'
-    return text_from_tsv(engine.recognize(crop, psm=psm, timeout=30))
+    return text_from_tsv(engine.recognize(crop))
 
 
 def scan_folder_image(path, expected, engine, settings, enhanced=False, cancel=None, *, color_assisted=False, area=None):

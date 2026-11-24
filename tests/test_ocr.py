@@ -18,7 +18,6 @@ from tests.support import (
     recognize_regions,
     result_to_tsv,
     scan_folder_image,
-    subprocess,
     text_from_tsv,
 )
 
@@ -48,20 +47,12 @@ class OcrPipelineTests(unittest.TestCase):
                                learned_patterns=[pattern_from_text('Crownfern Analytics')])
         self.assertEqual(len(found), 2)
 
-    def test_optional_ocr_timeout_keeps_completed_suggestions(self):
+    def test_enhanced_pass_errors_propagate(self):
         image = Image.new('RGB', (120, 80), 'white')
-        incomplete = []
-        box = (10, 10, 70, 35)
-        engine = FakeEngine(outcomes=['tsv', subprocess.TimeoutExpired('ocr', 15)])
-        with patch('markseal.ocr.detect_regions', return_value=[box]):
-            result = recognize_regions(image, engine, (False,), enhanced=True, incomplete=incomplete)
-        self.assertEqual(result, [box])
-        self.assertEqual(incomplete, ['enhanced OCR timed out'])
-        self.assertLessEqual(engine.calls[-1]['timeout'], 15)
-        entry = FolderImage(SimpleNamespace(name='example.png'))
-        entry.add_suggestions(result, incomplete)
-        self.assertEqual(entry.selected, {0})
-        self.assertEqual(entry.status, 'Partial scan · review needed')
+        engine = FakeEngine(outcomes=['tsv', RuntimeError('engine failed')])
+        with patch('markseal.ocr.detect_regions', return_value=[(10, 10, 70, 35)]):
+            with self.assertRaises(RuntimeError):
+                recognize_regions(image, engine, (False,), enhanced=True)
 
     def test_small_area_model_fallback_requires_exact_label_and_confidence(self):
         image = Image.new('RGB', (200, 140), 'white')
@@ -147,7 +138,7 @@ class OcrAdapterTests(unittest.TestCase):
              patch('markseal.ocr_preprocess.small_text_tiles', return_value=[]), \
              patch('markseal.ocr_preprocess.color_ocr_variants', return_value=[]):
             recognize_regions(image, engine, settings, enhanced=True, color_assisted=True)
-        self.assertEqual([call['psm'] for call in engine.calls], [None, '11'])
+        self.assertEqual(len(engine.calls), 2)
 
     def test_rapid_adapter_returns_the_expected_box_shape(self):
         tsv = ('page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
