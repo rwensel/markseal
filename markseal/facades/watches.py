@@ -60,6 +60,7 @@ class WatchFacade(QObject):
         self._intaking = False
         self._auto_jobs = JobCenter(session, self)
         self._auto_hold = False
+        self._auto_stopped = False
         self._auto_status = ''
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._schedule_sweep)
@@ -198,6 +199,7 @@ class WatchFacade(QObject):
         except watch_store.WatchError as error:
             self.alerts.error('Cannot watch folder', str(error))
             return
+        self._auto_stopped = False
         self._save()
         self._watch_path(folder.path)
         self.sweep()
@@ -221,6 +223,7 @@ class WatchFacade(QObject):
         self.watchesChanged.emit()
         if value == 'automatic':
             self._auto_hold = False
+            self._auto_stopped = False
             self._dispatch_auto()
 
     @Slot(str)
@@ -286,6 +289,7 @@ class WatchFacade(QObject):
         folder_key = watch_store.key(folder.path)
         records = self.store.seen.get(folder_key, {})
         changed = False
+        self._auto_stopped = False
         if folder.policy == 'automatic':
             for name, record in list(records.items()):
                 if record.state not in (watch_store.PRESENTED, watch_store.NEEDS_REVIEW):
@@ -330,13 +334,13 @@ class WatchFacade(QObject):
 
     @Slot()
     def cancelAuto(self):
-        self._auto_hold = True
+        self._auto_stopped = True
         self._auto_jobs.cancel()
         self.autoChanged.emit()
 
     def _dispatch_auto(self):
         """Enqueue every eligible file once, then start the lane if it is idle."""
-        if self._auto_hold or self._auto_jobs.busy or self.session.jobs.busy:
+        if self._auto_hold or self._auto_stopped or self._auto_jobs.busy or self.session.jobs.busy:
             return
         candidates = []
         for watch in list(self.store.folders):

@@ -32,6 +32,7 @@ Window {
             Layout.preferredHeight: 70
             onSettingsClicked: settingsWindow.openSettings()
             onCaptureClicked: captureRegion.open()
+            onWatchesClicked: watchesPanel.open()
         }
 
         UpdateBanner {
@@ -72,6 +73,11 @@ Window {
 
     CaptureRegion {
         id: captureRegion
+    }
+
+    WatchesPanel {
+        id: watchesPanel
+        anchors.fill: parent
     }
 
     DropArea {
@@ -123,6 +129,13 @@ Window {
         target: Backend.settings
         function onSettingsRequested() {
             settingsWindow.openSettings()
+        }
+    }
+
+    Connections {
+        target: Backend.watches
+        function onInboxRequested() {
+            watchesPanel.open()
         }
     }
 
@@ -225,7 +238,9 @@ Window {
         sequence: "Escape"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (captureRegion.visible)
+            if (watchesPanel.visible)
+                watchesPanel.close()
+            else if (captureRegion.visible)
                 captureRegion.visible = false
             else if (settingsWindow.visible)
                 settingsWindow.closeSettings()

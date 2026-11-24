@@ -243,6 +243,30 @@ class WatchFacadeTests(unittest.TestCase):
         self.wait_for_auto()
         self.assertTrue((self.folder / 'redacted' / 'old_redacted.png').is_file())
 
+    def test_stop_hold_survives_sweeps_until_process_existing(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.watches.cancelAuto()
+        self.image('later.png')
+        self.watches.sweep()
+        self.assertFalse(self.watches.autoRunning)
+        self.assertFalse((self.folder / 'redacted' / 'later_redacted.png').exists())
+        self.watches.processExisting(str(self.folder))
+        self.wait_for_auto()
+        self.assertTrue((self.folder / 'redacted' / 'later_redacted.png').is_file())
+
+    def test_switching_policy_to_automatic_resumes_after_stop(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.watches.cancelAuto()
+        self.image('later.png')
+        self.watches.sweep()
+        self.assertFalse(self.watches.autoRunning)
+        self.watches.setPolicy(str(self.folder), 'manual')
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.wait_for_auto()
+        self.assertTrue((self.folder / 'redacted' / 'later_redacted.png').is_file())
+
     def test_startup_resumes_a_queued_record(self):
         self.image('resume.png')
         self.watches.addWatch(str(self.folder))

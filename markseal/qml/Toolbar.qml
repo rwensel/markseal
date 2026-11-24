@@ -9,6 +9,7 @@ Item {
     implicitHeight: 70
     signal settingsClicked()
     signal captureClicked()
+    signal watchesClicked()
 
     readonly property bool wide: width >= 1360
     readonly property bool canScan: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
@@ -129,6 +130,16 @@ Item {
         }
 
         ConcourseButton {
+            objectName: "watchesButton"
+            text: Backend.watches.newCount > 0
+                  ? "WATCHES · " + Backend.watches.newCount
+                  : "WATCHES"
+            compact: true
+            tip: "Watched folders and new arrivals"
+            onClicked: toolbar.watchesClicked()
+        }
+
+        ConcourseButton {
             text: "PASTE"
             compact: true
             tip: "Paste an image from the clipboard (Ctrl+V)"
@@ -164,6 +175,7 @@ Item {
         ConcourseButton {
             text: "SCAN REGION"
             compact: true
+            visible: toolbar.wide
             tip: "Drag around one area to scan just that text"
             enabled: toolbar.canScan
             onClicked: Backend.review.beginScanArea()
@@ -248,6 +260,7 @@ Item {
         }
 
         ConcourseButton {
+            objectName: "settingsButton"
             text: "SETTINGS"
             variant: "ghost"
             compact: true
@@ -276,6 +289,10 @@ Item {
             text: "Open folder  (Ctrl+Shift+O)"
             enabled: !Backend.batch.busy
             onTriggered: Backend.openFolder()
+        }
+        MenuAction {
+            text: "Watched folders"
+            onTriggered: toolbar.watchesClicked()
         }
         MenuAction {
             text: "Capture region"
