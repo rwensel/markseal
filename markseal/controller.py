@@ -4,14 +4,16 @@ import io
 from pathlib import Path
 
 from PIL import Image
-from PySide6.QtCore import Property, QBuffer, QIODevice, QObject, QUrl, Signal, Slot
+from PySide6.QtCore import (
+    Property, QBuffer, QIODevice, QObject, QTimer, QUrl, Signal, Slot,
+)
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QFileDialog
 
 from . import documents, images
 from .facades import (
     Alerts, BatchFacade, FolderFacade, JobCenter, ReviewFacade, SessionState,
-    SettingsFacade, UpdateFacade,
+    SettingsFacade, UpdateFacade, WatchFacade,
 )
 from .facades.alerts import box_hint
 from .ui.models import DisplayImageProvider
@@ -46,6 +48,9 @@ class Controller(QObject):
         self.session.facades.settings = self._settings
         self.session.facades.review = self._review
         self.session.facades.folder = self._folder
+        self._watches = WatchFacade(self.session, self.alerts, self)
+        self._watches.batch = self._batch
+        self.session.facades.watches = self._watches
         self._review.batch = self._batch
         self._settings.on_method_changed = self._review.method_changed
         self._settings.retry_learn = self._review.beginLearnPattern
@@ -65,6 +70,7 @@ class Controller(QObject):
         self._updates.check()
         if not self.alerts.status_text:
             self.alerts.set_status(box_hint(self.session.preferences.theme))
+        QTimer.singleShot(0, self._watches.start)
 
     @Property(QObject, constant=True)
     def settings(self):
@@ -85,6 +91,10 @@ class Controller(QObject):
     @Property(QObject, constant=True)
     def updates(self):
         return self._updates
+
+    @Property(QObject, constant=True)
+    def watches(self):
+        return self._watches
 
     def display_qimage(self):
         return self._review.display_qimage()

@@ -62,7 +62,7 @@ class ModuleSplitTests(unittest.TestCase):
         base_props, base_methods = declared(QObject)
         props, methods = declared(Controller)
         self.assertEqual(props - base_props, {
-            'settings', 'review', 'folder', 'batch', 'updates',
+            'settings', 'review', 'folder', 'batch', 'updates', 'watches',
             'statusText', 'errorText', 'errorDetail', 'errorActionText',
         })
         self.assertEqual(methods - base_methods, {
@@ -77,7 +77,8 @@ class ModuleSplitTests(unittest.TestCase):
         modules = sorted(path for path in package.glob('*.py') if path.name != '__init__.py')
         self.assertEqual(
             [path.stem for path in modules],
-            ['activity', 'alerts', 'batch', 'folder', 'review', 'settings', 'state', 'updates'],
+            ['activity', 'alerts', 'batch', 'folder', 'review', 'settings', 'state',
+             'updates', 'watches'],
         )
         for path in modules:
             tree = ast.parse(path.read_text(encoding='utf-8'))
