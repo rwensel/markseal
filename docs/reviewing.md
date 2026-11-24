@@ -40,9 +40,15 @@ Pixels outside selected rectangles are preserved. Camera metadata is omitted fro
 
 Pixelation changes only the marked rectangles, using coarse blocks, but it can leave text or visual features recognizable or recoverable. Gaussian **Blur** is similar: blurred text can sometimes be recovered. For highly sensitive material use **Solid black**, and independently review before sharing. **Erase** fills the area with nearby pixels; check the result. This tool cannot guarantee removal of all sensitive information.
 
+## PDF pages
+
+Open a PDF with **Open image** or by dropping it on the window. The page bar under the filename shows **PREV**, `PAGE n / N`, and **NEXT**; PageUp and PageDown do the same from the keyboard. Each page keeps its own boxes, rules, and confirmation while you switch.
+
+Only the current page is saved, as `document_page-001_redacted.png`; the coordinate log records `source_page`. PDFs render locally at 200 DPI and are capped at 40 million pixels. There is no PDF text extraction, PDF output, password entry, or PDF support in folder mode. **VERIFY** is unavailable for PDF pages because the audit compares against an image original.
+
 ## Work through a folder
 
-1. Use **Open folder** to list supported images directly inside a folder. Select a row to switch images and keep its boxes and selections for the session.
+1. Use **Open folder** to list supported images directly inside a folder. PDFs are opened one file at a time; folder mode does not expand their pages. Select a row to switch images and keep its boxes and selections for the session.
 2. Use **Scan all** for the remaining images, or **Scan image** for the current one. Ctrl-click selects separate rows and Shift-click selects a range; **Scan selected** scans just those rows and keeps existing boxes. Progress, queued/running labels, and counts stay visible while jobs run.
 3. Inspect each image, adjust its boxes, and click **Confirm**. **Confirm all** confirms every eligible image; it skips images with no selected boxes or errors. Partial scans require acknowledging the warning.
 4. **Save reviewed** exports every reviewed image still awaiting export. Exports use PNG and refuse to overwrite existing files. A reviewed image with no selected boxes needs a separate confirmation before exporting an unredacted copy.
@@ -68,4 +74,4 @@ The audit checks for unreadable PNGs, missing coordinate logs, changed pixels ou
 
 ## Sharing
 
-**Copy image** puts the confirmed preview on the local clipboard so you can paste it into chat, a ticket, documentation, or a sharing service you already use. **Save** writes a PNG and, when enabled, a coordinate log. MarkSeal has no upload integrations; sharing happens through your own clipboard or file workflow.
+**Copy image** puts the confirmed preview on the local clipboard so you can paste it into chat, a ticket, documentation, or a sharing service you already use. **Save** writes a PNG and, when enabled, a coordinate log. For a PDF, Save writes the current page and its page-specific log entry. MarkSeal has no upload integrations; sharing happens through your own clipboard or file workflow.

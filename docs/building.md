@@ -1,6 +1,6 @@
 # Building from source
 
-MarkSeal is a Python 3.10+ / PySide6 application packaged with PyInstaller. The bundle includes the QML shell and the bundled RapidOCR models, so the installed app needs no Python, pip, or network access.
+MarkSeal is a Python 3.10+ / PySide6 application packaged with PyInstaller. The bundle includes the QML shell, the bundled RapidOCR models, and the PDFium renderer, so the installed app needs no Python, pip, external PDF tool, or network access.
 
 ## Prerequisites
 
@@ -41,7 +41,7 @@ Produces `dist/Markseal.app`. The spec adds the `BUNDLE` step on macOS. The app 
 .venv\Scripts\python.exe -m unittest
 ```
 
-CI runs the suite on Windows; the Linux and macOS release builds are produced without running tests.
+CI runs the suite on Windows; the Linux and macOS release builds are produced without running tests. The PDF renderer uses pypdfium2, so the freeze must include its bundled PDFium binary; the spec's `collect_all('pypdfium2')` entry does that.
 
 ## Third-party notices
 
@@ -51,7 +51,7 @@ Regenerate `THIRD_PARTY_NOTICES.txt` after dependency changes:
 .venv\Scripts\python.exe packaging\generate_notices.py
 ```
 
-The generator reads the installed runtime packages and their license files. The resulting file is bundled by the spec and copied beside the executable by the installer.
+The generator reads the installed runtime packages and their license files, including pypdfium2/PDFium. The resulting file is bundled by the spec and copied beside the executable by the installer.
 
 ## Manual builds
 

@@ -22,9 +22,19 @@ python -m venv .venv
 
 On Linux or macOS, use `.venv/bin/python` for the install and run `.venv/bin/markseal`. The app makes no network calls by default; only the opt-in update check contacts the update feed, and image data never leaves the machine.
 
-## Open a screenshot
+## Open a screenshot or PDF
 
 Use **Open image**, **Paste** (Ctrl+V), or drag an image anywhere onto the window. Dragging a folder opens folder mode. A copied image or a copied image file works with Paste.
+
+MarkSeal opens PNG, JPEG, BMP, and TIFF images, plus PDF documents. A PDF opens one file at a time; use the page bar to move between pages. Folder mode remains image-only.
+
+## Open a PDF
+
+The PDF page bar sits under the filename. **PREV** and **NEXT** (PageUp and PageDown) move through the document; the label shows `PAGE n / N`. Each page keeps its own boxes, rules, and confirmation while you move around. Saving writes the current page as a PNG named like `document_page-001_redacted.png`, and the coordinate log includes `source_page`.
+
+PDFs render locally at 200 DPI, capped at 40 million pixels. There is no PDF text extraction, PDF output, password entry, or PDF support in folder mode. **VERIFY** is unavailable for a PDF page because there is no image original to compare against.
+
+![A PDF page with the page navigation bar](images/pdf-page.png)
 
 ## Scan and review
 
@@ -43,6 +53,7 @@ If a value keeps slipping through, teach it once: select it with **Settings → 
 After confirming:
 
 - **Save** writes a PNG and, when enabled in Settings, a JSON coordinate log. The original image is never overwritten.
+- For a PDF, **Save** writes only the current rendered page and uses a page-specific PNG name; the log records `source_page`.
 - **Copy image** puts the confirmed preview on the clipboard.
 - **Save reviewed** in folder mode exports every reviewed image that is still awaiting export.
 
@@ -52,7 +63,8 @@ Only selected boxes are applied and included in the log. Review the log before s
 
 | Shortcut | Action |
 |---|---|
-| Ctrl+O / Ctrl+Shift+O | Open an image / folder |
+| Ctrl+O / Ctrl+Shift+O | Open an image or PDF / folder |
+| PageUp / PageDown | Previous / next PDF page |
 | Ctrl+V | Paste an image |
 | Ctrl+F | Scan the current image |
 | Ctrl+Enter | Confirm the current selection |
