@@ -31,7 +31,7 @@ class SettingsFacadeTests(unittest.TestCase):
     def apply(self, **overrides):
         self.settings.settingsChanged.connect(lambda: None)
         values = {
-            'sensitivity': 'Focused',
+            'sensitivity': 'Share a screenshot',
             'confidence': 55,
             'all_text': False,
             'enhanced': False,
@@ -59,7 +59,7 @@ class SettingsFacadeTests(unittest.TestCase):
                      'redactionMethod', 'outputDirectory', 'filenameTemplate',
                      'includeLog', 'parallelImages', 'parallelLimit', 'blockedPatterns',
                      'palette', 'themeChoices', 'methodNames',
-                     'presetNames', 'presetCategories', 'categoryNames'):
+                     'presetNames', 'presetCategories', 'presetDescriptions', 'categoryNames'):
             self.assertTrue(hasattr(self.settings, name), name)
         for name in ('applySettings', 'setRedactionMethod', 'requestSettings',
                      'previewThemeById', 'clearThemePreview', 'chooseOutputFolder',

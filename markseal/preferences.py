@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from .detection import CATEGORIES, PATTERNS, PRESETS
+from .detection import CATEGORIES, DEFAULT_PRESET, LEGACY_PRESETS, PATTERNS, PRESETS
 from .export import output_path
 from .theme_tokens import DEFAULT_ID, is_known
 
@@ -53,7 +53,7 @@ class PreferencesError(ValueError):
 
 @dataclass
 class Preferences:
-    sensitivity: str = 'Focused'
+    sensitivity: str = DEFAULT_PRESET
     confidence: int = 50
     all_text: bool = False
     enhanced_ocr: bool = False
@@ -105,7 +105,8 @@ def _valid_template(template, source):
 
 
 def defaults():
-    return Preferences(categories=_category_names(PRESETS['Focused']))
+    return Preferences(categories=_category_names(PRESETS[DEFAULT_PRESET]),
+                       sensitivity=DEFAULT_PRESET)
 
 
 def _blocked_entry(entry):
@@ -128,8 +129,13 @@ def from_document(document, parallel_limit=MAX_PARALLEL):
     limit = max(1, int(parallel_limit))
     preferences = defaults()
     preset = document.get('sensitivity')
-    if isinstance(preset, str) and preset in {*PRESETS, 'Custom'}:
-        preferences.sensitivity = preset
+    if isinstance(preset, str):
+        preset = LEGACY_PRESETS.get(preset, preset)
+        if preset in PRESETS:
+            preferences.sensitivity = preset
+            preferences.categories = _category_names(PRESETS[preset])
+        elif preset == 'Custom':
+            preferences.sensitivity = 'Custom'
     categories = document.get('categories')
     if isinstance(categories, list):
         preferences.categories = _category_names(categories)
@@ -231,6 +237,8 @@ def apply_form(current, form, parallel_limit, source=None):
         raise ValueError('Enter a filename template.')
     output_path(chosen or Path('.'), name, source or Path('example.png'), 1)
     sensitivity = form['sensitivity']
+    if isinstance(sensitivity, str):
+        sensitivity = LEGACY_PRESETS.get(sensitivity, sensitivity)
     if isinstance(sensitivity, str) and sensitivity not in {*PRESETS, 'Custom'}:
         raise ValueError('Choose a detection preset.')
     method = form['method']

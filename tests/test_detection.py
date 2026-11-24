@@ -1,6 +1,7 @@
 """Pattern detection and provenance rules."""
 import unittest
 
+from markseal.detection import CATEGORIES, PRESET_DESCRIPTIONS
 from tests.support import (
     BoxList,
     FolderImage,
@@ -49,12 +50,16 @@ class DetectionTests(unittest.TestCase):
         self.assertFalse(found('GB82WEST12345698765431', 'IBANs'))
         self.assertTrue(found('123-45-6789', 'SSNs'))
 
-    def test_focused_preset_leads_with_pii_and_qr(self):
-        self.assertIn('Card numbers', PRESETS['Focused'])
-        self.assertIn('Faces', PRESETS['Focused'])
-        self.assertIn('QR codes', PRESETS['Focused'])
-        self.assertNotIn('Infrastructure', PRESETS['Focused'])
-        self.assertIn('Infrastructure', PRESETS['Balanced'])
+    def test_share_preset_leads_with_pii_and_qr(self):
+        self.assertIn('Card numbers', PRESETS['Share a screenshot'])
+        self.assertIn('Faces', PRESETS['Share a screenshot'])
+        self.assertIn('QR codes', PRESETS['Share a screenshot'])
+        self.assertNotIn('Infrastructure', PRESETS['Share a screenshot'])
+        self.assertIn('Infrastructure', PRESETS['Work logs & configs'])
+
+    def test_preset_sets_and_descriptions_stay_complete(self):
+        self.assertEqual(PRESETS['Everything'], set(CATEGORIES))
+        self.assertEqual(set(PRESET_DESCRIPTIONS), set(PRESETS))
 
     def test_generated_pattern_matches_the_selected_text_and_not_neighbors(self):
         pattern = pattern_from_text('DemoOnly_Pass-91!q')
@@ -191,7 +196,7 @@ class DetectionTests(unittest.TestCase):
         for line, words in enumerate(lines, 1):
             for column, word in enumerate(words, 1):
                 tsv += f"1\t1\t1\t{line}\t{column*200}\t{line*30}\t150\t20\t90\t{word}\n"
-        found = detect_regions(tsv, (700, 500), categories=PRESETS['Balanced'], min_confidence=50)
+        found = detect_regions(tsv, (700, 500), categories=PRESETS['Work logs & configs'], min_confidence=50)
         self.assertEqual({(box[1]+4)//30 for box in found}, set(range(1, 7)))
         self.assertIn((396, 176, 554, 204), found)
 

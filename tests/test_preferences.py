@@ -18,7 +18,7 @@ from tests.support import (
 class PreferencesTests(unittest.TestCase):
     def form(self, **overrides):
         values = {
-            'sensitivity': 'Focused',
+            'sensitivity': 'Share a screenshot',
             'confidence': 50,
             'all_text': False,
             'enhanced_ocr': False,
@@ -36,9 +36,9 @@ class PreferencesTests(unittest.TestCase):
 
     def test_defaults_match_the_shipped_detection_preset(self):
         defaults = preferences.defaults()
-        self.assertEqual(defaults.sensitivity, 'Focused')
+        self.assertEqual(defaults.sensitivity, 'Share a screenshot')
         self.assertEqual(defaults.confidence, 50)
-        self.assertEqual(set(defaults.categories), PRESETS['Focused'])
+        self.assertEqual(set(defaults.categories), PRESETS['Share a screenshot'])
         self.assertEqual(defaults.method, 'Pixelate')
         self.assertEqual(defaults.parallel_images, 1)
         self.assertEqual(defaults.blocked_patterns, [])
@@ -47,7 +47,7 @@ class PreferencesTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / 'settings.json'
             stored = Preferences(
-                sensitivity='Balanced', confidence=77, all_text=True, enhanced_ocr=True,
+                sensitivity='Everything', confidence=77, all_text=True, enhanced_ocr=True,
                 color_ocr=True, show_rules=True,
                 method='Solid black', output_directory=folder,
                 filename_template='shot-{index}', include_log=False, parallel_images=3,
@@ -71,6 +71,15 @@ class PreferencesTests(unittest.TestCase):
         updated = preferences.apply_form(current, self.form(), 16)
         self.assertTrue(updated.check_for_updates)
         self.assertTrue(updated.download_updates_automatically)
+
+    def test_legacy_preset_names_load_as_the_new_presets(self):
+        for old, new in (('Focused', 'Share a screenshot'),
+                         ('Balanced', 'Everything'),
+                         ('Broad', 'Everything')):
+            with self.subTest(old=old):
+                loaded = preferences.from_document({'sensitivity': old})
+                self.assertEqual(loaded.sensitivity, new)
+                self.assertEqual(set(loaded.categories), PRESETS[new])
 
     def test_invalid_settings_are_rejected_before_writing(self):
         current = preferences.defaults()

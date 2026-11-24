@@ -22,7 +22,7 @@ Window {
     property string errorText: ""
     property bool showDiagnostics: false
     property var selectedCategories: []
-    property string sensitivityValue: "Focused"
+    property string sensitivityValue: "Share a screenshot"
     property int confidenceValue: 50
     property bool allTextValue: false
     property bool enhancedValue: false
@@ -321,7 +321,7 @@ Window {
                             width: parent.width
                             spacing: 10
 
-                            FieldLabel { text: "SENSITIVITY PRESET" }
+                            FieldLabel { text: "DETECTION PRESET" }
 
                             ConcourseComboBox {
                                 id: sensitivityCombo
@@ -348,8 +348,10 @@ Window {
 
                             HintText {
                                 Layout.fillWidth: true
-                                text: "Focused, Balanced and Broad choose groups of categories. "
-                                      + "Toggling a category below switches the preset to Custom."
+                                text: settings.sensitivityValue === "Custom"
+                                      ? "Custom uses the categories you selected below. "
+                                        + "Toggling a category switches the preset to Custom."
+                                      : (Backend.settings.presetDescriptions[settings.sensitivityValue] || "")
                             }
 
                             FieldLabel {

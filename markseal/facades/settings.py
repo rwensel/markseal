@@ -79,6 +79,10 @@ class SettingsFacade(QObject):
         return {name: [category for category in detection.CATEGORIES if category in values]
                 for name, values in detection.PRESETS.items()}
 
+    @Property(dict, constant=True)
+    def presetDescriptions(self):
+        return dict(detection.PRESET_DESCRIPTIONS)
+
     @Property(list, notify=settingsChanged)
     def categories(self):
         return list(self.session.preferences.categories)

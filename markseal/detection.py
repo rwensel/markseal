@@ -54,12 +54,32 @@ PATTERNS = {
 TEXT_CATEGORIES = tuple(PATTERNS)
 IMAGE_CATEGORIES = ('Faces', 'QR codes')
 CATEGORIES = TEXT_CATEGORIES + IMAGE_CATEGORIES
+DEFAULT_PRESET = 'Share a screenshot'
 PRESETS = {
-    'Focused': {'Emails', 'URLs', 'IP addresses', 'Secrets', 'Card numbers', 'IBANs',
-                'SSNs', 'Faces', 'QR codes'},
-    'Balanced': (set(PATTERNS) - {'Long identifiers'}) | set(IMAGE_CATEGORIES),
-    'Broad': set(PATTERNS) | set(IMAGE_CATEGORIES),
+    'Share a screenshot': {
+        'Emails', 'URLs', 'IP addresses', 'Secrets', 'Card numbers', 'IBANs', 'SSNs',
+        'Faces', 'QR codes',
+    },
+    'Work logs & configs': {
+        'Emails', 'URLs', 'IP addresses', 'Ticket IDs', 'Paths', 'Hashes', 'Secrets',
+        'Infrastructure', 'Long identifiers',
+    },
+    'Financial details': {'Emails', 'Card numbers', 'IBANs', 'SSNs'},
+    'Faces & codes': {'Faces', 'QR codes'},
+    'Everything': set(PATTERNS) | set(IMAGE_CATEGORIES),
 }
+PRESET_DESCRIPTIONS = {
+    'Share a screenshot': 'Emails, links, IPs, credentials, card/IBAN/SSN, faces and QR codes '
+                          'for a screenshot you are about to share.',
+    'Work logs & configs': 'Credentials, infrastructure, paths, ticket IDs, hashes and long '
+                           'identifiers from logs and configs.',
+    'Financial details': 'Card numbers, IBANs, SSNs and emails from statements, invoices and '
+                         'receipts.',
+    'Faces & codes': 'Faces and QR codes in photos and screen captures.',
+    'Everything': 'Every text and image category. Expect more false positives, especially long '
+                  'identifiers.',
+}
+LEGACY_PRESETS = {'Focused': 'Share a screenshot', 'Balanced': 'Everything', 'Broad': 'Everything'}
 
 CREDENTIAL_FIELD = re.compile(
     r"(?:password|passwd|passphrase|bearer\s+token|authorization|(?:api|access)[ _-]?key|"
