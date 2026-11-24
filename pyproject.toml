@@ -45,9 +45,9 @@ markseal-audit = "markseal.audit_exports:main"
 markseal-logs = "markseal.performance_log:main"
 
 [project.urls]
-Homepage = "https://github.com/rwensel/markseal-public"
-Repository = "https://github.com/rwensel/markseal-public"
-Issues = "https://github.com/rwensel/markseal-public/issues"
+Homepage = "https://github.com/rwensel/markseal"
+Repository = "https://github.com/rwensel/markseal"
+Issues = "https://github.com/rwensel/markseal/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "markseal.__version__"}

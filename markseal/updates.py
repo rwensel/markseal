@@ -16,9 +16,10 @@ from urllib.parse import urlparse
 
 from . import __version__
 
-DEFAULT_MANIFEST_URL = 'https://updates.staginglane.app/stable/latest.json'
+DEFAULT_MANIFEST_URL = 'https://rwensel.github.io/markseal/updates/stable/latest.json'
 BETA_MANIFEST_URL = os.environ.get(
-    'MARKSEAL_BETA_UPDATE_URL', 'https://updates.staginglane.app/beta/latest.json')
+    'MARKSEAL_BETA_UPDATE_URL',
+    'https://rwensel.github.io/markseal/updates/beta/latest.json')
 MANIFEST_URL = os.environ.get('MARKSEAL_UPDATE_URL', DEFAULT_MANIFEST_URL)
 TIMEOUT = 8
 
