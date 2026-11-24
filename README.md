@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="docs/images/banner.png" alt="MarkSeal — offline screenshot redaction" width="760">
+  <img src="docs/images/banner.png" alt="MarkSeal — local review-first redaction for screenshots and PDFs" width="760">
 </p>
 
 <p align="center">
-  <b>Find and redact sensitive text in screenshots without uploading them.</b><br>
-  Local OCR suggests likely secrets. You review the boxes and export a pixel-accurate PNG.
+  <b>Private, review-first redaction for screenshots and PDFs.</b><br>
+  Local OCR and a bundled PII model find names, addresses, secrets, cards, and faces. You review every box and export a pixel-accurate PNG with a verifiable audit log. No uploads, accounts, or telemetry.
 </p>
 
 <p align="center">

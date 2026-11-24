@@ -2,7 +2,7 @@
 
 <p align="center"><img src="images/icon.png" alt="MarkSeal" width="56"></p>
 
-MarkSeal finds personal and engineering identifiers in screenshots with local OCR and a bundled PII model, lets you review the redaction boxes, and exports a pixel-accurate PNG. Everything runs on your machine; the only optional network use is the update check.
+MarkSeal finds personal and engineering identifiers in screenshots and PDFs with local OCR and a bundled PII model, lets you review every redaction box, and exports a pixel-accurate PNG. Everything runs on your machine; the only optional network use is the update check.
 
 - [Getting started](getting-started.md) — install, open, scan, review, save.
 - [Reviewing and redacting](reviewing.md) — boxes, rules, zoom, capture, folder work, reuse.

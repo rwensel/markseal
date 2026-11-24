@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "markseal"
-description = "Private, offline screenshot redaction with reviewable OCR suggestions and pixel-accurate PNG export."
+description = "Private, review-first redaction for screenshots and PDFs with local OCR, a bundled PII model, and pixel-accurate PNG export."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
