@@ -58,6 +58,20 @@ Open an image, go to **Settings → Blocked patterns**, and click **Learn from s
 
 ![Learning a blocked pattern from a selected area](docs/images/settings-blocked.png)
 
+## Methods and themes
+
+### Four ways to redact
+
+Pixelate, solid black, blur, or erase — switch on the live preview and see exactly what will be saved.
+
+![Switching between Pixelate, Solid black, Blur, and Erase](docs/images/methods.gif)
+
+### Six themes
+
+From the default Split-flap Concourse to Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram.
+
+![Switching between MarkSeal themes](docs/images/themes.gif)
+
 ## Screenshots
 
 | Review suggestions | Applied preview |

@@ -34,6 +34,8 @@ Use the **Method** toggle in the viewer caption, or **Settings → Redaction**, 
 
 Pixels outside selected rectangles are preserved. Camera metadata is omitted from saved copies.
 
+![Switching between the four redaction methods](images/methods.gif)
+
 ## Pixelation warning
 
 Pixelation changes only the marked rectangles, using coarse blocks, but it can leave text or visual features recognizable or recoverable. Gaussian **Blur** is similar: blurred text can sometimes be recovered. For highly sensitive material use **Solid black**, and independently review before sharing. **Erase** fills the area with nearby pixels; check the result. This tool cannot guarantee removal of all sensitive information.

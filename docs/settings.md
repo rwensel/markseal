@@ -63,6 +63,8 @@ Run `.venv\Scripts\python.exe -m markseal.performance_log` to summarize the late
 
 Choose one of six themes: Split-flap Concourse (default), Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram. Clicking a card previews it across the window; **Apply** keeps it. The bottom status line names the current theme's selected and excluded colors. No network calls are involved.
 
+![Switching between MarkSeal themes](images/themes.gif)
+
 ## Updates
 
 Updates are off by default. **Settings → Updates** has three switches:
