@@ -8,7 +8,7 @@ Settings open in a separate window. **Apply** saves preferences; Cancel, Escape,
 - **Suggest all detected text** bypasses pattern filtering and marks every word above the threshold.
 - **Enhanced OCR** adds noise reduction, contrast adjustment, and a different layout pass. It is slower and can recover text from photos of screens.
 - **Color-assisted OCR** adds a local-contrast pass and up to two color-contrast passes, including a strikethrough-reduced copy. Extra versions exist only in memory and use the original coordinates.
-- **Parallel image jobs** controls how many images a batch scan, copy, match, or export handles at once. Higher values use more CPU and memory; RapidOCR keeps an engine per active worker. The batch runner uses a bounded worker pool, not one thread per image.
+- **Parallel image jobs** controls how many images a batch scan, copy, match, or export handles at once. Higher values use more CPU and memory; RapidOCR keeps an engine per active worker. The batch runner uses a bounded worker pool.
 
 ![OCR settings with four parallel image jobs](images/settings-ocr.png)
 
@@ -34,7 +34,7 @@ Patterns are matched case-insensitively. **Suggest all detected text** bypasses 
 
 ## Blocked patterns
 
-This is the feature for identifiers unique to your team: a customer number format, a device serial prefix, an internal account code. Teach one example and MarkSeal will catch the rest.
+Blocked patterns cover identifiers unique to your team: a customer number format, a device serial prefix, an internal account code. Teach one example and MarkSeal catches the rest.
 
 ![Learning a blocked pattern from a scan area](images/settings-blocked.png)
 

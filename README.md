@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>Find and redact sensitive text in screenshots without uploading them.</b><br>
-  Local OCR suggests likely secrets, you review the boxes, and export a pixel-accurate PNG.
+  Local OCR suggests likely secrets. You review the boxes and export a pixel-accurate PNG.
 </p>
 
 <p align="center">
@@ -52,7 +52,7 @@ The page is capped at 40 million pixels to keep a very large PDF from exhausting
 - Bounded parallel jobs: set **1–16 parallel image jobs**; each active worker owns a local OCR engine.
 - Box reuse and anchor matching for screenshots with matching or shifted framing.
 - **Learn your own identifiers.** Draw a box around a value and save a reusable blocked pattern for the IDs specific to your team.
-- Six themes, from Split-flap Concourse to Midnight Transit Diagram.
+- Six themes, including Split-flap Concourse and Midnight Transit Diagram.
 - Optional update check and beta channel; nothing installs without a click.
 
 ## How it works
@@ -63,7 +63,7 @@ The page is capped at 40 million pixels to keep a very large PDF from exhausting
 
 ## Teach it your own patterns
 
-The built-in detectors cover common personal and engineering identifiers. For the ones specific to your team — an internal customer ID, a device serial, an account code — MarkSeal can learn from a scan area.
+The built-in detectors cover common personal and engineering identifiers. MarkSeal can also learn your team's own identifiers from a scan area: an internal customer ID, a device serial, or an account code.
 
 Open an image, go to **Settings → Blocked patterns**, and click **Learn from scan area**. Drag a tight box around one example. MarkSeal reads that area locally, shows the recognized text and a generated regular expression, and lets you choose fixed-text matching or a detected value class such as IPv4/IPv6, CIDR, UUID, email, URL, MAC, ISO date, integer, or long hex token. Review it, name it, and save; every future scan includes it. Nothing leaves the machine.
 
@@ -73,7 +73,7 @@ Open an image, go to **Settings → Blocked patterns**, and click **Learn from s
 
 ### Four ways to redact
 
-Pixelate, solid black, blur, or erase — switch on the live preview and see exactly what will be saved.
+Pixelate, solid black, blur, or erase. Switch on the live preview to see exactly what will be saved.
 
 ![Switching between Pixelate, Solid black, Blur, and Erase](docs/images/methods.gif)
 
@@ -87,7 +87,7 @@ From the default Split-flap Concourse to Railway Timetable Rack, Jet-age Ticket 
 
 Open a folder, scan all or only the rows you select, confirm in bulk, and save every reviewed image. Rows show queued, running, saved, and partial states; **Cancel scan** stops queued work while keeping completed results.
 
-Concurrency is yours to tune: **Settings → OCR → Parallel image jobs** accepts 1–16 images at once. Each active worker owns a local OCR engine, so higher values finish faster on a large machine but use more CPU and memory. The app uses a bounded worker pool, not one thread per image, and the scan banner reports how many workers are active.
+Concurrency is yours to tune: **Settings → OCR → Parallel image jobs** accepts 1–16 images at once. Each active worker owns a local OCR engine, so higher values finish faster on a large machine but use more CPU and memory. The app uses a bounded worker pool, and the scan banner reports how many workers are active.
 
 ![Folder mode with queued and running rows](docs/images/batch.png)
 
