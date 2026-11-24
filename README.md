@@ -2,7 +2,7 @@
 
 ## Download
 
-Windows builds are published on the [Releases page](https://github.com/rwensel/markseal/releases). Windows releases are code-signed through the [SignPath Foundation](https://signpath.org/). Updates are opt-in.
+Windows builds are published on the [Releases page](https://github.com/rwensel/markseal/releases). Windows releases are code-signed through the [SignPath Foundation](https://signpath.org/); the current 2.0.6 build is an unsigned preview until that approval completes. Updates are opt-in.
 
 ## Run from source
 
