@@ -52,6 +52,23 @@ class VersionTests(unittest.TestCase):
         self.assertTrue(updates.is_newer('2.0.10', '2.0.9'))
 
 
+class PlatformTests(unittest.TestCase):
+    def test_platform_key_covers_x64_and_arm64(self):
+        cases = (
+            ('win32', 'AMD64', 'windows-x64'),
+            ('win32', 'ARM64', 'windows-aarch64'),
+            ('linux', 'x86_64', 'linux-x64'),
+            ('linux', 'aarch64', 'linux-aarch64'),
+            ('darwin', 'x86_64', 'macos-x64'),
+            ('darwin', 'arm64', 'macos-aarch64'),
+        )
+        for system, machine, expected in cases:
+            with self.subTest(system=system, machine=machine):
+                with unittest.mock.patch.object(updates.sys, 'platform', system), \
+                     unittest.mock.patch.object(updates.platform, 'machine', return_value=machine):
+                    self.assertEqual(updates.platform_key(), expected)
+
+
 class CheckTests(unittest.TestCase):
     def test_returns_update_when_manifest_is_newer(self):
         def opener(url):

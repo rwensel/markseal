@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
 import subprocess
 import sys
 import tempfile
@@ -49,11 +50,13 @@ def is_newer(latest, current):
 
 
 def platform_key():
+    machine = platform.machine().lower()
+    arm = machine in ('arm64', 'aarch64')
     if sys.platform.startswith('win'):
-        return 'windows-x64'
+        return 'windows-aarch64' if arm else 'windows-x64'
     if sys.platform == 'darwin':
-        return 'macos'
-    return 'linux-x64'
+        return 'macos-aarch64' if arm else 'macos-x64'
+    return 'linux-aarch64' if arm else 'linux-x64'
 
 
 def _require_https(url, label):
