@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QFileDialog
 
 from .. import documents, export, images, ocr, redaction
 from ..audit_exports import verify_export
+from ..boxset import BoxSet
 from ..performance_log import PerformanceRun
 
 
@@ -38,6 +39,7 @@ class ReviewFacade(QObject):
         self.last_verify = None
         self._pdf = None
         self._pdf_index = 0
+        self._pdf_states = {}
 
     @Property(bool, notify=imageChanged)
     def hasImage(self):
@@ -54,6 +56,18 @@ class ReviewFacade(QObject):
     @Property(int, notify=imageChanged)
     def pdfPageCount(self):
         return self._pdf.page_count if self._pdf is not None else 0
+
+    @Property(bool, notify=imageChanged)
+    def canPreviousPdfPage(self):
+        return self._pdf is not None and self._pdf_index > 0
+
+    @Property(bool, notify=imageChanged)
+    def canNextPdfPage(self):
+        return self._pdf is not None and self._pdf_index + 1 < self._pdf.page_count
+
+    @Property(bool, notify=imageChanged)
+    def canVerify(self):
+        return self._pdf is None
 
     @Property(str, notify=imageChanged)
     def imageName(self):
@@ -212,18 +226,72 @@ class ReviewFacade(QObject):
         self._close_pdf()
         self._pdf = document
         self._pdf_index = 0
+        state = BoxSet()
+        self._pdf_states = {0: (state, False)}
         self.session.pasted_image = False
         self.session.review.load(page.image, path)
+        self.session.review.boxset = state
         self.refresh_display()
         self.imageChanged.emit()
         self.emit_review()
         self.emit_view()
+
+    def _store_pdf_page(self):
+        if self._pdf is not None:
+            self._pdf_states[self._pdf_index] = (
+                self.session.review.boxset, self.session.review.confirmed
+            )
+
+    def _switch_pdf_page(self, index):
+        if self._pdf is None or self.session.jobs.busy:
+            return
+        if not 0 <= index < self._pdf.page_count or index == self._pdf_index:
+            return
+        self._store_pdf_page()
+        try:
+            page = self._pdf.render_page(index)
+        except documents.PdfError as error:
+            self.alerts.error('Cannot render PDF page', str(error))
+            return
+        state = self._pdf_states.get(index)
+        if state is None:
+            state = (BoxSet(), False)
+            self._pdf_states[index] = state
+        self._pdf_index = index
+        self.session.review.load(page.image, self._pdf.path)
+        self.session.review.boxset = state[0]
+        self.session.review.confirmed = state[1]
+        self.refresh_display()
+        self.imageChanged.emit()
+        self.emit_review()
+        self.emit_view()
+        self.alerts.set_status(f'Page {index + 1} of {self._pdf.page_count}.')
+
+    @Slot()
+    def previousPdfPage(self):
+        if self._pdf is not None:
+            self._switch_pdf_page(self._pdf_index - 1)
+
+    @Slot()
+    def nextPdfPage(self):
+        if self._pdf is not None:
+            self._switch_pdf_page(self._pdf_index + 1)
+
+    @Slot(int)
+    def goToPdfPage(self, page):
+        self._switch_pdf_page(page - 1)
+
+    def unsaved_pdf_work(self):
+        if self._pdf is None:
+            return False
+        return any(boxset.boxes for boxset, _ in self._pdf_states.values())
 
     def _close_pdf(self):
         if self._pdf is not None:
             self._pdf.close()
         self._pdf = None
         self._pdf_index = 0
+        self._pdf_states = {}
 
     def adopt_entry(self, entry):
         self._close_pdf()
@@ -754,6 +822,13 @@ class ReviewFacade(QObject):
 
     @Slot()
     def verifyCurrent(self):
+        if self._pdf is not None:
+            self.alerts.info(
+                'Verify unavailable',
+                'Verify compares a PNG export with an image source. '
+                'PDF page exports do not have an image original to compare.',
+            )
+            return
         source = self.session.review.path
         if self.session.pasted_image or source is None:
             self.alerts.set_status(

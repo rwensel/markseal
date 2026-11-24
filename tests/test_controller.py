@@ -60,6 +60,13 @@ class ControllerTests(unittest.TestCase):
         self.controller._present_image(image, path)
         return path
 
+    def open_pdf(self):
+        path = Path(self.temporary.name) / 'two-pages.pdf'
+        write_pdf(path)
+        with patch.object(self.controller, '_choose_image', return_value=path):
+            self.controller.openImage()
+        return path
+
     def wait_for_jobs(self, timeout_ms=10000):
         if not self.controller.batch.busy:
             return
@@ -162,6 +169,75 @@ class ControllerTests(unittest.TestCase):
         self.controller.openDropped([QUrl.fromLocalFile(str(path))])
         self.assertTrue(messages)
         self.assertIn('PDF', messages[0][1])
+
+    def test_pdf_navigation_updates_page_and_size(self):
+        self.open_pdf()
+        first_size = self.controller.session.review.image.size
+        self.controller.review.nextPdfPage()
+        self.assertEqual(self.controller.review.pdfPage, 2)
+        self.assertEqual(self.controller.review.pdfPageCount, 2)
+        self.assertEqual(self.controller.session.review.image.size, first_size)
+        self.controller.review.previousPdfPage()
+        self.assertEqual(self.controller.review.pdfPage, 1)
+
+    def test_pdf_pages_keep_their_own_boxes(self):
+        self.open_pdf()
+        self.controller.session.review.boxset.add((10, 10, 20, 20), 'Page one')
+        self.controller.review.nextPdfPage()
+        self.controller.session.review.boxset.add((30, 30, 40, 40), 'Page two A')
+        self.controller.session.review.boxset.add((50, 50, 60, 60), 'Page two B')
+        self.controller.review.previousPdfPage()
+        self.assertEqual(len(self.controller.session.review.boxes), 1)
+        self.controller.review.nextPdfPage()
+        self.assertEqual(len(self.controller.session.review.boxes), 2)
+
+    def test_pdf_pages_keep_confirmed_state(self):
+        self.open_pdf()
+        self.controller.review.confirmSelection()
+        self.assertTrue(self.controller.session.review.confirmed)
+        self.controller.review.nextPdfPage()
+        self.assertFalse(self.controller.session.review.confirmed)
+        self.controller.review.previousPdfPage()
+        self.assertTrue(self.controller.session.review.confirmed)
+
+    def test_pdf_navigation_stops_at_the_ends(self):
+        self.open_pdf()
+        self.assertFalse(self.controller.review.canPreviousPdfPage)
+        self.assertTrue(self.controller.review.canNextPdfPage)
+        self.controller.review.nextPdfPage()
+        self.assertFalse(self.controller.review.canNextPdfPage)
+        self.controller.review.nextPdfPage()
+        self.assertEqual(self.controller.review.pdfPage, 2)
+
+    def test_pdf_can_jump_to_a_page(self):
+        self.open_pdf()
+        self.controller.review.goToPdfPage(2)
+        self.assertEqual(self.controller.review.pdfPage, 2)
+        self.controller.review.goToPdfPage(1)
+        self.assertEqual(self.controller.review.pdfPage, 1)
+
+    def test_loading_an_image_clears_pdf_state(self):
+        self.open_pdf()
+        self.open_image()
+        self.assertFalse(self.controller.review.isPdf)
+        self.assertEqual(self.controller.review.pdfPageCount, 0)
+
+    def test_pdf_blank_page_scans_to_zero_without_error(self):
+        self.open_pdf()
+        with patch.object(self.controller.session, 'scan_engine', return_value=FakeEngine()):
+            self.controller.review.start_single_scan()
+            self.wait_for_jobs()
+        self.assertEqual(self.errors, [])
+        self.assertEqual(self.controller.review.totalBoxes, 0)
+
+    def test_unsaved_pdf_work_reports_boxes_on_any_page(self):
+        self.open_pdf()
+        self.controller.session.review.boxset.add((10, 10, 20, 20), 'Page one')
+        self.controller.review.nextPdfPage()
+        self.assertTrue(self.controller.review.unsaved_pdf_work())
+        self.controller.review.previousPdfPage()
+        self.controller.session.review.boxset.clear()
+        self.assertFalse(self.controller.review.unsaved_pdf_work())
 
     def test_main_qml_loads_with_the_backend(self):
         qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', self.controller)
