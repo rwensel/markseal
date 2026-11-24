@@ -50,6 +50,11 @@ PATTERNS = {
     'Card numbers': r"\b\d(?:[ -]?\d){12,18}\b",
     'IBANs': r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b",
     'SSNs': r"\b\d{3}-\d{2}-\d{4}\b",
+    'Phone numbers': (
+        r"(?<![\w+])(?:\+\d{1,3}[\s.-]?)?"
+        r"(?:\(\d{2,4}\)[\s.-]?|\d{1,4}[\s.-])"
+        r"\d{2,4}[\s.-]\d{2,4}(?:[\s.-]\d{2,4})?(?!\d)"
+    ),
 }
 TEXT_CATEGORIES = tuple(PATTERNS)
 IMAGE_CATEGORIES = ('Faces', 'QR codes')
@@ -57,8 +62,8 @@ CATEGORIES = TEXT_CATEGORIES + IMAGE_CATEGORIES
 DEFAULT_PRESET = 'Share a screenshot'
 PRESETS = {
     'Share a screenshot': {
-        'Emails', 'URLs', 'IP addresses', 'Secrets', 'Card numbers', 'IBANs', 'SSNs',
-        'Faces', 'QR codes',
+        'Emails', 'URLs', 'IP addresses', 'Phone numbers', 'Secrets', 'Card numbers', 'IBANs',
+        'SSNs', 'Faces', 'QR codes',
     },
     'Work logs & configs': {
         'Emails', 'URLs', 'IP addresses', 'Ticket IDs', 'Paths', 'Hashes', 'Secrets',
@@ -69,8 +74,8 @@ PRESETS = {
     'Everything': set(PATTERNS) | set(IMAGE_CATEGORIES),
 }
 PRESET_DESCRIPTIONS = {
-    'Share a screenshot': 'Emails, links, IPs, credentials, card/IBAN/SSN, faces and QR codes '
-                          'for a screenshot you are about to share.',
+    'Share a screenshot': 'Emails, links, IPs, phone numbers, credentials, card/IBAN/SSN, faces '
+                          'and QR codes for a screenshot you are about to share.',
     'Work logs & configs': 'Credentials, infrastructure, paths, ticket IDs, hashes and long '
                            'identifiers from logs and configs.',
     'Financial details': 'Card numbers, IBANs, SSNs and emails from statements, invoices and '
@@ -186,7 +191,12 @@ def iban_ok(text):
     return int(digits) % 97 == 1
 
 
-VALIDATORS = {'Card numbers': luhn_ok, 'IBANs': iban_ok}
+def phone_ok(text):
+    digits = ''.join(ch for ch in str(text) if ch.isdigit())
+    return 10 <= len(digits) <= 15 and len(set(digits)) > 1
+
+
+VALIDATORS = {'Card numbers': luhn_ok, 'IBANs': iban_ok, 'Phone numbers': phone_ok}
 
 
 @timed('match_patterns')

@@ -50,8 +50,24 @@ class DetectionTests(unittest.TestCase):
         self.assertFalse(found('GB82WEST12345698765431', 'IBANs'))
         self.assertTrue(found('123-45-6789', 'SSNs'))
 
+    def test_phone_numbers_require_enough_digits_and_separators(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+
+        def found(text):
+            tsv = header + f'1\t1\t1\t1\t10\t20\t260\t20\t95\t{text}\n'
+            return bool(detect_regions(tsv, (500, 100), categories={'Phone numbers'}))
+
+        for text in ('+1 (415) 555-2671', '415-555-2671', '+44 20 7946 0958'):
+            with self.subTest(text=text):
+                self.assertTrue(found(text))
+        for text in ('2024-01-01', '123-45-6789', '4111 1111 1111 1111',
+                     '192.168.0.1', '1234567890', '000-000-0000'):
+            with self.subTest(text=text):
+                self.assertFalse(found(text))
+
     def test_share_preset_leads_with_pii_and_qr(self):
         self.assertIn('Card numbers', PRESETS['Share a screenshot'])
+        self.assertIn('Phone numbers', PRESETS['Share a screenshot'])
         self.assertIn('Faces', PRESETS['Share a screenshot'])
         self.assertIn('QR codes', PRESETS['Share a screenshot'])
         self.assertNotIn('Infrastructure', PRESETS['Share a screenshot'])
