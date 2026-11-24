@@ -12,7 +12,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from .detection import CATEGORIES, DEFAULT_PRESET, LEGACY_PRESETS, PATTERNS, PRESETS
+from .detection import (
+    CATEGORIES, DEFAULT_PRESET, LEGACY_PRESETS, PATTERNS, PRESET_ADDITIONS, PRESETS,
+)
 from .export import output_path
 from .theme_tokens import DEFAULT_ID, is_known
 
@@ -141,6 +143,10 @@ def from_document(document, parallel_limit=MAX_PARALLEL):
     categories = document.get('categories')
     if isinstance(categories, list):
         preferences.categories = _category_names(categories)
+    additions = PRESET_ADDITIONS.get(preferences.sensitivity, frozenset())
+    if (additions and set(document.get('categories') or ())
+            == set(PRESETS[preferences.sensitivity]) - additions):
+        preferences.categories = _category_names(PRESETS[preferences.sensitivity])
     threshold = document.get('confidence')
     if type(threshold) is int and 0 <= threshold <= 100:
         preferences.confidence = threshold

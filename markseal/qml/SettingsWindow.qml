@@ -360,6 +360,13 @@ Window {
                                 text: "DETECTION PATTERNS"
                             }
 
+                            HintText {
+                                Layout.fillWidth: true
+                                text: "Personal names and addresses use a bundled local model. "
+                                      + "Dates of birth and license/ID numbers are read from "
+                                      + "field labels."
+                            }
+
                             Rectangle {
                                 Layout.fillWidth: true
                                 implicitHeight: categoriesGrid.implicitHeight + 22

@@ -56,30 +56,44 @@ PATTERNS = {
         r"\d{2,4}[\s.-]\d{2,4}(?:[\s.-]\d{2,4})?(?!\d)"
     ),
 }
-TEXT_CATEGORIES = tuple(PATTERNS)
+PERSONAL_CATEGORY_NAMES = (
+    'Personal names', 'Postal addresses', 'Dates of birth', 'License & ID numbers',
+)
+PERSONAL_CATEGORIES = frozenset(PERSONAL_CATEGORY_NAMES)
+TEXT_CATEGORIES = tuple(PATTERNS) + PERSONAL_CATEGORY_NAMES
 IMAGE_CATEGORIES = ('Faces', 'QR codes')
 CATEGORIES = TEXT_CATEGORIES + IMAGE_CATEGORIES
 DEFAULT_PRESET = 'Share a screenshot'
 PRESETS = {
     'Share a screenshot': {
         'Emails', 'URLs', 'IP addresses', 'Phone numbers', 'Secrets', 'Card numbers', 'IBANs',
-        'SSNs', 'Faces', 'QR codes',
+        'SSNs', 'Personal names', 'Postal addresses', 'Dates of birth', 'License & ID numbers',
+        'Faces', 'QR codes',
     },
     'Work logs & configs': {
         'Emails', 'URLs', 'IP addresses', 'Ticket IDs', 'Paths', 'Hashes', 'Secrets',
         'Infrastructure', 'Long identifiers',
     },
-    'Financial details': {'Emails', 'Card numbers', 'IBANs', 'SSNs'},
+    'Financial details': {
+        'Emails', 'Card numbers', 'IBANs', 'SSNs', 'Personal names', 'Postal addresses',
+        'Dates of birth',
+    },
     'Faces & codes': {'Faces', 'QR codes'},
-    'Everything': set(PATTERNS) | set(IMAGE_CATEGORIES),
+    'Everything': set(CATEGORIES),
+}
+PRESET_ADDITIONS = {
+    'Share a screenshot': PERSONAL_CATEGORIES,
+    'Financial details': PERSONAL_CATEGORIES - {'License & ID numbers'},
+    'Everything': PERSONAL_CATEGORIES,
 }
 PRESET_DESCRIPTIONS = {
-    'Share a screenshot': 'Emails, links, IPs, phone numbers, credentials, card/IBAN/SSN, faces '
-                          'and QR codes for a screenshot you are about to share.',
+    'Share a screenshot': 'Emails, links, IPs, phone numbers, names, addresses, birth dates, '
+                          'ID/license numbers, credentials, card/IBAN/SSN, faces and QR codes '
+                          'for a screenshot you are about to share.',
     'Work logs & configs': 'Credentials, infrastructure, paths, ticket IDs, hashes and long '
                            'identifiers from logs and configs.',
-    'Financial details': 'Card numbers, IBANs, SSNs and emails from statements, invoices and '
-                         'receipts.',
+    'Financial details': 'Card numbers, IBANs, SSNs, names, addresses, birth dates and emails '
+                         'from statements, invoices and receipts.',
     'Faces & codes': 'Faces and QR codes in photos and screen captures.',
     'Everything': 'Every text and image category. Expect more false positives, especially long '
                   'identifiers.',

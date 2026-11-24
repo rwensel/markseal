@@ -73,6 +73,16 @@ class DetectionTests(unittest.TestCase):
         self.assertNotIn('Infrastructure', PRESETS['Share a screenshot'])
         self.assertIn('Infrastructure', PRESETS['Work logs & configs'])
 
+    def test_share_preset_includes_personal_fields(self):
+        personal = {'Personal names', 'Postal addresses', 'Dates of birth', 'License & ID numbers'}
+        self.assertEqual(personal - PRESETS['Share a screenshot'], set())
+        self.assertIn('Personal names', PRESETS['Financial details'])
+        self.assertIn('Dates of birth', PRESETS['Financial details'])
+        self.assertNotIn('License & ID numbers', PRESETS['Financial details'])
+        self.assertNotIn('Personal names', PRESETS['Work logs & configs'])
+        self.assertNotIn('Personal names', PRESETS['Faces & codes'])
+        self.assertEqual(PRESETS['Everything'], set(CATEGORIES))
+
     def test_preset_sets_and_descriptions_stay_complete(self):
         self.assertEqual(PRESETS['Everything'], set(CATEGORIES))
         self.assertEqual(set(PRESET_DESCRIPTIONS), set(PRESETS))

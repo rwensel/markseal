@@ -3,6 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
+from markseal.detection import PRESET_ADDITIONS
 from tests.support import (
     PRESETS,
     Path,
@@ -84,6 +85,39 @@ class PreferencesTests(unittest.TestCase):
                 loaded = preferences.from_document({'sensitivity': old})
                 self.assertEqual(loaded.sensitivity, new)
                 self.assertEqual(set(loaded.categories), PRESETS[new])
+
+    def test_upgrades_an_unmodified_share_preset(self):
+        old = set(PRESETS['Share a screenshot']) - PRESET_ADDITIONS['Share a screenshot']
+        loaded = preferences.from_document(
+            {'sensitivity': 'Share a screenshot', 'categories': sorted(old)})
+        self.assertEqual(set(loaded.categories), set(PRESETS['Share a screenshot']))
+
+    def test_upgrades_only_the_categories_financial_gained(self):
+        old = set(PRESETS['Financial details']) - PRESET_ADDITIONS['Financial details']
+        loaded = preferences.from_document(
+            {'sensitivity': 'Financial details', 'categories': sorted(old)})
+        self.assertEqual(set(loaded.categories), set(PRESETS['Financial details']))
+
+    def test_never_upgrades_custom_or_a_touched_preset(self):
+        old = set(PRESETS['Share a screenshot']) - PRESET_ADDITIONS['Share a screenshot']
+        loaded = preferences.from_document(
+            {'sensitivity': 'Custom', 'categories': sorted(old)})
+        self.assertEqual(set(loaded.categories), old)
+        touched = old - {'Emails'}
+        loaded = preferences.from_document(
+            {'sensitivity': 'Share a screenshot', 'categories': sorted(touched)})
+        self.assertEqual(set(loaded.categories), touched)
+
+    def test_everything_upgrades_and_legacy_maps(self):
+        old = set(PRESETS['Everything']) - PRESET_ADDITIONS['Everything']
+        loaded = preferences.from_document(
+            {'sensitivity': 'Everything', 'categories': sorted(old)})
+        self.assertEqual(set(loaded.categories), set(PRESETS['Everything']))
+        old_share = set(PRESETS['Share a screenshot']) - PRESET_ADDITIONS['Share a screenshot']
+        loaded = preferences.from_document(
+            {'sensitivity': 'Focused', 'categories': sorted(old_share)})
+        self.assertEqual(loaded.sensitivity, 'Share a screenshot')
+        self.assertEqual(set(loaded.categories), set(PRESETS['Share a screenshot']))
 
     def test_invalid_settings_are_rejected_before_writing(self):
         current = preferences.defaults()
