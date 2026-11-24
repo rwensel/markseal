@@ -8,7 +8,9 @@ class NoticesTests(unittest.TestCase):
     def test_notices_cover_core_components_and_licenses(self):
         text = third_party_notices_path().read_text(encoding='utf-8')
         for name in ('Qt for Python (PySide6)', 'RapidOCR', 'OpenCV',
-                     'ONNX Runtime', 'pypdfium2', 'PDFium', 'YuNet face detection model'):
+                     'ONNX Runtime', 'tokenizers', 'pypdfium2', 'PDFium',
+                     'YuNet face detection model', 'GLiNER PII Small model',
+                     'GLiNER runtime', 'Ettin encoder'):
             with self.subTest(name=name):
                 self.assertIn(name, text)
         self.assertIn('LGPL-3.0-only', text)

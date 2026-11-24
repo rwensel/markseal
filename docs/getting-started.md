@@ -22,6 +22,8 @@ python -m venv .venv
 
 On Linux or macOS, use `.venv/bin/python` for the install and run `.venv/bin/markseal`. The app makes no network calls by default; only the opt-in update check contacts the update feed, and image data never leaves the machine.
 
+Personal-data detection also needs the bundled PII model. Release installers include it; a source checkout fetches it once with `.venv\Scripts\python.exe packaging\fetch_ner_model.py` (or `.venv/bin/python packaging/fetch_ner_model.py`). Without it, the personal-field categories produce no suggestions.
+
 ## Open a screenshot or PDF
 
 Use **Open image**, **Paste** (Ctrl+V), or drag an image anywhere onto the window. Dragging a folder opens folder mode. A copied image or a copied image file works with Paste.
@@ -43,6 +45,8 @@ PDFs render locally at 200 DPI, capped at 40 million pixels. There is no PDF tex
 3. Drag on the image to add a manual box. If you need only a small area, use **Scan region**.
 4. Turn on **Rule tags** in the viewer caption to see why a box was suggested. The tags are review-only and are never exported.
 5. Press **Confirm** to apply the selected boxes to the preview. **Revise** brings the outlines back if you need to change the selection.
+
+The default **Share a screenshot** preset includes names, addresses, birth dates, and license/ID numbers. Names and addresses are suggestions from local context; birth dates and license/ID numbers come from field labels. Review them like any other box. On the first scan that enables personal fields, the bundled PII model loads and the banner reports it.
 
 The bottom signal board always shows selected, excluded, and total counts, plus whether the preview is applied or pending.
 

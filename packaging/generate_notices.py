@@ -17,6 +17,7 @@ COMPONENTS = (
     ('Shiboken6', 'shiboken6', 'LGPL-3.0-only', (), None),
     ('RapidOCR', 'rapidocr', 'Apache-2.0', ('LICENSE', 'MODEL_LICENSES.md'), None),
     ('ONNX Runtime', 'onnxruntime', 'MIT', ('LICENSE', 'ThirdPartyNotices.txt'), None),
+    ('tokenizers', 'tokenizers', 'Apache-2.0', ('LICENSE',), None),
     ('OpenCV', 'opencv-python-headless', 'Apache-2.0',
      ('LICENSE.txt', 'LICENSE-3RD-PARTY.txt'), None),
     ('NumPy', 'numpy', 'BSD-3-Clause', ('LICENSE.txt',), None),
@@ -108,6 +109,9 @@ def main():
     lines += [
         'Python ' + platform.python_version() + ' - PSF-2.0',
         'YuNet face detection model - MIT',
+        'GLiNER PII Small model (Knowledgator/Wordcab) - Apache-2.0',
+        'GLiNER runtime (urchade/GLiNER) - Apache-2.0',
+        'Ettin encoder (jhu-clsp/ettin-encoder-68m) - MIT',
         '',
         'LICENSE TEXTS',
         '',
@@ -123,6 +127,11 @@ def main():
         entries.append((display, license_name, paths))
     entries.append(('Python', 'PSF-2.0', [Path(sys.base_prefix) / 'LICENSE.txt']))
     entries.append(('YuNet face detection model', 'MIT', [LICENSE_DIR / 'yunet-mit.txt']))
+    entries.append(('GLiNER PII Small model', 'Apache-2.0',
+                    [LICENSE_DIR / 'gliner-apache-2.0.txt']))
+    entries.append(('GLiNER runtime', 'Apache-2.0',
+                    [LICENSE_DIR / 'gliner-apache-2.0.txt']))
+    entries.append(('Ettin encoder', 'MIT', [LICENSE_DIR / 'ettin-mit.txt']))
 
     for display, license_name, paths in entries:
         for path in paths:

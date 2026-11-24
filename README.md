@@ -21,7 +21,7 @@
 | Linux x64 | [Markseal-linux-x64.tar.gz](https://github.com/rwensel/markseal/releases/latest/download/Markseal-linux-x64.tar.gz) | Untested PyInstaller build; extract and run `Markseal/Markseal`. |
 | macOS arm64 | [Markseal-macos-arm64.zip](https://github.com/rwensel/markseal/releases/latest/download/Markseal-macos-arm64.zip) | Untested, unsigned, not notarized; Gatekeeper needs an override. |
 
-All builds and `SHA256SUMS.txt` are on the [releases page](https://github.com/rwensel/markseal/releases). Or [build from source](docs/building.md).
+All builds include the local PII model (about 86 MB), so they are larger than 2.0.7. Builds and `SHA256SUMS.txt` are on the [releases page](https://github.com/rwensel/markseal/releases). Or [build from source](docs/building.md).
 
 ## See it work
 
@@ -37,13 +37,14 @@ The page is capped at 40 million pixels to keep a very large PDF from exhausting
 
 ## Why MarkSeal
 
-- **Your screenshots and PDFs never leave the machine.** OCR, pattern matching, PDF rendering, redaction, and export run locally. The only optional network use is the update check, which is off by default.
+- **Your screenshots and PDFs never leave the machine.** OCR, the bundled PII model, pattern matching, PDF rendering, redaction, and export run locally. The only optional network use is the update check, which is off by default.
 - **You decide what gets covered.** Suggestions start selected; click to exclude, drag to add, and turn on rule tags to see why each box appeared.
 - **The output is verifiable.** Export a PNG plus an optional JSON coordinate log, then check it with the bundled audit tool.
 
 ## Features
 
-- Local RapidOCR with presets for sharing, work logs, financial details, faces and codes, or everything.
+- Local RapidOCR and a bundled PII model with presets for sharing, work logs, financial details, faces and codes, or everything.
+- Local personal-data detection: names and postal addresses from context, plus birth dates and license/ID numbers from field labels.
 - Reviewable boxes with include/exclude, rule tags, undo/redo, and keyboard navigation.
 - Pixelate, solid black, blur, or erase; pixels outside the selected boxes are preserved.
 - Full-image scan, region scan, screen capture, clipboard paste, and drag-and-drop.
@@ -101,14 +102,14 @@ Concurrency is yours to tune: **Settings → OCR → Parallel image jobs** accep
 
 - [Getting started](docs/getting-started.md) — install, open, scan, review, save.
 - [Reviewing and redacting](docs/reviewing.md) — boxes, rules, zoom, capture, folders, reuse.
-- [Settings](docs/settings.md) — OCR, presets, blocked patterns, output, themes, updates.
+- [Settings](docs/settings.md) — OCR, presets, personal fields, blocked patterns, output, themes, updates.
 - [Building from source](docs/building.md) — local builds, tests, notices.
 - [Privacy](PRIVACY.md) — what stays on the machine.
 - [Third-party notices](THIRD_PARTY_NOTICES.txt) — bundled components and licenses.
 
 ## Privacy and security
 
-MarkSeal has no telemetry, accounts, or upload integrations. The app reads the images you open, the files you export, and its local settings. The optional update check exchanges release metadata and the installer, never image data. See [Privacy](PRIVACY.md) for the full statement.
+MarkSeal has no telemetry, accounts, or upload integrations. The PII model and OCR run locally; recognized text never leaves the machine. The app reads the images you open, the files you export, and its local settings. The optional update check exchanges release metadata and the installer, never image data. See [Privacy](PRIVACY.md) for the full statement.
 
 ## Contributing
 

@@ -70,7 +70,7 @@ For images that shift slightly, select the boxes and click **Match by anchor**, 
 .venv\Scripts\python.exe -m markseal.audit_exports "originals-folder" "export-folder"
 ```
 
-The audit checks for unreadable PNGs, missing coordinate logs, changed pixels outside the logged rectangles, and wide boxes that warrant review. Add `--ocr` to compare a local RapidOCR Broad pass against the masks and look for readable matches in the exported images; add `--use-app-pattern` with `--ocr` to include the enabled blocked patterns. These are review candidates, not proof: visual review is still needed for readable identifiers OCR missed and for ordinary text under an oversized mask.
+The audit checks for unreadable PNGs, missing coordinate logs, changed pixels outside the logged rectangles, and wide boxes that warrant review. Add `--ocr` to compare a local RapidOCR identifier pass against the masks and look for readable matches in the exported images; add `--use-app-pattern` with `--ocr` to include the enabled blocked patterns. The four personal-field categories are excluded from this pass, so the audit does not load the PII model. These are review candidates, not proof: visual review is still needed for readable identifiers OCR missed and for ordinary text under an oversized mask.
 
 ## Sharing
 

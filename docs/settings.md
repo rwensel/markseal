@@ -5,7 +5,7 @@ Settings open in a separate window. **Apply** saves preferences; Cancel, Escape,
 ## OCR
 
 - **Min OCR confidence** (0–100) filters individual recognized words. It measures text-recognition confidence, not the probability that content is sensitive. A higher threshold reduces noise but can hide faint text.
-- **Suggest all detected text** bypasses pattern filtering and marks every word above the threshold.
+- **Suggest all detected text** bypasses pattern filtering and marks every word above the threshold. It also skips personal detection because every word is already suggested.
 - **Enhanced OCR** adds noise reduction, contrast adjustment, and a different layout pass. It is slower and can recover text from photos of screens.
 - **Color-assisted OCR** adds a local-contrast pass and up to two color-contrast passes, including a strikethrough-reduced copy. Extra versions exist only in memory and use the original coordinates.
 - **Parallel image jobs** controls how many images a batch scan, copy, match, or export handles at once. Higher values use more CPU and memory; RapidOCR keeps an engine per active worker. The batch runner uses a bounded worker pool.
@@ -16,21 +16,27 @@ Extra passes use copies capped at 2400 pixels on the longest side and share a 35
 
 ## Detection presets and patterns
 
-![Detection preset and patterns](images/settings-patterns.png)
+![Detection preset and personal-field patterns](images/settings-patterns.png)
 
 **Detection preset** chooses a starting set of categories. Changing the preset resets the type checkboxes but keeps blocked patterns.
 
 | Preset | Categories |
 |---|---|
-| Share a screenshot | Emails, URLs, IP addresses, phone numbers, secrets, card numbers, IBANs, SSNs, faces, QR codes |
+| Share a screenshot | Emails, URLs, IP addresses, phone numbers, names, addresses, birth dates, license/ID numbers, secrets, card numbers, IBANs, SSNs, faces, QR codes |
 | Work logs & configs | Emails, URLs, IPs, ticket IDs, paths, hashes, secrets, infrastructure, long identifiers |
-| Financial details | Emails, card numbers, IBANs, SSNs |
+| Financial details | Emails, card numbers, IBANs, SSNs, names, addresses, birth dates |
 | Faces & codes | Faces, QR codes |
 | Everything | All text and image categories |
 
+The personal-field categories use a bundled GLiNER PII Small int8 model (the model artifact is about 83 MB; about 86 MB with its tokenizer and manifest). It runs locally and loads on the first scan that enables **Personal names** or **Postal addresses**. The model reads the OCR text from the image; no text or image is sent anywhere. The model is installed with the app and is never downloaded at runtime.
+
+**Dates of birth** and **License & ID numbers** are read deterministically from field labels such as `DOB`, `Date of Birth`, `License No.`, `Passport No.`, and `ID No.`; the same labels reinforce labeled names and addresses. Thresholds favor precision: a name or address must clear the model's confidence threshold, a license/ID value needs at least four alphanumerics including a digit, and a birth date needs a date shape. OCR words below the minimum OCR confidence cannot appear inside a suggestion.
+
+The shipped model is English-only. A name or address with no surrounding context or label can be missed, and unusual license or passport formats and label variants outside the field vocabulary can be missed. Detection remains a starting point.
+
 Phone numbers require separators; a bare 10-digit sequence is not matched. Card numbers use Luhn, IBANs use MOD-97, and SSNs require the dashed US format. With Secrets enabled, credential labels such as Password or Bearer token also match the neighboring value on the same visual row.
 
-Patterns are matched case-insensitively. **Suggest all detected text** bypasses category filtering.
+Patterns are matched case-insensitively. **Suggest all detected text** bypasses category filtering and skips personal detection.
 
 ## Blocked patterns
 
