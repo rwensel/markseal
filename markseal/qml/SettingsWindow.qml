@@ -195,6 +195,7 @@ Window {
                 Text {
                     Layout.fillWidth: true
                     text: "NO NETWORK UNLESS UPDATES ARE ON"
+                    wrapMode: Text.WordWrap
                     color: Theme.steelMid
                     font.family: Theme.displayFont
                     font.pixelSize: 9
