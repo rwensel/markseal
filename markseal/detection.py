@@ -218,6 +218,11 @@ VALIDATORS = {'Card numbers': luhn_ok, 'IBANs': iban_ok, 'Phone numbers': phone_
 
 
 @timed('match_patterns')
+def _contains(outer, inner):
+    return (outer[0] <= inner[0] and outer[1] <= inner[1]
+            and outer[2] >= inner[2] and outer[3] >= inner[3])
+
+
 def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0, custom_pattern='',
                    learned_patterns=(), rules=None, personal=False):
     categories = set(PATTERNS) if categories is None else categories
@@ -303,6 +308,10 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
                 labels = found_rules.get(box, ())
                 match = next((existing for existing in boxes
                               if same_region(existing, box)), None)
+                if match is None:
+                    match = next((existing for existing in boxes
+                                  if set(box_rules.get(existing, ())) & set(labels)
+                                  and _contains(existing, box)), None)
                 if match is None:
                     boxes.append(box)
                     box_rules[box] = list(labels)

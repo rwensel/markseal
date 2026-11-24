@@ -19,6 +19,7 @@ class FieldDetectionTests(unittest.TestCase):
         self.assertEqual(rules[boxes[0]], ('Personal names',))
         self.assertGreater(boxes[0][0], 54)
         self.assertGreaterEqual(boxes[1][0], 74)
+        self.assertLess(boxes[1][0], 100)
         self.assertEqual(rules[boxes[1]], ('Postal addresses',))
 
     def test_license_value_requires_a_separator_and_a_digit(self):

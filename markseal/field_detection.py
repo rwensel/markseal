@@ -88,6 +88,11 @@ def _has_separator(words, end_index):
     return False
 
 
+def _is_separator(text):
+    normalized = _normal(text)
+    return not normalized or normalized in BULLETS
+
+
 def _line_height(words):
     heights = [max(1, word[4] - word[2]) for word in words]
     return statistics.median(heights) if heights else 24
@@ -103,7 +108,7 @@ def _value_words(words, start, height):
             break
         if previous is not None and word[1] - previous[3] > 2.5 * height:
             break
-        if value or not _is_filler(word[0]):
+        if value or not _is_separator(word[0]):
             value.append(word)
         previous = word
         index += 1
