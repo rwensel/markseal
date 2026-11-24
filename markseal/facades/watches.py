@@ -1,21 +1,28 @@
-"""Watched-folder facade: the inbox rows, sweeping, and manual intake.
+"""Watched-folder facade: the inbox rows, sweeping, manual intake, and the
+unattended automatic lane.
 
 The store is the document from :mod:`markseal.watches`; this facade owns its
 lifecycle, the filesystem notifications, and appending arrivals to the open
-folder. Automatic processing is not part of this facade yet.
+folder. Automatic exports run on a second :class:`JobCenter` so they never take
+the manual busy flag or block navigation.
 """
 from __future__ import annotations
 
 import os
+import re
 import time
 from pathlib import Path
+from threading import Event
 
 from PySide6.QtCore import (
     Property, QFileSystemWatcher, QObject, QTimer, Signal, Slot,
 )
 from PySide6.QtWidgets import QFileDialog
 
+from .. import boxset, export, ocr, workflows
 from .. import watches as watch_store
+from ..jobs import ScanCancelled
+from .activity import JobCenter
 
 POLICY_LABELS = {'manual': 'MANUAL', 'automatic': 'AUTO'}
 POLICY_ALIASES = {
@@ -23,6 +30,9 @@ POLICY_ALIASES = {
     'automatic': 'automatic',
     'auto': 'automatic',
 }
+
+AUTO_LABEL = 'Auto-redacting'
+_PAUSED = 'paused'
 
 
 def _unsettled(stamp, moment):
@@ -33,6 +43,7 @@ def _unsettled(stamp, moment):
 class WatchFacade(QObject):
     watchesChanged = Signal()
     inboxRequested = Signal()
+    autoChanged = Signal()
 
     def __init__(self, session, alerts, parent=None):
         super().__init__(parent)
@@ -47,6 +58,9 @@ class WatchFacade(QObject):
         self._started = False
         self._inbox_requested = False
         self._intaking = False
+        self._auto_jobs = JobCenter(session, self)
+        self._auto_hold = False
+        self._auto_status = ''
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._schedule_sweep)
         self._debounce = QTimer(self)
@@ -56,8 +70,13 @@ class WatchFacade(QObject):
         self._resweep = QTimer(self)
         self._resweep.setSingleShot(True)
         self._resweep.timeout.connect(self.sweep)
+        self._auto_jobs.busyChanged.connect(self.autoChanged)
+        self._auto_jobs.busyChanged.connect(self._dispatch_auto)
+        self._auto_jobs.progressChanged.connect(self.autoChanged)
         session.facades.folder.folderChanged.connect(self._folder_changed)
+        session.facades.folder.folderChanged.connect(self._dispatch_auto)
         session.jobs.busyChanged.connect(self._retry_scan)
+        session.jobs.busyChanged.connect(self._dispatch_auto)
 
     @Property('QVariantList', notify=watchesChanged)
     def watchRows(self):
@@ -90,6 +109,16 @@ class WatchFacade(QObject):
     def watchCount(self):
         return len(self.store.folders)
 
+    @Property(bool, notify=autoChanged)
+    def autoRunning(self):
+        return self._auto_jobs.busy
+
+    @Property(str, notify=autoChanged)
+    def autoStatus(self):
+        if self._auto_jobs.busy:
+            return self._auto_jobs.progressText
+        return self._auto_status
+
     @Slot()
     def start(self):
         if self._started:
@@ -110,6 +139,7 @@ class WatchFacade(QObject):
 
     def sweep(self, now=None):
         """List every watch, prune stale records, refresh counts, and intake."""
+        self._auto_hold = False
         moment = time.time() if now is None else now
         export_targets = watch_store.export_targets(self.store)
         young = False
@@ -150,6 +180,7 @@ class WatchFacade(QObject):
             self._resweep.start(10000)
         else:
             self._resweep.stop()
+        self._dispatch_auto()
 
     @Slot()
     def chooseFolder(self):
@@ -180,9 +211,17 @@ class WatchFacade(QObject):
             return
         if folder.policy == value:
             return
+        previous = folder.policy
         folder.policy = value
+        if value == 'manual' and previous == 'automatic':
+            self._mark_queued_presented(folder)
+            self._counts[watch_store.key(folder.path)] = watch_store.counts(
+                self.store, folder)
         self._save()
         self.watchesChanged.emit()
+        if value == 'automatic':
+            self._auto_hold = False
+            self._dispatch_auto()
 
     @Slot(str)
     def removeWatch(self, path):
@@ -194,6 +233,8 @@ class WatchFacade(QObject):
                 f'Stop watching {folder.path.name}? Its intake records are removed.'):
             return
         folder_key = watch_store.key(folder.path)
+        self._auto_hold = True
+        self._auto_jobs.cancel()
         watch_store.remove(self.store, folder.path)
         self._counts.pop(folder_key, None)
         self._errors.pop(folder_key, None)
@@ -235,6 +276,259 @@ class WatchFacade(QObject):
         self._counts[folder_key] = watch_store.counts(self.store, folder)
         self._save()
         self.watchesChanged.emit()
+
+    @Slot(str)
+    def processExisting(self, path):
+        """Requeue (automatic) or reset (manual) the records a watch already has."""
+        folder = watch_store.find(self.store, path)
+        if folder is None:
+            return
+        folder_key = watch_store.key(folder.path)
+        records = self.store.seen.get(folder_key, {})
+        changed = False
+        if folder.policy == 'automatic':
+            for name, record in list(records.items()):
+                if record.state not in (watch_store.PRESENTED, watch_store.NEEDS_REVIEW):
+                    continue
+                source = folder.path / name
+                try:
+                    stamp = source.stat()
+                except OSError:
+                    continue
+                if (stamp.st_size, stamp.st_mtime_ns) != record.stamp():
+                    continue
+                try:
+                    watch_store.mark(self.store, folder, source, state=watch_store.QUEUED)
+                except OSError:
+                    continue
+                changed = True
+            if changed:
+                self._counts[folder_key] = watch_store.counts(self.store, folder)
+                self._save()
+                self.watchesChanged.emit()
+            self._auto_hold = False
+            self._dispatch_auto()
+            return
+        for name, record in list(records.items()):
+            if record.state not in (watch_store.PRESENTED, watch_store.NEEDS_REVIEW):
+                continue
+            source = folder.path / name
+            try:
+                stamp = source.stat()
+            except OSError:
+                continue
+            if (stamp.st_size, stamp.st_mtime_ns) != record.stamp():
+                continue
+            del records[name]
+            changed = True
+        if changed:
+            self._counts[folder_key] = watch_store.counts(self.store, folder)
+            self._save()
+            self.watchesChanged.emit()
+        if self._watch_open(folder) and self._intake_open_folder():
+            self.watchesChanged.emit()
+
+    @Slot()
+    def cancelAuto(self):
+        self._auto_hold = True
+        self._auto_jobs.cancel()
+        self.autoChanged.emit()
+
+    def _dispatch_auto(self):
+        """Enqueue every eligible file once, then start the lane if it is idle."""
+        if self._auto_hold or self._auto_jobs.busy or self.session.jobs.busy:
+            return
+        candidates = []
+        for watch in list(self.store.folders):
+            if watch.policy != 'automatic' or self._watch_open(watch):
+                continue
+            found = []
+            names = set()
+            for path in watch_store.pending_queued(self.store, watch):
+                if path not in names:
+                    names.add(path)
+                    found.append(path)
+            for path in watch_store.unseen(self.store, watch):
+                if path not in names:
+                    names.add(path)
+                    found.append(path)
+            candidates.extend((watch, path) for path in found)
+        if not candidates:
+            return
+        jobs = []
+        for watch, path in candidates:
+            try:
+                watch_store.mark(self.store, watch, path, state=watch_store.QUEUED)
+            except OSError:
+                continue
+            jobs.append((watch, path))
+        if not jobs:
+            return
+        touched = {}
+        for watch, _path in jobs:
+            touched[watch_store.key(watch.path)] = watch
+        for watch in touched.values():
+            self._counts[watch_store.key(watch.path)] = watch_store.counts(
+                self.store, watch)
+        self._save()
+        self.watchesChanged.emit()
+        try:
+            engine = self.session.scan_engine()
+            settings = self.session.scan_settings()
+        except OSError as error:
+            self._auto_records_failed(jobs, str(error))
+            self.alerts.error('OCR unavailable', str(error), 'RETRY',
+                              self._dispatch_auto)
+            return
+        except (ValueError, re.error) as error:
+            self._auto_records_failed(jobs, str(error))
+            self.alerts.error('Invalid detection settings', str(error), 'OPEN SETTINGS',
+                              self.session.facades.settings.requestSettings)
+            return
+        preferences = self.session.preferences
+        enhanced = preferences.enhanced_ocr
+        color_assisted = preferences.color_ocr
+        method = preferences.method
+        template = preferences.filename_template
+        include_log = preferences.include_log
+        cancel = Event()
+        self._auto_status = ''
+        stats = {'exported': 0, 'needs_review': 0}
+
+        def operation(job):
+            watch, path = job
+            if not self._auto_ready(watch, cancel):
+                cancel.set()
+                return (path, None, _PAUSED, None, '')
+            try:
+                scanned = ocr.scan_folder_image(
+                    path, None, engine, settings, enhanced, cancel,
+                    color_assisted=color_assisted,
+                )
+            except ScanCancelled:
+                raise
+            except Exception as error:
+                return (path, None, watch_store.NEEDS_REVIEW, None, str(error))
+            stamp, _found, _incomplete = scanned
+            entry = boxset.FolderImage(path, method=method)
+            outcome = workflows.apply_scan_result(entry, scanned)
+            if outcome.error:
+                return (path, stamp, watch_store.NEEDS_REVIEW, None, outcome.error)
+            state, detail = watch_store.automatic_outcome(entry)
+            target = None
+            if state == watch_store.EXPORTED:
+                if not self._auto_ready(watch, cancel):
+                    cancel.set()
+                    return (path, stamp, _PAUSED, None, '')
+                try:
+                    snapshot, with_log = workflows.auto_export_snapshot(
+                        entry, watch.export_directory, template, include_log)
+                    snapshot.target.parent.mkdir(parents=True, exist_ok=True)
+                    export.write_copy(snapshot, include_log=with_log)
+                except Exception as error:
+                    return (path, stamp, watch_store.NEEDS_REVIEW, None, str(error))
+                target = str(snapshot.target)
+            return (path, stamp, state, target, detail)
+
+        def accept(index, result, error):
+            watch, path = jobs[index]
+            current = watch_store.find(self.store, watch.path)
+            if current is None:
+                return
+            if error is not None:
+                state, target, detail = watch_store.NEEDS_REVIEW, None, error
+            else:
+                _path, _stamp, state, target, detail = result
+            if state == _PAUSED:
+                self._auto_hold = True
+                if current.policy != 'automatic' and self._write_record(
+                        current, path, watch_store.PRESENTED):
+                    self._counts[watch_store.key(current.path)] = (
+                        watch_store.counts(self.store, current))
+                    self._save()
+                    self.watchesChanged.emit()
+                return
+            if state == watch_store.EXPORTED:
+                stats['exported'] += 1
+            elif state == watch_store.NEEDS_REVIEW:
+                stats['needs_review'] += 1
+            if self._write_record(current, path, state, export=target, detail=detail):
+                self._counts[watch_store.key(current.path)] = watch_store.counts(
+                    self.store, current)
+                self._save()
+                self.watchesChanged.emit()
+
+        def finish():
+            waiting = len(jobs) - stats['exported'] - stats['needs_review']
+            parts = []
+            if stats['exported']:
+                parts.append(f'{stats["exported"]} redacted')
+            if stats['needs_review']:
+                parts.append(f'{stats["needs_review"]} needs review')
+            if waiting > 0:
+                parts.append(f'{waiting} waiting')
+            status = AUTO_LABEL + (' stopped' if cancel.is_set() else ' finished')
+            if parts:
+                status += ' · ' + ' · '.join(parts)
+            self._auto_status = status
+            return status
+
+        self._auto_jobs.run(
+            AUTO_LABEL, jobs, operation, accept, finish, cancel=cancel,
+            workers=1, report_failures=False,
+            metrics_settings=self.session.scan_metrics(),
+        )
+
+    def _auto_ready(self, watch, cancel):
+        """Whether this file may still run and, later, publish."""
+        if cancel.is_set():
+            return False
+        current = watch_store.find(self.store, watch.path)
+        if current is None or current.policy != 'automatic':
+            return False
+        if self._watch_open(watch) or self.session.jobs.busy:
+            return False
+        return True
+
+    def _watch_open(self, watch):
+        facade = self.session.facades.folder
+        if facade is None or not facade.folderMode:
+            return False
+        open_folder = self.session.folder
+        return (open_folder is not None
+                and watch_store.key(open_folder) == watch_store.key(watch.path))
+
+    def _write_record(self, watch, path, state, *, export=None, detail=''):
+        try:
+            watch_store.mark(self.store, watch, path, state=state,
+                             export=export, detail=detail)
+            return True
+        except OSError:
+            return False
+
+    def _mark_queued_presented(self, folder):
+        records = self.store.seen.get(watch_store.key(folder.path), {})
+        for name, record in list(records.items()):
+            if record.state != watch_store.QUEUED:
+                continue
+            self._write_record(folder, folder.path / name, watch_store.PRESENTED)
+
+    def _auto_records_failed(self, jobs, detail):
+        changed = False
+        for watch, path in jobs:
+            current = watch_store.find(self.store, watch.path)
+            if current is None:
+                continue
+            if not self._write_record(current, path, watch_store.NEEDS_REVIEW,
+                                      detail=detail):
+                continue
+            changed = True
+            self._counts[watch_store.key(current.path)] = watch_store.counts(
+                self.store, current)
+        if changed:
+            self._save()
+            self.watchesChanged.emit()
+            self.autoChanged.emit()
 
     def _folder_changed(self):
         folder = self.session.folder

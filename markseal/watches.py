@@ -287,6 +287,15 @@ def counts(store, folder, *, now=None):
     return WatchCounts(fresh, existing, review, exported, tuple(issues), True)
 
 
+def automatic_outcome(entry):
+    """The lane's decision for one scanned image: state and review detail."""
+    if entry.incomplete_ocr:
+        return NEEDS_REVIEW, 'Partial scan'
+    if not entry.selected:
+        return NEEDS_REVIEW, 'Nothing found'
+    return EXPORTED, ''
+
+
 def prune(store, folder, names):
     """Drop records whose file is absent from a successful listing."""
     records = store.seen.get(key(folder.path))

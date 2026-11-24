@@ -157,6 +157,103 @@ class WatchFacadeTests(unittest.TestCase):
         self.assertEqual(self.watches.watchRows, [])
         self.assertIn('could not be loaded', self.controller.alerts.status_text)
 
+    def wait_for_auto(self, timeout_ms=10000):
+        if not self.watches.autoRunning:
+            return
+        loop = QEventLoop()
+        self.watches.autoChanged.connect(
+            lambda: loop.quit() if not self.watches.autoRunning else None)
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(loop.quit)
+        timer.start(timeout_ms)
+        loop.exec()
+
+    def test_automatic_watch_exports_with_a_log(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.image('new.png')
+        self.watches.sweep()
+        self.wait_for_auto()
+        target = self.folder / 'redacted' / 'new_redacted.png'
+        self.assertTrue(target.is_file())
+        self.assertTrue((self.folder / 'redacted' / 'new_redacted.redactions.json').is_file())
+        self.assertEqual(self.watches.watchRows[0]['exported'], 1)
+
+    def test_zero_suggestions_needs_review_and_writes_nothing(self):
+        self.controller.session.preferences.categories = ('Emails',)
+        self.controller.session.scan_engine = lambda: FakeEngine(
+            'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+            '1\t1\t1\t1\t10\t20\t100\t20\t95\tplain words\n')
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.image('blank.png')
+        self.watches.sweep()
+        self.wait_for_auto()
+        row = self.watches.watchRows[0]
+        self.assertEqual(row['needs_review'], 1)
+        self.assertIn('Nothing found', row['issues'][0]['detail'])
+        self.assertFalse((self.folder / 'redacted' / 'blank_redacted.png').exists())
+
+    def test_collision_needs_review_and_does_not_block_the_next_file(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        (self.folder / 'redacted').mkdir()
+        (self.folder / 'redacted' / 'a_redacted.png').write_bytes(b'x')
+        self.image('a.png')
+        self.image('b.png')
+        self.watches.sweep()
+        self.wait_for_auto()
+        self.assertTrue((self.folder / 'redacted' / 'b_redacted.png').is_file())
+        row = self.watches.watchRows[0]
+        self.assertEqual(row['needs_review'], 1)
+        self.assertEqual(row['exported'], 1)
+
+    def test_automatic_pauses_while_the_folder_is_open(self):
+        self.image('old.png')
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.watches.openFolder(str(self.folder))
+        self.image('late.png')
+        self.watches.sweep()
+        self.assertFalse((self.folder / 'redacted' / 'late_redacted.png').exists())
+        self.controller.folder.clear()
+        self.wait_for_jobs()
+        self.watches.sweep()
+        self.wait_for_auto()
+        self.assertTrue((self.folder / 'redacted' / 'late_redacted.png').is_file())
+
+    def test_switching_to_manual_stops_the_lane_and_marks_queued_presented(self):
+        path = self.image('queued.png')
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        watch_store.mark(self.watches.store, self.watches.watch_for(self.folder), path,
+                         state=watch_store.QUEUED)
+        self.watches.setPolicy(str(self.folder), 'manual')
+        record = self.watches.store.seen[watch_store.key(self.folder)]['queued.png']
+        self.assertEqual(record.state, watch_store.PRESENTED)
+        self.watches.sweep()
+        self.assertFalse((self.folder / 'redacted' / 'queued_redacted.png').exists())
+
+    def test_process_existing_queues_baseline_files(self):
+        self.image('old.png')
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.watches.processExisting(str(self.folder))
+        self.wait_for_auto()
+        self.assertTrue((self.folder / 'redacted' / 'old_redacted.png').is_file())
+
+    def test_startup_resumes_a_queued_record(self):
+        self.image('resume.png')
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        path = self.folder / 'resume.png'
+        watch_store.mark(self.watches.store, self.watches.watch_for(self.folder), path,
+                         state=watch_store.QUEUED)
+        self.watches.sweep()
+        self.wait_for_auto()
+        self.assertTrue((self.folder / 'redacted' / 'resume_redacted.png').is_file())
+
 
 if __name__ == '__main__':
     unittest.main()

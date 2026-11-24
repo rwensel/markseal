@@ -109,6 +109,32 @@ class ExportPlanningTests(unittest.TestCase):
         self.assertFalse(workflows.export_succeeded(image, snapshot))
 
 
+class AutoExportTests(unittest.TestCase):
+    def test_auto_export_snapshot_targets_the_watch_folder(self):
+        from markseal.boxset import FolderImage
+        from pathlib import Path
+        entry = FolderImage(Path('shots/a.png'))
+        entry.boxes = [(1, 2, 3, 4)]
+        entry.selected = {0}
+        snapshot, include_log = workflows.auto_export_snapshot(
+            entry, Path('shots/redacted'), '{stem}_redacted', True)
+        self.assertEqual(snapshot.target, Path('shots/redacted/a_redacted.png'))
+        self.assertTrue(include_log)
+        self.assertEqual(list(snapshot.boxes), [(1, 2, 3, 4)])
+
+    def test_auto_export_snapshot_refuses_an_existing_target(self):
+        from markseal.boxset import FolderImage
+        with TemporaryDirectory() as directory:
+            target = Path(directory) / 'a_redacted.png'
+            target.write_bytes(b'x')
+            entry = FolderImage(Path(directory) / 'a.png')
+            entry.boxes = [(1, 2, 3, 4)]
+            entry.selected = {0}
+            with self.assertRaises(ValueError):
+                workflows.auto_export_snapshot(
+                    entry, Path(directory), '{stem}_redacted', True)
+
+
 class BatchToolTests(unittest.TestCase):
     def test_copy_reports_skipped_unchanged_and_applied(self):
         image = entry('a.png', stamp='v1')

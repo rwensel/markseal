@@ -118,6 +118,22 @@ class WatchTests(unittest.TestCase):
         with self.assertRaises(watches.WatchError):
             watches.load(target)
 
+    def test_automatic_outcome_routing(self):
+        from markseal.boxset import FolderImage
+        exported = FolderImage(Path('a.png'))
+        exported.boxes = [(0, 0, 10, 10)]
+        exported.selected = {0}
+        self.assertEqual(watches.automatic_outcome(exported), (watches.EXPORTED, ''))
+        partial = FolderImage(Path('b.png'))
+        partial.boxes = [(0, 0, 10, 10)]
+        partial.selected = {0}
+        partial.incomplete_ocr = ('Personal names',)
+        self.assertEqual(watches.automatic_outcome(partial),
+                         (watches.NEEDS_REVIEW, 'Partial scan'))
+        empty = FolderImage(Path('c.png'))
+        self.assertEqual(watches.automatic_outcome(empty),
+                         (watches.NEEDS_REVIEW, 'Nothing found'))
+
     def test_counts_on_an_unavailable_folder_keep_the_records(self):
         self.write('a.png')
         folder = self.add()

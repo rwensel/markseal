@@ -106,6 +106,18 @@ def export_succeeded(entry, snapshot):
     )
 
 
+def auto_export_snapshot(entry, output_directory, template, include_log):
+    """Confirm one image and plan its own export, refusing an existing target."""
+    entry.reviewed = True
+    plan = plan_exports(
+        [(0, entry)], output_directory=output_directory,
+        template=template, include_log=include_log,
+    )
+    _entry, target = plan.jobs[0]
+    return export.snapshot(entry.path, target, entry.boxes, entry.selected,
+                           entry.method, stamp=entry.stamp), include_log
+
+
 def copy_boxes_to_entry(entry, boxes, stamp, matches):
     if not matches or (entry.stamp is not None and entry.stamp != stamp):
         return 'skipped'
