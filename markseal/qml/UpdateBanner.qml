@@ -6,7 +6,7 @@ import Redactor 1.0
 Item {
     id: banner
     visible: Backend.updates.hasUpdate
-    implicitHeight: visible ? (banner.showNotes ? 154 : 50) : 0
+    implicitHeight: visible ? (banner.showNotes ? 186 : 88) : 0
 
     property bool showNotes: false
 
@@ -73,7 +73,8 @@ Item {
                 }
 
                 ConcourseButton {
-                    text: "UPDATE"
+                    text: Backend.updates.readyToInstall ? "INSTALL"
+                        : (Backend.updates.busy ? "WORKING…" : "UPDATE")
                     compact: true
                     enabled: !Backend.updates.busy
                     onClicked: Backend.updates.install()
@@ -83,6 +84,31 @@ Item {
                     text: "LATER"
                     compact: true
                     onClicked: Backend.updates.dismiss()
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: Backend.updates.status.length > 0
+                text: Backend.updates.status
+                color: Theme.steelLight
+                font.family: Theme.bodyFont
+                font.pixelSize: 10
+                elide: Text.ElideRight
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 4
+                radius: 2
+                color: Theme.hairline
+                opacity: Backend.updates.busy || Backend.updates.readyToInstall ? 1 : 0
+
+                Rectangle {
+                    width: parent.width * Backend.updates.progress
+                    height: parent.height
+                    radius: 2
+                    color: Theme.amber
                 }
             }
 

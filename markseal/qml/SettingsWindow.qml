@@ -1045,6 +1045,16 @@ Window {
                                 onClicked: Backend.updates.check()
                             }
 
+                            Text {
+                                Layout.fillWidth: true
+                                visible: Backend.updates.status.length > 0
+                                text: Backend.updates.status
+                                wrapMode: Text.WordWrap
+                                color: Theme.steelLight
+                                font.family: Theme.bodyFont
+                                font.pixelSize: 10
+                            }
+
                             Item { Layout.fillHeight: true }
                         }
                     }

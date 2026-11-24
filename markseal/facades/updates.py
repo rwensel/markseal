@@ -29,6 +29,8 @@ class UpdateFacade(QObject):
     availableChanged = Signal()
     failedChanged = Signal()
     stateChanged = Signal()
+    progressChanged = Signal()
+    statusChanged = Signal()
 
     def __init__(self, session, alerts, parent=None):
         super().__init__(parent)
@@ -39,6 +41,8 @@ class UpdateFacade(QObject):
         self._error = ''
         self._jobs = 0
         self._pending = None
+        self._progress = 0.0
+        self._status = ''
 
     @Property(str, constant=True)
     def currentVersion(self):
@@ -67,6 +71,14 @@ class UpdateFacade(QObject):
     def errorText(self):
         return self._error
 
+    @Property(float, notify=progressChanged)
+    def progress(self):
+        return self._progress
+
+    @Property(str, notify=statusChanged)
+    def status(self):
+        return self._status
+
     @Property(bool, notify=stateChanged)
     def readyToInstall(self):
         return self._installer is not None
@@ -75,6 +87,7 @@ class UpdateFacade(QObject):
     def check(self):
         if not self.session.preferences.check_for_updates or self._jobs:
             return
+        self._set_status('Checking for updates…')
         self._run(lambda progress: updates.check_for_update(), self._found)
 
     @Slot()
@@ -82,6 +95,8 @@ class UpdateFacade(QObject):
         if self._info is None or self._jobs:
             return
         info = self._info
+        self._set_progress(0.0)
+        self._set_status('Downloading update… 0%')
         self._run(lambda progress: updates.download_update(info, progress=progress),
                   self._downloaded)
 
@@ -92,6 +107,7 @@ class UpdateFacade(QObject):
             return
         try:
             updates.launch_installer(self._installer)
+            self._set_status('Installer launched.')
         except updates.UpdateError as error:
             self._failed(str(error))
 
@@ -100,6 +116,8 @@ class UpdateFacade(QObject):
         self._info = None
         self._installer = None
         self._error = ''
+        self._set_progress(0.0)
+        self._set_status('')
         self.availableChanged.emit()
         self.stateChanged.emit()
 
@@ -112,6 +130,7 @@ class UpdateFacade(QObject):
         job.signals.done.connect(self._finish)
         job.signals.failed.connect(self._failed)
         job.signals.failed.connect(self._finish)
+        job.signals.progress.connect(self._progress_update)
         self._pending = job
         QThreadPool.globalInstance().start(job)
 
@@ -121,16 +140,38 @@ class UpdateFacade(QObject):
         if info is not None:
             self._info = info
             self.availableChanged.emit()
+            self._set_status(f'Update {info.version} is available.')
             if self.session.preferences.download_updates_automatically:
                 self.download()
+        else:
+            self._set_status(f'Markseal {self.currentVersion} is up to date.')
 
     def _downloaded(self, path):
         self._installer = path
+        self._set_progress(1.0)
+        self._set_status('Update downloaded. Press INSTALL to run it.')
         self.stateChanged.emit()
 
     def _failed(self, message):
         self._error = message
         self.failedChanged.emit()
+        self._set_status('Update failed: ' + message)
+        self.alerts.set_status('Update failed: ' + message)
+
+    def _progress_update(self, value):
+        self._set_progress(value)
+        self._set_status(f'Downloading update… {int(self._progress * 100)}%')
+
+    def _set_progress(self, value):
+        value = max(0.0, min(1.0, float(value)))
+        if value != self._progress:
+            self._progress = value
+            self.progressChanged.emit()
+
+    def _set_status(self, text):
+        if text != self._status:
+            self._status = text
+            self.statusChanged.emit()
 
     def _finish(self, *_):
         self._pending = None
