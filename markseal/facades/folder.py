@@ -114,9 +114,7 @@ class FolderFacade(QObject):
             return
         self.session.facades.review.cancel_capture()
         self.session.folder = chosen
-        self.session.output_directory = (
-            self.session.output_directory_override or chosen / 'redacted'
-        )
+        self.session.output_directory = self.session.output_directory_for(chosen)
         self.session.entries = [
             boxset.FolderImage(path, method=self.session.preferences.method)
             for path in paths
@@ -129,6 +127,24 @@ class FolderFacade(QObject):
         self._folder_model.set_active(0)
         self.session.jobs.reset_progress('Select images to scan, then review each image.')
         self.activate_entry(0)
+
+    def add_paths(self, paths):
+        existing = {entry.path for entry in self.session.entries}
+        added = []
+        for path in paths:
+            if path in existing:
+                continue
+            existing.add(path)
+            added.append(
+                boxset.FolderImage(path, method=self.session.preferences.method)
+            )
+        if not added:
+            return added
+        self.session.entries.extend(added)
+        self._folder_model.entries = self.session.entries
+        self._folder_model.rows_inserted(len(added))
+        self.refresh_and_emit()
+        return added
 
     def activate_entry(self, index):
         if not 0 <= index < len(self.session.entries) or self.session.active == index:

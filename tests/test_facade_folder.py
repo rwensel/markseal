@@ -114,6 +114,35 @@ class FolderFacadeTests(unittest.TestCase):
         self.assertEqual(self.folder.folderModel.rowCount(), 0)
         self.assertFalse(self.folder.folderMode)
 
+    def test_appended_rows_keep_selection_and_active_row(self):
+        source = self.make_folder()
+        self.folder.open_path(source)
+        Image.new('RGB', (60, 40), 'white').save(source / 'c.png')
+        self.controller.session.row_selection = {0}
+        added = self.folder.add_paths([source / 'c.png'])
+        self.assertEqual(len(added), 1)
+        self.assertEqual(self.folder.folderModel.rowCount(), 3)
+        self.assertEqual(self.controller.session.row_selection, {0})
+        self.assertEqual(self.controller.session.active, 0)
+        model = self.folder.folderModel
+        self.assertEqual(model.data(model.index(2), FolderModel.NameRole), 'c.png')
+        self.assertFalse(model.data(model.index(2), FolderModel.ActiveRole))
+
+    def test_watched_output_wins_over_the_global_override(self):
+        session = self.controller.session
+        watched = self.root / 'watched'
+        session.facades.watches = type('Stub', (), {
+            'output_for': lambda self, folder: watched,
+            'note_export': lambda self, path, target: None,
+        })()
+        session.output_directory_override = self.root / 'global'
+        self.assertEqual(
+            session.output_directory_for(self.root / 'images'), watched)
+        session.facades.watches = None
+        self.assertEqual(
+            session.output_directory_for(self.root / 'images'),
+            self.root / 'global')
+
 
 if __name__ == '__main__':
     unittest.main()

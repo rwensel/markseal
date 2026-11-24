@@ -140,8 +140,8 @@ class SettingsFacade(QObject):
         directory = self.session.preferences.output_directory
         path = Path(directory) if directory else None
         self.session.output_directory_override = path
-        self.session.output_directory = path or (
-            self.session.folder / 'redacted' if self.session.folder else None)
+        self.session.output_directory = self.session.output_directory_for(
+            self.session.folder)
         self._preview_theme = self.session.preferences.theme
         self._palette.set_theme(self.session.preferences.theme)
         self.alerts.set_hint_theme(self.session.preferences.theme)

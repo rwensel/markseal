@@ -44,6 +44,12 @@ class FolderModel(QAbstractListModel):
         self.job_states = {}
         self.endResetModel()
 
+    def rows_inserted(self, count):
+        if count > 0:
+            start = len(self.entries) - count
+            self.beginInsertRows(QModelIndex(), start, start + count - 1)
+            self.endInsertRows()
+
     def set_job_states(self, states):
         if not self.entries:
             return

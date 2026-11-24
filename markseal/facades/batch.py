@@ -403,6 +403,9 @@ class BatchFacade(QObject):
                 entry.error = ''
                 entry.export_path = target
                 self.session.facades.review.last_export = target
+                watches = getattr(self.session.facades, 'watches', None)
+                if watches is not None:
+                    watches.note_export(entry.path, target)
                 self.alerts.set_status(f'Saved {target.name} to {target.parent}')
 
         self.session.jobs.run(

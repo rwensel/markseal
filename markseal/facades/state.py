@@ -13,6 +13,7 @@ class Facades:
         self.review = None
         self.folder = None
         self.settings = None
+        self.watches = None
 
 
 class SessionState:
@@ -36,6 +37,16 @@ class SessionState:
 
     def scan_engine(self):
         return ocr.make_engine()
+
+    def output_directory_for(self, folder):
+        if folder is None:
+            return None
+        watches = self.facades.watches
+        if watches is not None:
+            directory = watches.output_for(folder)
+            if directory is not None:
+                return directory
+        return self.output_directory_override or Path(folder) / 'redacted'
 
     def store_active(self):
         if self.active is None or self.review.image is None:

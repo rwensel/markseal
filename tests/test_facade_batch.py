@@ -148,6 +148,24 @@ class BatchFacadeTests(unittest.TestCase):
         self.assertTrue((self.root / 'out' / '1_redacted.png').is_file())
         self.assertTrue(all(entry.saved for entry in self.controller.session.entries))
 
+    def test_manual_save_reports_the_export_to_the_watch(self):
+        source = self.make_folder(1)
+        self.controller.folder.open_path(source)
+        entry = self.controller.session.entries[0]
+        entry.boxes = [(5, 5, 20, 20)]
+        entry.selected = {0}
+        entry.reviewed = True
+        self.controller.session.review.confirmed = True
+        calls = []
+        self.controller.session.facades.watches = type('Stub', (), {
+            'output_for': lambda self, folder: None,
+            'note_export': lambda self, path, target: calls.append((path, target)),
+        })()
+        self.batch.saveReviewed()
+        self.wait_for_batch()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0], entry.path)
+
     def test_cancel_without_a_running_batch_is_harmless(self):
         self.batch.cancelScan()
         self.assertFalse(self.batch.busy)
