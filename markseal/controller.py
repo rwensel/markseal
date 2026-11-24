@@ -134,6 +134,11 @@ class Controller(QObject):
         if not self.session.entries and self.session.review.boxes:
             if not self.alerts.ask('Open another image', 'Discard the current unsaved markings?'):
                 return False
+        if self._review.unsaved_pdf_work():
+            if not self.alerts.ask(
+                    'Discard PDF markings?',
+                    'This PDF has unsaved markings on another page. Discard them?'):
+                return False
         return True
 
     def _present_image(self, image, path, pasted=False):
@@ -178,6 +183,8 @@ class Controller(QObject):
     def openFolder(self):
         if self.jobs.busy:
             return
+        if not self._prepare_image_open():
+            return
         chosen = self._choose_folder('Open image folder')
         if chosen is None:
             return
@@ -212,6 +219,8 @@ class Controller(QObject):
             return
         folders = [path for path in paths if path.is_dir()]
         if folders:
+            if not self._prepare_image_open():
+                return
             self._folder.open_path(folders[0])
             return
         self.alerts.info('Drop an image or PDF',

@@ -106,7 +106,8 @@ class FolderFacade(QObject):
             return
         if not paths:
             self.alerts.info('No images',
-                             'Choose a folder containing PNG, JPEG, BMP or TIFF images.')
+                             'Choose a folder containing PNG, JPEG, BMP or TIFF images. '
+                             'PDFs open one file at a time.')
             return
         if not self.session.entries and self.session.review.boxes and not self.alerts.ask(
                 'Open folder?', 'Discard the current image markings?'):

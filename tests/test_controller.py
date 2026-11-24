@@ -239,6 +239,44 @@ class ControllerTests(unittest.TestCase):
         self.controller.session.review.boxset.clear()
         self.assertFalse(self.controller.review.unsaved_pdf_work())
 
+    def test_opening_an_image_prompts_when_pdf_has_markings(self):
+        self.open_pdf()
+        self.controller.session.review.boxset.add((10, 10, 20, 20), 'Page one')
+        self.controller.review.nextPdfPage()
+        image_path = Path(self.temporary.name) / 'replacement.png'
+        Image.new('RGB', (80, 60), 'white').save(image_path)
+        self.controller.alerts.ask = lambda *args, **kwargs: False
+        with patch.object(self.controller, '_choose_image') as choose:
+            self.controller.openImage()
+        choose.assert_not_called()
+        self.assertTrue(self.controller.review.isPdf)
+        self.controller.alerts.ask = lambda *args, **kwargs: True
+        with patch.object(self.controller, '_choose_image', return_value=image_path):
+            self.controller.openImage()
+        self.assertFalse(self.controller.review.isPdf)
+
+    def test_pdf_only_folder_reports_the_image_only_boundary(self):
+        folder = Path(self.temporary.name) / 'pdfs'
+        folder.mkdir()
+        write_pdf(folder / 'only.pdf')
+        messages = []
+        self.controller.alerts.info = lambda *args, **kwargs: messages.append(args)
+        with patch.object(self.controller, '_choose_folder', return_value=folder):
+            self.controller.openFolder()
+        self.assertTrue(messages)
+        self.assertIn('PDF', messages[0][1])
+        self.assertIn('one file at a time', messages[0][1])
+
+    def test_folder_open_does_not_list_pdfs(self):
+        folder = Path(self.temporary.name) / 'mixed'
+        folder.mkdir()
+        Image.new('RGB', (80, 60), 'white').save(folder / 'one.png')
+        write_pdf(folder / 'ignored.pdf')
+        with patch.object(self.controller, '_choose_folder', return_value=folder):
+            self.controller.openFolder()
+        self.assertEqual(len(self.controller.session.entries), 1)
+        self.assertEqual(self.controller.session.entries[0].path.name, 'one.png')
+
     def test_main_qml_loads_with_the_backend(self):
         qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', self.controller)
         engine = QQmlApplicationEngine()
