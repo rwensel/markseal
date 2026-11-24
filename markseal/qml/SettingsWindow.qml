@@ -952,6 +952,65 @@ Window {
                             width: updatesFlick.width
                             spacing: 10
 
+                            FieldLabel { text: "BUILD" }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                implicitHeight: 66
+                                radius: Theme.radiusCard
+                                color: Theme.panelRaised
+                                border.width: 1
+                                border.color: Theme.hairline
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 14
+                                    anchors.rightMargin: 14
+                                    spacing: 16
+
+                                    ColumnLayout {
+                                        spacing: 2
+
+                                        Text {
+                                            text: "MARKSEAL"
+                                            color: Theme.steelLight
+                                            font.family: Theme.displayFont
+                                            font.pixelSize: 9
+                                            font.letterSpacing: 1.2
+                                        }
+
+                                        Text {
+                                            text: "Version " + Backend.updates.currentVersion
+                                            color: Theme.white
+                                            font.family: Theme.displayFont
+                                            font.pixelSize: 15
+                                            font.letterSpacing: 0.8
+                                        }
+                                    }
+
+                                    Item { Layout.fillWidth: true }
+
+                                    ColumnLayout {
+                                        spacing: 2
+
+                                        Text {
+                                            text: "PLATFORM"
+                                            color: Theme.steelLight
+                                            font.family: Theme.displayFont
+                                            font.pixelSize: 9
+                                            font.letterSpacing: 1.2
+                                        }
+
+                                        Text {
+                                            text: Backend.updates.platform
+                                            color: Theme.white
+                                            font.family: Theme.bodyFont
+                                            font.pixelSize: 12
+                                        }
+                                    }
+                                }
+                            }
+
                             FieldLabel { text: "UPDATES" }
 
                             Text {
@@ -984,11 +1043,6 @@ Window {
                                 compact: true
                                 enabled: !Backend.updates.busy
                                 onClicked: Backend.updates.check()
-                            }
-
-                            HintText {
-                                Layout.fillWidth: true
-                                text: "Current version " + Backend.updates.currentVersion
                             }
 
                             Item { Layout.fillHeight: true }

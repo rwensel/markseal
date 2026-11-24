@@ -44,6 +44,10 @@ class UpdateFacade(QObject):
     def currentVersion(self):
         return updates.__version__
 
+    @Property(str, constant=True)
+    def platform(self):
+        return updates.platform_key()
+
     @Property(bool, notify=stateChanged)
     def busy(self):
         return self._jobs > 0
