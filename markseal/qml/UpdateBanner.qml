@@ -6,9 +6,13 @@ import Redactor 1.0
 Item {
     id: banner
     visible: Backend.updates.hasUpdate
-    implicitHeight: visible ? (banner.showNotes ? 186 : 88) : 0
+    implicitHeight: visible ? (banner.showNotes ? 300 : 88) : 0
 
     property bool showNotes: false
+
+    function isHeading(line) {
+        return /^[A-Z][A-Z &]+$/.test(line)
+    }
 
     MultiEffect {
         anchors.fill: panel
@@ -112,16 +116,37 @@ Item {
                 }
             }
 
-            Text {
+            Flickable {
+                id: notesView
                 Layout.fillWidth: true
+                Layout.preferredHeight: banner.showNotes ? 210 : 0
                 visible: banner.showNotes
-                text: Backend.updates.updateInfo.notes || ""
-                wrapMode: Text.WordWrap
-                maximumLineCount: 6
-                elide: Text.ElideRight
-                color: Theme.steelLight
-                font.family: Theme.bodyFont
-                font.pixelSize: 10
+                clip: true
+                contentWidth: width
+                contentHeight: notesColumn.implicitHeight
+
+                Column {
+                    id: notesColumn
+                    width: notesView.width
+                    spacing: 3
+
+                    Repeater {
+                        model: (Backend.updates.updateInfo.notes || "").split("\n")
+
+                        Text {
+                            required property string modelData
+                            width: notesColumn.width
+                            text: modelData
+                            visible: modelData.length > 0
+                            wrapMode: Text.WordWrap
+                            color: banner.isHeading(modelData) ? Theme.amber : Theme.steelLight
+                            font.family: banner.isHeading(modelData) ? Theme.displayFont : Theme.bodyFont
+                            font.pixelSize: banner.isHeading(modelData) ? 9 : 10
+                            font.letterSpacing: banner.isHeading(modelData) ? 1.0 : 0
+                            topPadding: banner.isHeading(modelData) ? 3 : 0
+                        }
+                    }
+                }
             }
 
             Text {

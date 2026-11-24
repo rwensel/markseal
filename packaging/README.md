@@ -52,7 +52,12 @@ Install the release extra, then provide R2 credentials (`R2_ACCOUNT_ID`,
 Artifacts go to `releases/<version>/<platform>/<file>` with an immutable cache
 policy; the manifest is written to `stable/latest.json` (or `beta/latest.json`
 with `--channel beta`) with a 60-second cache so a release appears quickly. Drop
-`--dry-run` to upload. Both are served from the
+`--dry-run` to upload.
+
+Write notes as category headings (FEATURES, ENHANCEMENTS, FIXES, OPTIMIZATIONS)
+with one `•` bullet per change; the in-app banner renders them as plain text and
+scrolls. To republish notes without re-uploading the installer, add
+`--manifest-only` (or `-ManifestOnly`). Both are served from the
 `updates.staginglane.app` custom domain on the bucket; no server runs.
 
 Instead of exporting `R2_*` variables, pass `--vault-path secret/prod/markseal/r2`
