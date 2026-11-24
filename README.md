@@ -94,8 +94,12 @@ Open **Settings → Appearance** to pick one of six worlds: Split-flap Concourse
 
 ## Desktop interface
 
-`launch.bat` starts the cross-platform PySide6 + Qt Quick app. The interface is a layered review board: the screenshot sits in a recessed card, the theme's accent marks selected boxes and the primary action, its stop color marks excluded boxes (amber and red in the default Split-flap), and a bottom signal board keeps the selected, excluded, and total counts visible. Settings open in a separate window with OCR, Patterns, Redaction, Output, Blocked patterns, and Appearance tabs. Apply saves preferences; Cancel, Escape, or closing the window discards edits and restores the saved theme (blocked-pattern list changes are saved immediately). Files can be opened, pasted, or dragged onto the window; a confirmed image can be copied to the clipboard from the viewer caption. The original Tkinter interface is retained only as design history in `docs/history/2026-11-23-tkinter-design-incumbent.md`.
+`launch.bat` starts the cross-platform PySide6 + Qt Quick app. The interface is a layered review board: the screenshot sits in a recessed card, the theme's accent marks selected boxes and the primary action, its stop color marks excluded boxes (amber and red in the default Split-flap), and a bottom signal board keeps the selected, excluded, and total counts visible. Settings open in a separate window with OCR, Patterns, Redaction, Output, Blocked patterns, and Appearance tabs. Apply saves preferences; Cancel, Escape, or closing the window discards edits and restores the saved theme (blocked-pattern list changes are saved immediately). Files can be opened, pasted, or dragged onto the window; a confirmed image can be copied to the clipboard from the viewer caption.
 
 For custom short codes that can occur inside underscore-separated names, use alphanumeric boundaries such as `(?<![A-Za-z0-9])(?:abc|xyz)(?![A-Za-z0-9])`. The ordinary regex word boundary `\b` treats underscores as part of a word. The Infrastructure category also matches environment-qualified names such as `ABC_PROD_MOBILE`, and bare merge-request numbers such as `!42` are left alone unless a blocked pattern explicitly matches them.
 
 Infrastructure detection also covers common multi-level hostnames, JDBC connection URLs, compact environment IDs, and configuration keys. App names without a recognizable format may need a blocked pattern or manual selection.
+
+## License
+
+MarkSeal is released under the MIT License. See `LICENSE` for the full text. Third-party components and their licenses are listed in `THIRD_PARTY_NOTICES.txt` and in **Settings → Updates → THIRD-PARTY LICENSES**.
