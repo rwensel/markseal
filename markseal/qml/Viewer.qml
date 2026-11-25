@@ -698,7 +698,7 @@ Item {
 
                     Text {
                         width: parent.width
-                        text: "Open a screenshot to scan for identifiers, review every box, "
+                        text: "Open or drop a screenshot or PDF, scan for identifiers, review every box, "
                               + "and export a safe copy. Everything runs on this machine."
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
@@ -719,7 +719,7 @@ Item {
                             ConcourseButton {
                                 text: "OPEN IMAGE"
                                 variant: "primary"
-                                tip: "Open an image file (Ctrl+O)"
+                                tip: "Open an image or PDF (Ctrl+O)"
                                 onClicked: Backend.openImage()
                             }
 
@@ -743,7 +743,7 @@ Item {
 
                     Text {
                         width: parent.width
-                        text: "RAPIDOCR / COORDINATE LOG / PNG COPY"
+                        text: "LOCAL OCR / REVIEWABLE BOXES / PIXEL-ACCURATE PNG"
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.mutedText
                         font.family: Theme.displayFont

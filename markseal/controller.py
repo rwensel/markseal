@@ -157,7 +157,7 @@ class Controller(QObject):
             self._folder.clear()
         self._review.load_image(image, path, pasted=pasted)
         self.alerts.set_status(
-            f'{self._review.imageName}: find suggestions or drag to add a box, then confirm.'
+            f'{self._review.imageName}: scan the image or drag to add a box, then confirm.'
         )
 
     @Slot()

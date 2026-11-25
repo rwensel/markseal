@@ -113,7 +113,7 @@ Item {
             text: "OPEN IMAGE"
             compact: true
             visible: Backend.review.hasImage
-            tip: "Open an image file (Ctrl+O)"
+            tip: "Open an image or PDF (Ctrl+O)"
             enabled: !Backend.batch.busy
             onClicked: Backend.openImage()
         }
