@@ -107,6 +107,43 @@ class NerTests(unittest.TestCase):
                 tokenizer=FakeTokenizer())
         self.assertEqual(boxes, [])
 
+    def span_logits(self, length, category):
+        values = np.full((1, length, 2, 3), 0.05)
+        values[0, 0, category, 0] = 0.9
+        values[0, length - 1, category, 1] = 0.9
+        values[0, :, category, 2] = 0.9
+        return values
+
+    def test_code_shaped_span_is_not_a_name(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.manifest(folder)
+            boxes, _ = detect_entities(
+                [[word('GC5678', 10)]], (300, 100), 50, {'Personal names'},
+                model_dir=root, session=FakeSession(self.span_logits(1, 0)),
+                tokenizer=FakeTokenizer())
+        self.assertEqual(boxes, [])
+
+    def test_address_without_a_street_cue_is_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.manifest(folder)
+            boxes, _ = detect_entities(
+                [[word('Gate', 10), word('3', 80)]], (300, 100), 50,
+                {'Personal names', 'Postal addresses'}, model_dir=root,
+                session=FakeSession(self.span_logits(2, 1)), tokenizer=FakeTokenizer())
+        self.assertEqual(boxes, [])
+
+    def test_address_with_a_comma_is_kept(self):
+        words = [word('123', 10), word('Fictitious', 80), word('Lane,', 150),
+                 word('Imaginary', 220), word('City,', 290)]
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.manifest(folder)
+            boxes, rules = detect_entities(
+                [words], (400, 100), 50, {'Personal names', 'Postal addresses'},
+                model_dir=root, session=FakeSession(self.span_logits(len(words), 1)),
+                tokenizer=FakeTokenizer())
+        self.assertEqual(len(boxes), 1)
+        self.assertEqual(rules[boxes[0]], ('Postal addresses',))
+
     def test_corrupt_manifest_returns_none(self):
         with tempfile.TemporaryDirectory() as folder:
             (Path(folder) / 'manifest.json').write_text('{', encoding='utf-8')

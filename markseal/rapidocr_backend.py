@@ -98,16 +98,25 @@ def positioned_words(text, confidence, line_polygon, fragments):
 
     words = []
     for match in re.finditer(r'\S+', text):
-        letters = [aligned.get(i) for i in range(match.start(), match.end())]
-        if any(letter is None for letter in letters) or (original != located and original.count(match.group()) > 1):
+        parts = list(re.finditer(r'[,;]*[^,;]+[,;]*', match.group()))
+        if not parts:
             words.append((match.group(), confidence, line_polygon))
             continue
-        indexes, scores, polygons = zip(*letters)
-        if indexes[-1]-indexes[0]+1 != len(indexes):
-            words.append((match.group(), confidence, line_polygon))
-            continue
-        points = [point for polygon in polygons for point in polygon]
-        words.append((match.group(), sum(scores)/len(scores), points))
+        for part in parts:
+            start = match.start() + part.start()
+            end = match.start() + part.end()
+            token = text[start:end]
+            letters = [aligned.get(i) for i in range(start, end)]
+            if any(letter is None for letter in letters) or (
+                    original != located and original.count(token) > 1):
+                words.append((token, confidence, line_polygon))
+                continue
+            indexes, scores, polygons = zip(*letters)
+            if indexes[-1]-indexes[0]+1 != len(indexes):
+                words.append((token, confidence, line_polygon))
+                continue
+            points = [point for polygon in polygons for point in polygon]
+            words.append((token, sum(scores)/len(scores), points))
     return words
 
 

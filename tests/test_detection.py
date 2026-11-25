@@ -284,6 +284,46 @@ class DetectionTests(unittest.TestCase):
         rows = result_to_tsv(result, (200, 100))
         self.assertEqual(detect_regions(rows, (200, 100), *settings), [(106, 8, 165, 32)])
 
+    def test_comma_delimited_runs_keep_regex_matches_tight(self):
+        def polygon(left, right):
+            return [(left, 12), (right, 12), (right, 27), (left, 27)]
+
+        text = 'Alex Johnson,EID4824,alex@example.com,Exceeds'
+        fragments = tuple((character, .99, polygon(left, left + 10))
+                          for character, left in zip(text, range(10, 10 + 10 * len(text), 10)))
+        result = SimpleNamespace(
+            boxes=[polygon(10, 10 + 10 * len(text))], txts=(text,), scores=(.98,),
+            word_results=(fragments,),
+        )
+        start = text.index('alex@example.com')
+        end = start + len('alex@example.com')
+        rows = result_to_tsv(result, (1000, 120))
+        self.assertEqual(
+            detect_regions(rows, (1000, 120), False, {'Emails'}, 40),
+            [(10 + 10 * start - 4, 8, 10 + 10 * (end + 1) + 5, 32)],
+        )
+
+    def test_markdown_emphasis_does_not_hide_the_password_value(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        rows = (('**Temporary', 30, 128), ('Password:**', 166, 124),
+                ('Gr33n$prout!2024', 310, 180))
+        tsv = header + ''.join(
+            f'1\t1\t1\t1\t{left}\t20\t{width}\t24\t95\t{text}\n'
+            for text, left, width in rows)
+        self.assertEqual(detect_regions(tsv, (600, 100), False, {'Secrets'}, 40),
+                         [(306, 16, 494, 48)])
+
+    def test_credential_values_on_the_next_line_are_detected(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        for label, value in (('Wi-Fi Password:', 'WiFiPass2024'),
+                             ('Access Code:', 'AC1234'), ('Gate Code:', 'GC5678')):
+            with self.subTest(label=label):
+                tsv = header + (
+                    f'1\t1\t1\t1\t10\t20\t170\t24\t95\t{label}\n'
+                    f'1\t1\t1\t2\t12\t48\t120\t24\t95\t{value}\n')
+                self.assertEqual(detect_regions(tsv, (400, 100), False, {'Secrets'}, 40),
+                                 [(8, 44, 136, 76)])
+
     def test_detects_sensitive_line_but_not_generic_text(self):
         rows = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t10\t20\t90\t10\t95\tuser@example.com\n5\t1\t1\t1\t2\t1\t10\t50\t50\t10\t95\tDashboard\n'
         self.assertEqual(detect_regions(rows, (200, 100)), [(6, 16, 104, 34)])

@@ -15,6 +15,8 @@ LABELS = {
     'Postal addresses': (
         'address', 'addr', 'home address', 'mailing address', 'postal address',
         'street address', 'residence address', 'address line 1', 'address line 2',
+        'property address', 'billing address', 'shipping address', 'delivery address',
+        'residential address', 'current address', 'permanent address',
         'city', 'town', 'state', 'province', 'zip', 'zip code', 'postal code', 'postcode',
     ),
     'Dates of birth': (
@@ -74,10 +76,6 @@ def _label_at(words, index):
     return None
 
 
-def _starts_label(words, index):
-    return _label_at(words, index) is not None
-
-
 def _has_separator(words, end_index):
     if words[end_index][0].rstrip().endswith((':', '#', '.')):
         return True
@@ -98,13 +96,19 @@ def _line_height(words):
     return statistics.median(heights) if heights else 24
 
 
-def _value_words(words, start, height):
+def _value_words(words, start, height, address=False):
     value = []
     previous = None
     index = start
     while index < len(words):
         word = words[index]
-        if _starts_label(words, index) or _normal(word[0]) in STOP_LABELS:
+        match = _label_at(words, index)
+        if match is not None:
+            length, category = match
+            if (not address or category != 'Postal addresses'
+                    or _has_separator(words, index + length - 1)):
+                break
+        if _normal(word[0]) in STOP_LABELS:
             break
         if previous is not None and word[1] - previous[3] > 2.5 * height:
             break
@@ -142,6 +146,10 @@ def _ends_wrap(value):
     return bool(value) and value[-1][0].rstrip().endswith((',', '-', '–'))
 
 
+def _looks_like_label_line(words):
+    return len(words) <= 4 and words[-1][0].rstrip().endswith((':', '#'))
+
+
 def _extend_address(lines, line_index, value, left, bottom, height):
     result = list(value)
     current_bottom = max((word[4] for word in value), default=bottom)
@@ -157,8 +165,8 @@ def _extend_address(lines, line_index, value, left, bottom, height):
         start = _column_start(following, left, height)
         if start is None:
             break
-        run, _ = _value_words(following, start, height)
-        if not run or _normal(run[0][0]) in VALUE_STOP_WORDS:
+        run, _ = _value_words(following, start, height, address=True)
+        if not run or _normal(run[0][0]) in VALUE_STOP_WORDS or _looks_like_label_line(run):
             break
         result.extend(run)
         current_bottom = max(word[4] for word in run)
@@ -225,12 +233,16 @@ def field_boxes(lines, size, min_confidence, categories):
                 index += length
                 continue
             at_start = all(_is_filler(word[0]) for word in words[:index])
+            if at_start and words[index + length - 1][0].rstrip().endswith(','):
+                index += length
+                continue
             if not at_start and not _has_separator(words, index + length - 1):
                 index += length
                 continue
             label_left = words[index][1]
             label_bottom = words[index + length - 1][4]
-            value, stop = _value_words(words, index + length, height)
+            value, stop = _value_words(
+                words, index + length, height, category == 'Postal addresses')
             if category in ('Personal names', 'Postal addresses') and value:
                 if _normal(value[0][0]) in VALUE_STOP_WORDS:
                     value = []

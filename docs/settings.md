@@ -34,7 +34,7 @@ The personal-field categories use a bundled GLiNER PII Small int8 model (the mod
 
 The shipped model is English-only. A name or address with no surrounding context or label can be missed, and unusual license or passport formats and label variants outside the field vocabulary can be missed. Detection remains a starting point.
 
-Phone numbers require separators; a bare 10-digit sequence is not matched. Card numbers use Luhn, IBANs use MOD-97, and SSNs require the dashed US format. With Secrets enabled, credential labels such as Password or Bearer token also match the neighboring value on the same visual row.
+Phone numbers require separators; a bare 10-digit sequence is not matched. Card numbers use Luhn, IBANs use MOD-97, and SSNs require the dashed US format. With Secrets enabled, a credential label such as Password, API key, Access code, or Passcode also matches its value on the same visual row, or on the next line when no value sits beside the label.
 
 Patterns are matched case-insensitively. **Suggest all detected text** bypasses category filtering and skips personal detection.
 

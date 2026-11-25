@@ -101,23 +101,37 @@ PRESET_DESCRIPTIONS = {
 }
 LEGACY_PRESETS = {'Focused': 'Share a screenshot', 'Balanced': 'Everything', 'Broad': 'Everything'}
 
-CREDENTIAL_FIELD = re.compile(
-    r"(?:password|passwd|passphrase|bearer\s+token|authorization|(?:api|access)[ _-]?key|"
-    r"(?:access|auth|refresh)[ _-]?token|client[ _-]?secret|private[ _-]?key(?:\s+marker)?)",
-    re.IGNORECASE,
+CREDENTIAL_PHRASES = (
+    'bearer token', 'authorization', 'token', 'password', 'passwd', 'passphrase',
+    'secret', 'api key', 'access key id', 'access key', 'private key',
+    'client secret', 'secret name', 'access code', 'gate code', 'door code',
+    'security code', 'passcode', 'pin',
 )
+CREDENTIAL_PATTERN = '|'.join(
+    phrase.replace(' ', r'[ _-]?') for phrase in sorted(CREDENTIAL_PHRASES, key=len, reverse=True))
 SECRET_ASSIGNMENT = re.compile(
-    r"(?<![\w.-])(?:[\w.-]*[_-])?(?:bearer\s+token|authorization|token|password|passwd|"
-    r"passphrase|secret|api[_ -]?key|access[_ -]?key(?:[_-]?id)?|private[_ -]?key|"
-    r"client[_ -]?secret|secret[_ -]?name)\s*[:=]\s*"
-    r'(?P<value>"[^"]+"|\'[^\']+\'|Bearer\s+[^\s,}]+|[^\s,}]+)',
+    r"(?<![\w.-])(?:[\w.-]*[_-])?(?:" + CREDENTIAL_PATTERN + r")\s*[:=]\s*"
+    r"(?:\*{1,3}|_{1,3})?\s*"
+    r'(?P<value>"[^"]+"|\'[^\']+\'|Bearer\s+[^\s,}]+|[^\s,}]+?)'
+    r"(?:\*{1,3}|_{1,3})?(?=[\s,}]|$)",
     re.IGNORECASE,
 )
+
+
+def _credential_label(text):
+    """A bare credential phrase or up to a few qualifier words before a trailing colon."""
+    stripped = text.strip().strip('*_ ').rstrip()
+    label = ' '.join(stripped.strip(':').lower().split())
+    if label in CREDENTIAL_PHRASES:
+        return True
+    if not stripped.endswith(':') or len(label.split()) > 4:
+        return False
+    return any(label.endswith(' ' + phrase) for phrase in CREDENTIAL_PHRASES)
 
 
 def credential_boxes(lines, size, min_confidence):
-    """Match a credential label with the nearest distinct value on the same visual row."""
-    groups = []
+    """Match a credential label with the nearest distinct value on its row or the next line."""
+    line_groups = []
     for words in lines:
         parts = []
         for word in words:
@@ -130,40 +144,54 @@ def credential_boxes(lines, size, min_confidence):
                 parts.append([word])
             else:
                 parts[-1].append(word)
+        groups = []
         for part in parts:
             box = (min(w[1] for w in part), min(w[2] for w in part),
                    max(w[3] for w in part), max(w[4] for w in part))
             groups.append((' '.join(w[0] for w in part), box, max(w[5] for w in part)))
+        line_groups.append(groups)
 
     result = []
-    for text, (_, top, right, bottom), confidence in groups:
-        label = text.removesuffix(':').strip()
-        if confidence < min_confidence or CREDENTIAL_FIELD.fullmatch(label) is None:
-            continue
-        height = bottom - top
-        candidates = []
-        for value, bounds, score in groups:
-            x1, y1, x2, y2 = bounds
-            vertical_overlap = min(bottom, y2) - max(top, y1)
-            if (score >= min_confidence and 0 <= x1-right <= 14*height
-                    and vertical_overlap >= .55*min(height, y2-y1)):
-                candidates.append((value, bounds))
-        if not candidates:
-            continue
-        value, (x1, y1, x2, y2) = min(candidates, key=lambda item: item[1][0])
-        if CREDENTIAL_FIELD.fullmatch(value.removesuffix(':').strip()):
-            continue
-        if label.lower().startswith('private'):
-            marker = re.fullmatch(r"(-{0,5})(?:BEGIN|END) (?:[A-Z0-9]+ )*PRIVATE KEY(-{0,5})",
-                                  value, re.IGNORECASE)
-            if marker is None:
+    for index, groups in enumerate(line_groups):
+        for text, (left, top, right, bottom), confidence in groups:
+            label = text.strip().strip('*_ ').removesuffix(':').strip()
+            if confidence < min_confidence or not _credential_label(text):
                 continue
-            # A photographed PEM marker may lose leading/trailing dashes in OCR.
-            # Estimate only those expected characters and stay clear of the label.
-            char_width = math.ceil((x2-x1) / len(value))
-            x1 = max(right+5, x1-(5-len(marker[1]))*char_width)
-            x2 += (5-len(marker[2]))*char_width
-        result.append((max(0,x1-4), max(0,y1-4), min(size[0],x2+4), min(size[1],y2+4)))
+            height = bottom - top
+            candidates = []
+            for value, bounds, score in groups:
+                x1, y1, x2, y2 = bounds
+                overlap = min(bottom, y2) - max(top, y1)
+                if (score >= min_confidence and 0 <= x1-right <= 14*height
+                        and overlap >= .55*min(height, y2-y1)):
+                    candidates.append((value, bounds))
+            if not candidates and index + 1 < len(line_groups):
+                for value, bounds, score in line_groups[index+1]:
+                    x1, y1, x2, y2 = bounds
+                    if score < min_confidence or y1-bottom > 1.5*height:
+                        continue
+                    same_row = min(bottom, y2) - max(top, y1) >= .5*min(height, y2-y1)
+                    if same_row:
+                        if 0 <= x1-right <= 14*height:
+                            candidates.append((value, bounds))
+                    elif -0.5*height <= x1-left <= 8*height:
+                        candidates.append((value, bounds))
+            if not candidates:
+                continue
+            value, (x1, y1, x2, y2) = min(candidates, key=lambda item: item[1][0])
+            if _credential_label(value) or not re.search(r'[A-Za-z0-9]', value):
+                continue
+            if label.lower().startswith('private'):
+                marker = re.fullmatch(r"(-{0,5})(?:BEGIN|END) (?:[A-Z0-9]+ )*PRIVATE KEY(-{0,5})",
+                                      value, re.IGNORECASE)
+                if marker is None:
+                    continue
+                # A photographed PEM marker may lose leading/trailing dashes in OCR.
+                # Estimate only those expected characters and stay clear of the label.
+                char_width = math.ceil((x2-x1) / len(value))
+                x1 = max(right+5, x1-(5-len(marker[1]))*char_width)
+                x2 += (5-len(marker[2]))*char_width
+            result.append((max(0,x1-4), max(0,y1-4), min(size[0],x2+4), min(size[1],y2+4)))
     return result
 
 
@@ -260,7 +288,8 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
                     if validate is not None and not validate(match.group(0)):
                         continue
                     spans.append((match.start(), match.end(), label))
-        fields = [(match.span('value'), []) for match in SECRET_ASSIGNMENT.finditer(text)] if (
+        fields = [(match.span('value'), []) for match in SECRET_ASSIGNMENT.finditer(text)
+                  if re.search(r'[A-Za-z0-9]', match.group('value'))] if (
             not all_text and 'Secrets' in categories) else []
         offset = 0
         for word, x1, y1, x2, y2, confidence in words:

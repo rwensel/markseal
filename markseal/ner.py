@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,6 +19,12 @@ TOKENIZER_FILENAME = 'tokenizer.json'
 PROMPT_ENT = '<<ENT>>'
 PROMPT_SEP = '<<SEP>>'
 CAPTURE = frozenset({'Personal names', 'Postal addresses'})
+CODE_SHAPE = re.compile(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9_-]+$')
+STREET_SUFFIXES = frozenset({
+    'street', 'st', 'avenue', 'ave', 'road', 'rd', 'lane', 'ln', 'boulevard', 'blvd',
+    'drive', 'dr', 'court', 'ct', 'way', 'place', 'pl', 'terrace', 'ter',
+    'parkway', 'pkwy', 'highway', 'hwy', 'circle', 'cir', 'square', 'sq',
+})
 
 _SESSIONS = {}
 _LOCK = threading.Lock()
@@ -168,6 +175,21 @@ def _resources(model_dir):
         return _SESSIONS[key]
 
 
+def _valid_span(words, category):
+    text = ' '.join(str(word[0]) for word in words).strip()
+    if category == 'Personal names':
+        return (len(text) >= 3 and re.search(r'[A-Za-z]', text) is not None
+                and CODE_SHAPE.fullmatch(text) is None)
+    if category == 'Postal addresses':
+        if ',' in text:
+            return True
+        tokens = [token.strip('.,;:#()[]') for token in text.split()]
+        if any(token.lower() in STREET_SUFFIXES for token in tokens):
+            return True
+        return len(tokens) >= 3 and any(token.isdigit() for token in tokens)
+    return True
+
+
 def detect_entities(lines, size, min_confidence, categories, *, model_dir=None,
                     session=None, tokenizer=None):
     selected = set(categories) & CAPTURE
@@ -204,7 +226,8 @@ def detect_entities(lines, size, min_confidence, categories, *, model_dir=None,
                 continue
             for start, end, category, _ in decode_spans(logits, chunk, prompts):
                 value = chunk[start:end + 1]
-                if any(word[5] < min_confidence for word in value):
+                if (any(word[5] < min_confidence for word in value)
+                        or not _valid_span(value, category)):
                     continue
                 _add(boxes, rules, _box(value, size), category)
     return boxes, rules

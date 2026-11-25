@@ -55,6 +55,27 @@ class FieldDetectionTests(unittest.TestCase):
         self.assertEqual(len(boxes), 1)
         self.assertEqual(rules[boxes[0]], ('Postal addresses',))
 
+    def test_csv_header_is_not_a_name_field(self):
+        boxes, rules = field_boxes(
+            [line(('Name,', 8, 50, 99), ('Employee', 64, 100, 99), ('ID,', 170, 30, 99))],
+            (400, 100), 50, {'Personal names'})
+        self.assertEqual(boxes, [])
+        self.assertEqual(rules, {})
+
+    def test_property_address_keeps_the_value_column_and_full_city(self):
+        label = line(('Property', 13, 96, 99), ('Address:', 118, 92, 99), top=104)
+        value = line(('123', 13, 32, 99), ('Fictitious', 58, 116, 99),
+                     ('Lane,', 181, 62, 99), ('Imaginary', 250, 107, 99),
+                     ('City,', 364, 62, 99), ('Dreamland', 433, 106, 99), top=128)
+        following = line(('Access', 12, 50, 99), ('Code:', 72, 57, 99), top=179)
+        boxes, rules = field_boxes(
+            [label, value, following], (600, 400), 50, {'Postal addresses'})
+        self.assertEqual(len(boxes), 1)
+        self.assertEqual(boxes[0][:2], (9, 124))
+        self.assertGreaterEqual(boxes[0][2], 543)
+        self.assertLess(boxes[0][3], 179)
+        self.assertEqual(rules[boxes[0]], ('Postal addresses',))
+
     def test_birth_dates_accept_numeric_and_written_values(self):
         numeric, numeric_rules = field_boxes(
             [line(('DOB:', 0, 40, 99), ('01/15/1980', 50, 90, 99))],
