@@ -46,6 +46,14 @@ class WatchFacadeTests(unittest.TestCase):
         os.utime(path, (stamp, stamp))
         return path
 
+    def image_in(self, relative, age=10, color='white'):
+        path = self.folder / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new('RGB', (120, 80), color).save(path)
+        stamp = time.time() - age
+        os.utime(path, (stamp, stamp))
+        return path
+
     def wait_for_jobs(self, timeout_ms=10000):
         loop = QEventLoop()
         self.controller.batch.busyChanged.connect(
@@ -318,6 +326,100 @@ class WatchFacadeTests(unittest.TestCase):
         self.watches.sweep()
         self.wait_for_auto()
         self.assertTrue((self.folder / 'redacted' / 'resume_redacted.png').is_file())
+
+    def test_set_recursive_baselines_nested_and_lists_relative_names(self):
+        self.image('root.png')
+        self.watches.addWatch(str(self.folder))
+        self.image_in('sub/nested.png')
+        self.watches.setRecursive(str(self.folder), True)
+        row = self.watches.watchRows[0]
+        self.assertTrue(row['recursive'])
+        self.assertEqual((row['new'], row['existing']), (0, 2))
+        record_key = os.path.normcase('sub/nested.png')
+        self.assertIn(record_key, self.watches.store.seen[watch_store.key(self.folder)])
+        self.watches.openFolder(str(self.folder))
+        model = self.controller.folder.folderModel
+        names = [model.data(model.index(index), model.NameRole)
+                 for index in range(model.rowCount())]
+        self.assertEqual(names, ['root.png', 'sub/nested.png'])
+
+    def test_enabling_recursion_on_auto_records_nested_without_exporting(self):
+        self.image('root.png')
+        self.watches.addWatch(str(self.folder))
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.image_in('sub/old.png')
+        self.watches.setRecursive(str(self.folder), True)
+        self.wait_for_auto()
+        self.assertEqual(self.watches.watchRows[0]['existing'], 2)
+        self.assertFalse((self.folder / 'redacted' / 'sub' / 'old_redacted.png').exists())
+
+    def test_recursive_auto_exports_into_mirrored_folder(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setRecursive(str(self.folder), True)
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.image_in('sub/new.png')
+        self.watches.sweep()
+        self.wait_for_auto()
+        target = self.folder / 'redacted' / 'sub' / 'new_redacted.png'
+        self.assertTrue(target.is_file())
+        self.assertEqual(self.watches.watchRows[0]['exported'], 1)
+        record = self.watches.store.seen[watch_store.key(self.folder)][
+            os.path.normcase('sub/new.png')]
+        self.assertEqual(record.export, str(target))
+
+    def test_manual_save_of_a_nested_image_uses_the_mirrored_output(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setRecursive(str(self.folder), True)
+        nested = self.image_in('sub/a.png')
+        self.watches.openFolder(str(self.folder))
+        self.wait_for_jobs()
+        entry = next(item for item in self.controller.session.entries
+                     if item.path == nested)
+        entry.boxes = [(5, 5, 20, 20)]
+        entry.selected = {0}
+        entry.reviewed = True
+        self.controller.session.review.confirmed = True
+        self.controller.batch.saveReviewed()
+        self.wait_for_jobs()
+        target = self.folder / 'redacted' / 'sub' / 'a_redacted.png'
+        self.assertTrue(target.is_file())
+        self.assertTrue(entry.saved)
+        record = self.watches.store.seen[watch_store.key(self.folder)][
+            os.path.normcase('sub/a.png')]
+        self.assertEqual((record.state, record.export), ('exported', str(target)))
+
+    def test_output_for_source_mirrors_nested_paths(self):
+        self.watches.addWatch(str(self.folder))
+        self.watches.setRecursive(str(self.folder), True)
+        nested = self.image_in('sub/a.png')
+        self.assertEqual(self.watches.output_for_source(nested),
+                         self.folder / 'redacted' / 'sub')
+        self.assertEqual(self.watches.output_for_source(self.folder / 'a.png'),
+                         self.folder / 'redacted')
+
+    def test_recursive_open_skips_the_export_directory(self):
+        self.image('a.png')
+        self.watches.addWatch(str(self.folder))
+        self.watches.setRecursive(str(self.folder), True)
+        self.image_in('sub/b.png')
+        self.image_in('redacted/old.png')
+        self.watches.openFolder(str(self.folder))
+        self.wait_for_jobs()
+        model = self.controller.folder.folderModel
+        names = [model.data(model.index(index), model.NameRole)
+                 for index in range(model.rowCount())]
+        self.assertEqual(names, ['a.png', 'sub/b.png'])
+
+    def test_process_existing_on_recursive_auto_exports_nested(self):
+        self.image('root.png')
+        self.watches.addWatch(str(self.folder))
+        self.image_in('sub/old.png')
+        self.watches.setRecursive(str(self.folder), True)
+        self.watches.setPolicy(str(self.folder), 'automatic')
+        self.watches.processExisting(str(self.folder))
+        self.wait_for_auto()
+        self.assertTrue((self.folder / 'redacted' / 'root_redacted.png').is_file())
+        self.assertTrue((self.folder / 'redacted' / 'sub' / 'old_redacted.png').is_file())
 
 
 if __name__ == '__main__':

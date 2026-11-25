@@ -1,6 +1,8 @@
 """The image folder: entries, row selection, model, and row switching."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from PIL import Image
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
@@ -89,21 +91,27 @@ class FolderFacade(QObject):
         self.session.active = None
         self.session.row_selection = set()
         self.session.row_anchor = None
+        self._folder_model.set_base(None)
         self._folder_model.set_entries([])
         self.folderChanged.emit()
 
-    def open_path(self, chosen):
+    def _label(self, path):
+        if self.session.folder is not None:
+            try:
+                return Path(path).relative_to(self.session.folder).as_posix()
+            except ValueError:
+                pass
+        return Path(path).name
+
+    def open_path(self, chosen, recursive=False, skip=()):
         if self.session.jobs.busy or not self.can_leave():
             return
-        try:
-            paths = sorted(
-                (path for path in chosen.iterdir()
-                 if path.suffix.lower() in images.IMAGE_SUFFIXES and path.is_file()),
-                key=lambda path: (path.name.casefold(), path.name),
-            )
-        except OSError as error:
-            self.alerts.error('Cannot open folder', str(error))
+        chosen = Path(chosen)
+        found = images.scan_images(chosen, recursive=recursive, skip=skip)
+        if found is None:
+            self.alerts.error('Cannot open folder', 'The folder could not be read.')
             return
+        paths = [path for _relative, path, _stamp in found]
         if not paths:
             self.alerts.info('No images',
                              'Choose a folder containing PNG, JPEG, BMP or TIFF images. '
@@ -115,6 +123,7 @@ class FolderFacade(QObject):
         self.session.facades.review.cancel_capture()
         self.session.folder = chosen
         self.session.output_directory = self.session.output_directory_for(chosen)
+        self._folder_model.set_base(chosen)
         self.session.entries = [
             boxset.FolderImage(path, method=self.session.preferences.method)
             for path in paths
@@ -160,11 +169,11 @@ class FolderFacade(QObject):
         except (OSError, ValueError, Image.DecompressionBombError) as error:
             review.set_entry_image(None)
             entry.error = 'Open failed'
-            self.alerts.set_status(f'{entry.path.name} · {error}')
+            self.alerts.set_status(f'{self._label(entry.path)} · {error}')
         else:
             review.set_entry_image(image)
             self.alerts.set_status(
-                f'{entry.path.name} · {entry.status} · {len(entry.selected)} boxes selected'
+                f'{self._label(entry.path)} · {entry.status} · {len(entry.selected)} boxes selected'
             )
         self._folder_model.set_active(index)
         self._folder_model.set_selection(self.session.row_selection)

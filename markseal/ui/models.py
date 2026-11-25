@@ -35,6 +35,10 @@ class FolderModel(QAbstractListModel):
         self.active = None
         self.selection = set()
         self.job_states = {}
+        self.base = None
+
+    def set_base(self, base):
+        self.base = base
 
     def set_entries(self, entries):
         self.beginResetModel()
@@ -93,8 +97,14 @@ class FolderModel(QAbstractListModel):
             return None
         row = index.row()
         entry = self.entries[row]
+        name = entry.path.name
+        if self.base is not None:
+            try:
+                name = entry.path.relative_to(self.base).as_posix()
+            except ValueError:
+                pass
         values = {
-            self.NameRole: entry.path.name,
+            self.NameRole: name,
             self.StatusRole: entry.status,
             self.ActiveRole: row == self.active,
             self.SelectedRole: row in self.selection,

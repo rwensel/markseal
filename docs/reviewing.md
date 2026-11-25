@@ -64,15 +64,15 @@ Folder review status and markings last for the current session. Image files and 
 
 Each row shows the **MANUAL** or **AUTO** badge, the folder path, and the counts for new or changed files, files waiting for automatic processing, files that need review, ready files, and auto-redacted copies. Up to five review reasons follow, such as `shot 7.png · Nothing found`. **Open** closes the inbox and opens the folder in the review board. **Process existing (N)** appears when there are baseline, review, or waiting records.
 
-Ready counts files that were in the folder when the watch was added. They are not processed automatically, and a manual watch also marks new arrivals as ready when you open its folder.
+Ready counts files that were in the folder when the watch was added. They are not processed automatically, and a manual watch also marks new arrivals as ready when you open its folder. When you turn on **Include subfolders**, the nested files present at that moment count as ready.
 
-Opening a MANUAL watch appends unseen images to the bottom of the folder list and scans them. The active row and your selection do not move. A manual save writes to that watch's `redacted` subfolder.
+Opening a MANUAL watch appends unseen images to the bottom of the folder list and scans them. The active row and your selection do not move. For a watch with **Include subfolders** on, the list shows nested images with their relative paths, such as `2026/11/shot.png`. A manual save writes to that watch's `redacted` subfolder, repeating the source's subfolders when the watch includes them.
 
 Opening an AUTO watch pauses new automatic work for that folder. New images are appended and scanned like a manual folder, so you can review or save them by hand; anything still unsaved is processed automatically after you close the folder.
 
 Automatic review failures wait in the inbox. A partial scan, a scan that finds nothing, a filename collision, or a read error becomes a review item with its reason and no export. Open the folder, inspect the image, and save a reviewed copy yourself.
 
-Automatic exports still leave an audit trail: the watch records each export, and the coordinate log sits beside the PNG when that setting is on. The auto-redacted count includes only exports that still exist on disk. A file interrupted mid-run is picked up on the next launch. A single-image **Save** you direct into a watched folder becomes a new source for intake; only recorded export copies are skipped.
+Automatic exports still leave an audit trail: the watch records each export, and the coordinate log sits beside the PNG when that setting is on. A watch with **Include subfolders** on repeats the source's subfolders under `redacted`. The auto-redacted count includes only exports that still exist on disk. A file interrupted mid-run is picked up on the next launch. A single-image **Save** you direct into a watched folder becomes a new source for intake; only recorded export copies are skipped.
 
 The footer holds **Add folder**, the automatic progress line, and **Stop** while automatic work runs. Stop ends the current work and keeps finished exports; automatic processing stays paused until you choose **Process existing** or switch the watch back to **AUTO**.
 

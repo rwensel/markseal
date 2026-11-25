@@ -50,7 +50,7 @@ The page is capped at 40 million pixels to keep a very large PDF from exhausting
 - Full-image scan, region scan, screen capture, clipboard paste, and drag-and-drop.
 - Open PDFs page by page: render locally at 200 DPI, navigate pages, and save the current redacted page as PNG.
 - Folder scanning with **Scan all**, **Scan selected**, **Confirm all**, **Save reviewed**, queued/running rows, and cancel.
-- Watched folders: register folders once and see new captures in the inbox. Manual watches wait for you; automatic watches scan and export new images while the app runs.
+- Watched folders: register folders once, optionally including subfolders, and see new captures in the inbox. Manual watches wait for you; automatic watches scan and export new images while the app runs.
 - Bounded parallel jobs: set **1–16 parallel image jobs**; each active worker owns a local OCR engine.
 - Box reuse and anchor matching for screenshots with matching or shifted framing.
 - **Learn your own identifiers.** Draw a box around a value and save a reusable blocked pattern for the IDs specific to your team.
@@ -99,8 +99,10 @@ Register the folders where your screenshots pile up, and new captures arrive in 
 
 Add a folder in **Settings → Watched folders**, or open the inbox with **WATCHES** and choose **Add folder**. A new watch starts as MANUAL, and the files already in the folder are recorded without being processed.
 
+Each watch starts at the folder's top level. Turn on **Include subfolders** to cover the whole tree. When you turn it on, images already in subfolders count as ready. Use **PROCESS EXISTING (N)** to queue them.
+
 - **MANUAL**: new images wait in the inbox. Opening the folder adds them to the review board and scans them; the usual review, confirm, and save steps follow.
-- **AUTO**: new images are scanned and, when the scan is complete and finds at least one box, confirmed and exported. Exports go to a `redacted` subfolder beside the originals, using the current method and filename template. The coordinate log follows the **Coordinate log** setting. Every automatic export keeps its intake record, including the export path.
+- **AUTO**: new images are scanned and, when the scan is complete and finds at least one box, confirmed and exported. Exports go to that watch's `redacted` subfolder, using the current method and filename template. When Include subfolders is on, the source's subfolders are repeated under `redacted`, so `2026/11/shot.png` exports to `redacted/2026/11/shot_redacted.png`. The coordinate log follows the **Coordinate log** setting. Every automatic export keeps its intake record, including the export path.
 
 Automatic work never overwrites an export. A partial scan, a scan that finds nothing, a filename collision, or a read error stops processing that file and marks it for review; nothing is exported. The inbox shows the reason, and opening the folder hands the file to the normal review flow.
 
@@ -111,7 +113,9 @@ Automatic work never overwrites an export. A partial scan, a scan that finds not
 Limits worth knowing:
 
 - MarkSeal must be running. Closing the app pauses every watch.
-- A watch covers PNG, JPEG, BMP, and TIFF images directly inside the folder. PDFs and subfolders are not included.
+- A watch handles PNG, JPEG, BMP, and TIFF images. It watches the top level by default; turn on **Include subfolders** for the whole tree. PDFs are not included.
+- A file added inside an existing subfolder can take up to 10 seconds to appear. Changes in the watched folder itself are noticed within a second.
+- A watched folder cannot sit inside another watched folder. Use **Include subfolders** on the parent, or watch the child by itself.
 - Automatic export is review after the fact, not a guarantee. The scan must finish cleanly and find at least one box, but detection can still miss something sensitive. Review exported copies before sharing them, or use MANUAL for material that needs a person first.
 - A tool that overwrites one filename exports its first version, then sends later versions to review as collisions.
 - The original is never modified.

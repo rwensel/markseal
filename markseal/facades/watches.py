@@ -96,6 +96,7 @@ class WatchFacade(QObject):
                 'existing': result.existing,
                 'needs_review': result.needs_review,
                 'exported': result.exported,
+                'recursive': folder.recursive,
                 'output': str(folder.export_directory),
                 'issues': [{'name': name, 'detail': detail}
                            for name, detail in result.issues],
@@ -154,13 +155,14 @@ class WatchFacade(QObject):
         errors = {}
         for folder in list(self.store.folders):
             folder_key = watch_store.key(folder.path)
-            images = watch_store._images(folder)
+            scan_issues = []
+            images = watch_store._images(folder, self.store, scan_issues)
             if images is None:
                 counts[folder_key] = watch_store.WatchCounts(available=False)
                 errors[folder_key] = 'Folder unavailable'
                 continue
             names = [name for name, _path, _stamp in images]
-            if watch_store.prune(self.store, folder, names):
+            if not scan_issues and watch_store.prune(self.store, folder, names):
                 changed = True
             records = self.store.seen.get(folder_key, {})
             if any(_unsettled(stamp, moment)
@@ -231,6 +233,21 @@ class WatchFacade(QObject):
             self._auto_stopped = False
             self._dispatch_auto()
 
+    @Slot(str, bool)
+    def setRecursive(self, path, recursive):
+        folder = watch_store.find(self.store, path)
+        value = bool(recursive)
+        if folder is None or folder.recursive == value:
+            return
+        folder.recursive = value
+        if value:
+            watch_store.baseline(self.store, folder, nested_only=True)
+        folder_key = watch_store.key(folder.path)
+        self._counts[folder_key] = watch_store.counts(self.store, folder)
+        self._save()
+        self.watchesChanged.emit()
+        self.sweep()
+
     @Slot(str)
     def removeWatch(self, path):
         folder = watch_store.find(self.store, path)
@@ -258,18 +275,47 @@ class WatchFacade(QObject):
 
     @Slot(str)
     def openFolder(self, path):
-        self.session.facades.folder.open_path(Path(path))
+        folder = watch_store.find(self.store, path)
+        if folder is None:
+            self.session.facades.folder.open_path(Path(path))
+        else:
+            self.session.facades.folder.open_path(
+                folder.path, recursive=folder.recursive,
+                skip=[item.export_directory for item in self.store.folders])
 
     def watch_for(self, path):
         path = Path(path)
-        folder = watch_store.find(self.store, path)
-        if folder is None and path.parent != path:
-            folder = watch_store.find(self.store, path.parent)
-        return folder
+        best = None
+        for folder in self.store.folders:
+            if watch_store.key(folder.path) == watch_store.key(path):
+                return folder
+            if folder.recursive and watch_store._within(folder.path, path):
+                if best is None or len(str(folder.path)) > len(str(best.path)):
+                    best = folder
+            elif (not folder.recursive
+                  and watch_store.key(path.parent) == watch_store.key(folder.path)):
+                if best is None or len(str(folder.path)) > len(str(best.path)):
+                    best = folder
+        return best
 
     def output_for(self, path):
         folder = watch_store.find(self.store, path)
         return folder.export_directory if folder is not None else None
+
+    def output_for_source(self, path):
+        """The export folder for one source, mirroring its subfolder when needed."""
+        folder = self.watch_for(path)
+        if folder is None:
+            return None
+        if not folder.recursive:
+            return folder.export_directory
+        try:
+            relative = Path(os.path.relpath(str(Path(path).parent), str(folder.path)))
+        except ValueError:
+            return folder.export_directory
+        if '..' in relative.parts:
+            return folder.export_directory
+        return folder.export_directory / relative
 
     def note_export(self, path, target):
         folder = self.watch_for(path)
@@ -436,7 +482,8 @@ class WatchFacade(QObject):
                     return (path, stamp, _PAUSED, None, '')
                 try:
                     snapshot, with_log = workflows.auto_export_snapshot(
-                        entry, watch.export_directory, template, include_log)
+                        entry, self.output_for_source(path) or watch.export_directory,
+                        template, include_log)
                     snapshot.target.parent.mkdir(parents=True, exist_ok=True)
                     export.write_copy(snapshot, include_log=with_log)
                 except Exception as error:

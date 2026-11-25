@@ -755,7 +755,8 @@ Window {
                                 Layout.fillWidth: true
                                 text: "MarkSeal watches these folders while it runs. Automatic watches "
                                       + "redact and export new images without review; every file stays "
-                                      + "in the inbox with its coordinate log."
+                                      + "in the inbox with its coordinate log. Include subfolders to cover "
+                                      + "a tree; images already there are recorded, not processed."
                                 wrapMode: Text.WordWrap
                                 color: Theme.steelLight
                                 font.family: Theme.bodyFont
@@ -880,6 +881,16 @@ Window {
                                                 color: Theme.steelLight
                                                 font.family: Theme.bodyFont
                                                 font.pixelSize: 10
+                                            }
+                                        }
+
+                                        ToggleRow {
+                                            Layout.fillWidth: true
+                                            label: "Include subfolders"
+                                            checked: modelData.recursive
+                                            onToggled: function(next) {
+                                                Backend.watches.setRecursive(
+                                                    modelData.path, next)
                                             }
                                         }
                                     }

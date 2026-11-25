@@ -360,10 +360,20 @@ class BatchFacade(QObject):
             )
             return chosen or None
 
+        def output_for(entry):
+            watches = getattr(self.session.facades, 'watches', None)
+            if watches is not None:
+                directory_for = getattr(watches, 'output_for_source', None)
+                if directory_for is not None:
+                    directory = directory_for(entry.path)
+                    if directory is not None:
+                        return directory
+            return self.session.output_directory
+
         try:
             plan = workflows.plan_exports(
                 pending,
-                output_directory=self.session.output_directory,
+                output_directory=output_for,
                 template=self.session.preferences.filename_template,
                 include_log=self.session.preferences.include_log,
                 choose=choose if individual else None,

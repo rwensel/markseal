@@ -1,8 +1,9 @@
 """The watched-folder document, intake rules, states, and counts.
 
 One owner for ``watches.json``: this module has no Qt import and never touches
-the network. A watcher covers the images directly inside its folder; recursion,
-sidecars, and files the app exported are never intake candidates.
+the network. A watch covers the images directly inside its folder, or its whole
+subtree when ``recursive`` is set; sidecars and files the app exported are never
+intake candidates.
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from .images import IMAGE_SUFFIXES
+from . import images
 
 POLICIES = ('manual', 'automatic')
 STABLE_SECONDS = 2.0
@@ -37,11 +38,13 @@ class WatchedFolder:
     path: Path
     policy: str = 'manual'
     output_directory: Path | None = None
+    recursive: bool = False
 
     def __post_init__(self):
         self.path = Path(self.path)
         if self.output_directory is not None:
             self.output_directory = Path(self.output_directory)
+        self.recursive = bool(self.recursive)
 
     @property
     def export_directory(self):
@@ -85,6 +88,28 @@ def key(path):
     return os.path.normcase(str(Path(path).resolve()))
 
 
+def file_key(folder, path):
+    """A file's identity: its relative path, case-folded on Windows."""
+    relative = os.path.relpath(str(path), str(folder))
+    if relative == os.pardir or relative.startswith(os.pardir + os.sep):
+        raise ValueError('File is outside the watch.')
+    return os.path.normcase(Path(relative).as_posix())
+
+
+def _migrated_key(folder, name):
+    """A loaded record key as a relative path, or ``None`` when it escapes."""
+    candidate = Path(name)
+    if candidate.is_absolute():
+        return None
+    try:
+        relative = (Path(folder) / candidate).relative_to(folder)
+    except ValueError:
+        return None
+    if '..' in relative.parts:
+        return None
+    return os.path.normcase(relative.as_posix())
+
+
 def store_path(settings_path):
     """The watch document sits beside ``settings.json``."""
     return Path(settings_path).parent / STORE_NAME
@@ -121,25 +146,23 @@ def _settled(stamp, moment):
     return not 0 <= age < STABLE_SECONDS
 
 
-def _images(folder):
-    """``(name, path, stat)`` for the regular images inside the folder.
+def _images(folder, store=None, issues=None):
+    """``(relative key, path, stat)`` for the images a watch covers.
 
     Returns ``None`` when the folder cannot be listed, which callers treat as
-    unavailable rather than empty.
+    unavailable rather than empty. Export directories are never intake
+    candidates, so a recursive watch cannot ingest its own output. Unreadable
+    subfolders are added to ``issues`` when a list is supplied.
     """
-    found = []
-    try:
-        with os.scandir(folder.path) as entries:
-            for entry in entries:
-                try:
-                    if not entry.is_file() or Path(entry.name).suffix.lower() not in IMAGE_SUFFIXES:
-                        continue
-                    found.append((entry.name, Path(entry.path), entry.stat()))
-                except OSError:
-                    continue
-    except OSError:
+    skip = [folder.export_directory]
+    if store is not None:
+        skip.extend(item.export_directory for item in store.folders)
+    found = images.scan_images(folder.path, recursive=folder.recursive, skip=skip,
+                               problems=issues)
+    if found is None:
         return None
-    return found
+    return [(os.path.normcase(relative), path, stamp)
+            for relative, path, stamp in found]
 
 
 def _sorted(paths):
@@ -154,6 +177,27 @@ def _within(parent, child):
         return os.path.commonpath([parent_text, child_text]) == parent_text
     except ValueError:
         return False
+
+
+def baseline(store, folder, *, nested_only=False):
+    """Record current images as presented without scanning or exporting them.
+
+    ``nested_only`` leaves top-level records alone, so turning recursion on
+    cannot hide a root-level arrival that has not been swept yet.
+    """
+    found = _images(folder, store)
+    if found is None:
+        return False
+    records = store.seen.setdefault(key(folder.path), {})
+    changed = False
+    for name, _path, stamp in found:
+        if nested_only and Path(name).parent == Path('.'):
+            continue
+        if name in records:
+            continue
+        records[name] = SeenFile(stamp.st_size, stamp.st_mtime_ns, PRESENTED)
+        changed = True
+    return changed
 
 
 def validate(store, folder):
@@ -193,7 +237,7 @@ def add(store, folder):
     problem = validate(store, folder)
     if problem is not None:
         raise WatchError(problem)
-    images = _images(folder)
+    images = _images(folder, store)
     if images is None:
         raise WatchError('The folder could not be read.')
     baseline = {}
@@ -223,13 +267,13 @@ def mark(store, folder, path, *, state, export=None, detail='', stamp=None):
         measured = path.stat()
         stamp = (measured.st_size, measured.st_mtime_ns)
     records = store.seen.setdefault(key(folder.path), {})
-    records[path.name] = SeenFile(stamp[0], stamp[1], state,
-                                  str(export) if export else '', detail)
+    records[file_key(folder.path, path)] = SeenFile(
+        stamp[0], stamp[1], state, str(export) if export else '', detail)
 
 
 def unseen(store, folder, *, now=None):
     """Stable images that are new or changed and were not written by the app."""
-    images = _images(folder)
+    images = _images(folder, store)
     if images is None:
         return []
     moment = time.time() if now is None else now
@@ -249,7 +293,7 @@ def unseen(store, folder, *, now=None):
 
 def pending_queued(store, folder):
     """Files whose ``queued`` record still matches, so a crash resumes them."""
-    images = _images(folder)
+    images = _images(folder, store)
     if images is None:
         return []
     records = store.seen.get(key(folder.path), {})
@@ -265,7 +309,8 @@ def pending_queued(store, folder):
 
 def counts(store, folder, *, now=None):
     """Per-watch counts, all requiring a matching stamp; never mutates the store."""
-    images = _images(folder)
+    scan_issues = []
+    images = _images(folder, store, scan_issues)
     if images is None:
         return WatchCounts(available=False)
     moment = time.time() if now is None else now
@@ -290,10 +335,14 @@ def counts(store, folder, *, now=None):
         elif previous.state == NEEDS_REVIEW:
             review += 1
             if len(issues) < 5:
-                issues.append((name, previous.detail))
+                issues.append((Path(name).as_posix(), previous.detail))
         elif previous.state == EXPORTED and previous.export:
             if Path(previous.export).is_file():
                 exported += 1
+    for relative in scan_issues:
+        if len(issues) >= 5:
+            break
+        issues.append((relative, 'Could not read this folder'))
     return WatchCounts(new=fresh, queued=queued, existing=existing,
                        needs_review=review, exported=exported,
                        issues=tuple(issues), available=True)
@@ -309,12 +358,18 @@ def automatic_outcome(entry):
 
 
 def prune(store, folder, names):
-    """Drop records whose file is absent from a successful listing."""
+    """Drop records whose file is absent from a successful listing.
+
+    With recursion off, nested records stay because they are outside the
+    current scope, not gone; turning the switch back on reuses them.
+    """
     records = store.seen.get(key(folder.path))
     if not records:
         return False
     present = set(names)
-    stale = [name for name in records if name not in present]
+    stale = [name for name in records
+             if name not in present
+             and (folder.recursive or Path(name).parent == Path('.'))]
     for name in stale:
         del records[name]
     return bool(stale)
@@ -326,6 +381,7 @@ def _folder_document(folder):
         'policy': folder.policy,
         'output_directory': (str(folder.output_directory)
                              if folder.output_directory is not None else None),
+        'recursive': folder.recursive,
     }
 
 
@@ -374,7 +430,11 @@ def _folder_from_document(entry):
     output = entry.get('output_directory')
     if output is not None and not isinstance(output, str):
         return None
-    folder = WatchedFolder(Path(path), policy, Path(output) if output else None)
+    recursive = entry.get('recursive', False)
+    if not isinstance(recursive, bool):
+        recursive = False
+    folder = WatchedFolder(Path(path), policy, Path(output) if output else None,
+                           recursive)
     if not folder.path.is_absolute():
         return None
     if folder.output_directory is not None and not folder.output_directory.is_absolute():
@@ -419,13 +479,20 @@ def load(path):
             store.folders.append(folder)
     seen = document.get('seen')
     if isinstance(seen, dict):
+        folders_by_key = {key(folder.path): folder for folder in store.folders}
         for folder_key, records in seen.items():
             if not isinstance(folder_key, str) or not isinstance(records, dict):
                 continue
+            folder = folders_by_key.get(folder_key)
             bucket = {}
             for name, entry in records.items():
                 item = _record_from_document(name, entry)
-                if item is not None:
-                    bucket[name] = item
+                if item is None:
+                    continue
+                if folder is not None:
+                    name = _migrated_key(folder.path, name)
+                    if name is None:
+                        continue
+                bucket[name] = item
             store.seen[folder_key] = bucket
     return store

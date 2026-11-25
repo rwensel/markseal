@@ -69,9 +69,11 @@ Run `.venv\Scripts\python.exe -m markseal.performance_log` to summarize the late
 
 MarkSeal sweeps these folders at launch and watches them while it runs. **Add folder** opens the directory picker and creates a MANUAL watch. Choose **AUTO** on a row to let new images scan, confirm, and export without review.
 
-Each row shows the folder name and path, a **MANUAL** or **AUTO** control, the export folder, and **Remove**. Removing asks first and drops that folder's intake records. Adding the folder again records whatever is there at that moment.
+Each row shows the folder name and path, a **MANUAL** or **AUTO** control, an **Include subfolders** switch, the export folder, and **Remove**. Removing asks first and drops that folder's intake records. Adding the folder again records whatever is there at that moment.
 
-Exports from a watch go to that folder's own `redacted` subfolder, not to the global output folder. That keeps one watch's files from colliding with another's, and a manual save from a watched folder uses the same destination. The **Coordinate log** setting still applies.
+**Include subfolders** extends the watch to the whole tree. New images in subfolders are collected. When you turn it on, images already there are recorded as ready; use **PROCESS EXISTING (N)** to queue them. Turning it off hides the nested files but keeps their records, so turning it on again does not baseline them a second time. A watched folder cannot sit inside another watched folder.
+
+Exports from a watch go to that folder's own `redacted` subfolder, not to the global output folder. When **Include subfolders** is on, the source's subfolders are repeated under `redacted`, so `sub/a.png` exports to `redacted/sub/a_redacted.png`. That keeps one watch's files from colliding with another's, and a manual save from a watched folder uses the same mirrored destination. The **Coordinate log** setting still applies.
 
 Changes on this page save immediately, even if you cancel the settings window. See [Watch folders](../README.md#watch-folders) for the two policies and [Reviewing and redacting](reviewing.md#watched-folders-and-the-inbox) for the inbox.
 

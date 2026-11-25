@@ -1,4 +1,5 @@
 """Watched-folder store, intake rules, and state counts."""
+import json
 import os
 import time
 import unittest
@@ -24,11 +25,20 @@ class WatchTests(unittest.TestCase):
         self.folder.mkdir()
         self.store = watches.WatchStore()
 
-    def add(self, policy='manual'):
-        return watches.add(self.store, watches.WatchedFolder(self.folder, policy))
+    def add(self, policy='manual', recursive=False):
+        return watches.add(self.store, watches.WatchedFolder(
+            self.folder, policy, recursive=recursive))
 
     def write(self, name, age=10):
         path = self.folder / name
+        make_image(path)
+        stamp = time.time() - age
+        os.utime(path, (stamp, stamp))
+        return path
+
+    def write_in(self, relative, age=10):
+        path = self.folder / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
         make_image(path)
         stamp = time.time() - age
         os.utime(path, (stamp, stamp))
@@ -185,3 +195,115 @@ class WatchTests(unittest.TestCase):
             watches.WatchedFolder(outside, output_directory=existing_output))
         self.assertIsNotNone(watches.validate(
             self.store, watches.WatchedFolder(existing_output)))
+
+    def test_recursive_add_baselines_nested_images(self):
+        self.write('root.png')
+        self.write_in('sub/a.png')
+        folder = self.add(recursive=True)
+        counts = watches.counts(self.store, folder)
+        self.assertEqual((counts.new, counts.existing, counts.available), (0, 2, True))
+        records = self.store.seen[watches.key(self.folder)]
+        self.assertIn(os.path.normcase('sub/a.png'), records)
+        self.assertEqual(watches.unseen(self.store, folder), [])
+
+    def test_recursive_scan_skips_the_export_directory(self):
+        folder = self.add(recursive=True)
+        nested = self.write_in('sub/a.png')
+        self.write_in('redacted/out.png')
+        found = watches.unseen(self.store, folder, now=time.time() + 3)
+        self.assertEqual(found, [nested])
+
+    def test_nested_names_do_not_collide(self):
+        folder = self.add(recursive=True)
+        one = self.write_in('one/a.png')
+        two = self.write_in('two/a.png')
+        found = watches.unseen(self.store, folder, now=time.time() + 3)
+        self.assertEqual(found, [one, two])
+        watches.mark(self.store, folder, one, state=watches.QUEUED)
+        watches.mark(self.store, folder, two, state=watches.NEEDS_REVIEW,
+                     detail='Nothing found')
+        counts = watches.counts(self.store, folder)
+        self.assertEqual((counts.queued, counts.needs_review), (1, 1))
+        records = self.store.seen[watches.key(self.folder)]
+        self.assertIn(os.path.normcase('one/a.png'), records)
+        self.assertIn(os.path.normcase('two/a.png'), records)
+
+    def test_mark_nested_image_uses_its_relative_path(self):
+        folder = self.add(recursive=True)
+        path = self.write_in('sub/a.png')
+        target = self.folder / 'redacted' / 'sub' / 'a_redacted.png'
+        watches.mark(self.store, folder, path, state=watches.EXPORTED,
+                     export=str(target))
+        record = self.store.seen[watches.key(self.folder)][os.path.normcase('sub/a.png')]
+        self.assertEqual((record.state, record.export), (watches.EXPORTED, str(target)))
+
+    def test_baseline_nested_only_leaves_a_new_root_image_new(self):
+        folder = self.add()
+        root = self.write('late.png')
+        nested = self.write_in('sub/a.png')
+        folder.recursive = True
+        watches.baseline(self.store, folder, nested_only=True)
+        counts = watches.counts(self.store, folder)
+        self.assertEqual((counts.new, counts.existing), (1, 1))
+        self.assertEqual(watches.unseen(self.store, folder, now=time.time() + 3), [root])
+        self.assertIn(os.path.normcase('sub/a.png'),
+                      self.store.seen[watches.key(self.folder)])
+
+    def test_recursive_scan_does_not_follow_a_symlink(self):
+        folder = self.add(recursive=True)
+        real = self.write_in('real/a.png')
+        link = self.folder / 'link'
+        try:
+            link.symlink_to(self.folder / 'real', target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest('symlinks are unavailable')
+        found = watches.unseen(self.store, folder, now=time.time() + 3)
+        self.assertEqual(found, [real])
+
+    def test_round_trip_preserves_recursion(self):
+        folder = self.add(recursive=True)
+        target = self.root / 'watches.json'
+        watches.save(target, self.store)
+        loaded = watches.load(target)
+        self.assertTrue(loaded.folders[0].recursive)
+        self.assertEqual(loaded.folders, self.store.folders)
+
+    def test_load_migrates_name_keys_to_relative_paths(self):
+        target = self.root / 'watches.json'
+        record = {'size': 1, 'mtime_ns': 2, 'state': 'presented',
+                  'export': '', 'detail': ''}
+        target.write_text(json.dumps({
+            'folders': [{'path': str(self.folder), 'policy': 'manual',
+                         'output_directory': None}],
+            'seen': {watches.key(self.folder): {'a.png': record}},
+        }), encoding='utf-8')
+        loaded = watches.load(target)
+        self.assertFalse(loaded.folders[0].recursive)
+        self.assertIn(os.path.normcase('a.png'), loaded.seen[watches.key(self.folder)])
+
+    def test_unreadable_subfolder_is_reported_and_keeps_records(self):
+        self.write_in('locked/a.png')
+        folder = self.add(recursive=True)
+        real_scandir = os.scandir
+
+        def guarded(path):
+            if Path(path).name == 'locked':
+                raise PermissionError('denied')
+            return real_scandir(path)
+
+        with mock.patch('markseal.images.os.scandir', side_effect=guarded):
+            counts = watches.counts(self.store, folder)
+        self.assertTrue(counts.available)
+        self.assertIn(('locked', 'Could not read this folder'), counts.issues)
+        self.assertIn(os.path.normcase('locked/a.png'),
+                      self.store.seen[watches.key(self.folder)])
+
+    def test_turning_recursion_off_keeps_nested_records(self):
+        folder = self.add(recursive=True)
+        nested = self.write_in('sub/a.png')
+        watches.mark(self.store, folder, nested, state=watches.QUEUED)
+        folder.recursive = False
+        watches.prune(self.store, folder, [])
+        records = self.store.seen[watches.key(self.folder)]
+        self.assertIn(os.path.normcase('sub/a.png'), records)
+        self.assertEqual(records[os.path.normcase('sub/a.png')].state, watches.QUEUED)

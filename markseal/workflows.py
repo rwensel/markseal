@@ -74,7 +74,9 @@ def plan_exports(pending, *, output_directory, template, include_log, choose=Non
     jobs = []
     targets = set()
     for index, entry in pending:
-        target = export.output_path(output_directory, template, entry.path, index + 1)
+        directory = (output_directory(entry) if callable(output_directory)
+                     else output_directory)
+        target = export.output_path(directory, template, entry.path, index + 1)
         if choose is not None:
             target.parent.mkdir(parents=True, exist_ok=True)
             chosen = choose(target)
