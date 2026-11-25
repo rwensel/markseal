@@ -1,19 +1,19 @@
 {
-  "version": "2.1.0",
-  "notes": "FEATURES\n\u2022 Watched folders collect new screenshots in an inbox. MarkSeal sweeps them at launch and watches them while it runs.\n\u2022 Manual watches scan new images when you open the folder. Automatic watches scan, confirm, and export them into the watch's redacted folder with a coordinate log. Automatic work pauses while its folder is open or a manual batch runs, and queued files resume after a restart.\n\u2022 The inbox shows new, waiting, needs-review, and auto-redacted counts. Process existing handles the files already in the folder, and Stop pauses automatic work until you resume it with Process existing or by switching the watch back to Auto.\n\u2022 A Watched folders tab in Settings and a Watches toolbar entry.\n\nThe Windows installer remains unsigned; Windows may show an unknown-publisher warning. Watched folders are images-only and cover the top level of each folder. Originals are never modified, and exports never overwrite.",
-  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.1.0",
+  "version": "2.2.0",
+  "notes": "This is a minor release: detection coverage expands, and existing settings, exports, and workflows are unchanged.\n\nENHANCEMENTS\n\u2022 Unlabeled street addresses are marked when a house number and a street suffix appear together, so an address no longer needs an Address: label.\n\u2022 Values split across two aligned lines are rejoined. A wrapped SSN in a table is still found.\n\u2022 Common Unix paths such as /etc, /usr, /var, /opt, /srv, /tmp, and /root are detected. A path segment inside a URL stays with the URL rule.\n\u2022 Names written as a pair, such as John/Jane Doe, are read as two name tokens for PII inference.\n\nFIXES\n\u2022 Comma-delimited rows keep the box on the matched field. An email in a CSV export no longer redacts the whole row.\n\u2022 Markdown emphasis after a credential label no longer turns `**` into the secret. The password value is marked.\n\u2022 Credential values on the next aligned line are marked, including access codes, gate codes, door codes, security codes, passcodes, and PINs.\n\u2022 Property, billing, shipping, and similar addresses keep the full value through the city. A following label line is not swallowed.\n\u2022 Overlapping address suggestions keep the full field box and drop contained fragments.\n\u2022 Ticket IDs followed by a lowercase word after OCR are matched. Uppercase or digit continuations are still rejected.\n\u2022 Code-shaped names and bare number pairs such as Gate 3 are no longer treated as names or addresses.\n\u2022 CSV header cells are no longer treated as name fields.\n\nThe Windows installer remains unsigned; Windows may show an unknown-publisher warning. Linux and macOS builds are produced in CI without running the test suite on those platforms.",
+  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.2.0",
   "downloads": {
     "windows-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.1.0/Markseal-Setup.exe",
-      "sha256": "090d8be7521b19a0c365ca1496c820a83e0ab1ef26671562b26853126f908167"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.2.0/Markseal-Setup.exe",
+      "sha256": "237fc42a98c745cbf478bfd89ca7373c69fb82ebec1dee1f67ee781bf22ba74c"
     },
     "linux-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.1.0/Markseal-linux-x64.tar.gz",
-      "sha256": "baade92d9204493e7929ff6db4f5c0613176bb272a2473f559b722eaf224a53a"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.2.0/Markseal-linux-x64.tar.gz",
+      "sha256": "b1a58b2d074cba4f4ccebe7bf3bfc29836f5ca9f9fdabb59f43379af4d11a495"
     },
     "macos-aarch64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.1.0/Markseal-macos-arm64.zip",
-      "sha256": "e5057d2d67d9af187a3076d46d08f9b7bec2289f1b7bf1042c56ffb7500b50f3"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.2.0/Markseal-macos-arm64.zip",
+      "sha256": "30ec4cbb0eb6dbbbb49358c5c4d17c5fefe1a681a4c575970de57dbc2ded470c"
     }
   }
 }
