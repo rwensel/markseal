@@ -1,6 +1,6 @@
 #define MyAppName "Markseal"
 #define MyAppDisplayName "MarkSeal"
-#define MyAppVersion "2.1.0"
+#define MyAppVersion "2.2.0"
 #define MyAppExeName "Markseal.exe"
 
 [Setup]
