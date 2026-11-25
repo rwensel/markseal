@@ -272,6 +272,25 @@ class DetectionTests(unittest.TestCase):
                 self.assertEqual(bool(detect_regions(rows, (200,100), categories={'Infrastructure','URLs'})),
                                  category is not None)
 
+    def test_paths_cover_common_unix_and_windows_roots(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+
+        def found(text):
+            tsv = header + f'1\t1\t1\t1\t10\t20\t420\t20\t95\t{text}\n'
+            return bool(detect_regions(tsv, (500, 100), categories={'Paths'}))
+
+        cases = {
+            '/etc/passwd': True, '/etc/nginx': True, '/usr/local/nginx/conf': True,
+            '/var/lib/mysql': True, '/opt/app/config.yaml': True, '/srv/app/config.yaml': True,
+            '/tmp/upload.bin': True, '/root/.bashrc': True, '/home/alice/.ssh/id_rsa': True,
+            '/Users/alice/file': True, 'C:\\path\\file': True, '\\\\server\\share\\file': True,
+            'https://example.com/usr/guide': False, 'and/or': False, '2024/10/12': False,
+            'see /etc': False,
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(found(text), expected)
+
     def test_model_word_boxes_keep_regex_matches_tight(self):
         def polygon(left, right):
             return [(left, 12), (right, 12), (right, 27), (left, 27)]

@@ -20,7 +20,11 @@ PATTERNS = {
     ),
     'IP addresses': r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
     'Ticket IDs': r"\b[A-Z][A-Z0-9]{1,9}-\d+\b",
-    'Paths': r"(?:[a-z]:\\|/home/|/users/|\\\\)\S+",
+    'Paths': (
+        r"(?<![\w.-])(?:[a-z]:\\|"
+        r"/(?:etc|usr|var|opt|srv|tmp|root|bin|sbin|lib|lib64|mnt|media|run|proc|sys|dev|boot|home|users)/|"
+        r"\\\\)\S+"
+    ),
     'Hashes': r"\b[0-9a-f]{7,64}\b",
     'Secrets': (
         r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b|\b(?:gh[pousr]_|github_pat_|glpat-|sk_(?:live|test)_)[\w-]{12,}"
