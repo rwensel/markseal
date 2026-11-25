@@ -19,7 +19,7 @@ PATTERNS = {
         r"|\blocalhost(?::\d+)?(?:/\S*)?"
     ),
     'IP addresses': r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
-    'Ticket IDs': r"\b[A-Z][A-Z0-9]{1,9}-\d+\b",
+    'Ticket IDs': r"\b[A-Z][A-Z0-9]{1,9}-\d+(?!(?-i:[A-Z0-9]))",
     'Paths': (
         r"(?<![\w.-])(?:[a-z]:\\|"
         r"/(?:etc|usr|var|opt|srv|tmp|root|bin|sbin|lib|lib64|mnt|media|run|proc|sys|dev|boot|home|users)/|"

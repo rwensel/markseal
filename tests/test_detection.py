@@ -322,6 +322,18 @@ class DetectionTests(unittest.TestCase):
         self.assertFalse(wrapped('Total', '1234', {'SSNs'}))
         self.assertTrue(wrapped('/etc/', 'passwd', {'Paths'}))
 
+    def test_ticket_id_glued_to_a_lowercase_word_is_matched(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+
+        def found(text):
+            tsv = header + f'1\t1\t1\t1\t10\t20\t260\t20\t95\t{text}\n'
+            return bool(detect_regions(tsv, (400, 100), categories={'Ticket IDs'}))
+
+        self.assertTrue(found("proj-123won't"))
+        self.assertTrue(found('PROJ-123'))
+        self.assertFalse(found('PROJ-123ABC'))
+        self.assertFalse(found('PROJ-1234ABC'))
+
     def test_model_word_boxes_keep_regex_matches_tight(self):
         def polygon(left, right):
             return [(left, 12), (right, 12), (right, 27), (left, 27)]
