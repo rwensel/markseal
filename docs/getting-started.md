@@ -26,7 +26,7 @@ Personal-data detection also needs the bundled PII model. Release installers inc
 
 ## Open a screenshot or PDF
 
-Use **Open image**, **Paste** (Ctrl+V), or drag an image anywhere onto the window. Dragging a folder opens folder mode. A copied image or a copied image file works with Paste.
+Use **Open image**, paste with Ctrl+V, or drag an image anywhere onto the window. Dragging a folder opens folder mode. A copied image or a copied image file works with paste.
 
 MarkSeal opens PNG, JPEG, BMP, and TIFF images, plus PDF documents. A PDF opens one file at a time; use the page bar to move between pages. Folder mode remains image-only.
 
@@ -42,7 +42,7 @@ PDFs render locally at 200 DPI, capped at 40 million pixels. There is no PDF tex
 
 1. Click **Scan image**. The banner above the screenshot shows the OCR stage and progress while the rest of the window stays responsive.
 2. Suggestions start selected. Click a box to exclude it, click again to include it, or press Delete / click the X to remove it.
-3. Drag on the image to add a manual box. If you need only a small area, use **Scan region**.
+3. Drag on the image to add a manual box. If you need only a small area, open **More** and choose **Scan a region**.
 4. Turn on **Rule tags** in the viewer caption to see why a box was suggested. The tags are review-only and are never exported.
 5. Press **Confirm** to apply the selected boxes to the preview. **Revise** brings the outlines back if you need to change the selection.
 
@@ -81,7 +81,7 @@ Only selected boxes are applied and included in the log. Review the log before s
 | Space | Include or exclude the focused box |
 | Delete | Remove the focused box |
 | Esc | Cancel an area or anchor drag |
-| Alt+M | Open the More menu on a narrow window |
+| Alt+M | Open the More menu |
 
 Tab reaches the toolbar, then the viewer. With the viewer focused, arrow keys move between boxes.
 

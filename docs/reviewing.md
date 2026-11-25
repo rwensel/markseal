@@ -22,7 +22,7 @@ Use the mouse wheel over the image to zoom around the pointer. Right-click and d
 
 ## Scan a region
 
-For small text missed by a full-image scan, zoom in, click **Scan region**, and drag tightly around the text. A banner names the active mode and offers **Cancel**; Esc also cancels. The app scans an enlarged copy of the selected original pixels and adds boxes to the original image. A narrow region is treated as a single text line. An area scan does not mark the full image as scanned.
+For small text missed by a full-image scan, zoom in, open **More**, choose **Scan a region**, and drag tightly around the text. A banner names the active mode and offers **Cancel**; Esc also cancels. The app scans an enlarged copy of the selected original pixels and adds boxes to the original image. A narrow region is treated as a single text line. An area scan does not mark the full image as scanned.
 
 ## Capture a region
 

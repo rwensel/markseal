@@ -11,14 +11,11 @@ Item {
     signal captureClicked()
     signal watchesClicked()
 
-    readonly property bool wide: width >= 1360
-    readonly property bool scanWide: width >= 1240
     readonly property bool canScan: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
     readonly property bool canConfirm: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
 
     Shortcut {
         sequence: "Alt+M"
-        enabled: !toolbar.wide
         onActivated: overflow.popup(moreButton, moreButton.width - overflow.width,
                                     moreButton.height + 6)
     }
@@ -141,15 +138,6 @@ Item {
         }
 
         ConcourseButton {
-            text: "PASTE"
-            compact: true
-            tip: "Paste an image from the clipboard (Ctrl+V)"
-            visible: toolbar.wide
-            enabled: !Backend.batch.busy
-            onClicked: Backend.pasteImage()
-        }
-
-        ConcourseButton {
             text: "CAPTURE"
             compact: true
             tip: "Capture a region of the screen"
@@ -173,15 +161,6 @@ Item {
             onClicked: Backend.review.find()
         }
 
-        ConcourseButton {
-            text: "SCAN REGION"
-            compact: true
-            visible: toolbar.scanWide
-            tip: "Drag around one area to scan just that text"
-            enabled: toolbar.canScan
-            onClicked: Backend.review.beginScanArea()
-        }
-
         Rectangle {
             Layout.preferredWidth: 1
             Layout.preferredHeight: 26
@@ -190,55 +169,15 @@ Item {
         }
 
         ConcourseButton {
-            text: "UNDO"
-            compact: true
-            visible: toolbar.wide
-            tip: "Undo the last box (Ctrl+Z)"
-            enabled: Backend.review.hasImage && Backend.review.totalBoxes > 0
-            onClicked: Backend.review.undo()
-        }
-
-        ConcourseButton {
-            text: "REDO"
-            compact: true
-            visible: toolbar.wide
-            tip: "Redo the last undone box (Ctrl+Shift+Z)"
-            enabled: Backend.review.canRedo
-            onClicked: Backend.review.redo()
-        }
-
-        ConcourseButton {
-            text: "CLEAR"
-            compact: true
-            tip: "Remove every box from this image"
-            visible: toolbar.wide
-            enabled: Backend.review.hasImage && Backend.review.totalBoxes > 0
-            onClicked: Backend.review.clearBoxes()
-        }
-
-        ConcourseButton {
             id: moreButton
             text: "MORE"
             compact: true
             tip: overflow.visible ? "" : "More actions (Alt+M)"
-            visible: !toolbar.wide
             onClicked: overflow.popup(moreButton, moreButton.width - overflow.width,
                                       moreButton.height + 6)
         }
 
         Item { Layout.fillWidth: true }
-
-        ConcourseButton {
-            text: "REDACT ALL"
-            compact: true
-            variant: "secondary"
-            tip: "Select every box and apply it in one click"
-            visible: toolbar.wide && Backend.review.hasImage && Backend.review.totalBoxes > 0
-                     && !Backend.review.confirmed
-                     && Backend.review.selectedCount < Backend.review.totalBoxes
-            enabled: toolbar.canConfirm && Backend.review.totalBoxes > 0
-            onClicked: Backend.review.redactAll()
-        }
 
         ConcourseButton {
             text: Backend.review.confirmLabel
@@ -281,25 +220,6 @@ Item {
             border.color: Theme.hairline
         }
 
-        MenuAction {
-            text: "Open image  (Ctrl+O)"
-            enabled: !Backend.batch.busy
-            onTriggered: Backend.openImage()
-        }
-        MenuAction {
-            text: "Open folder  (Ctrl+Shift+O)"
-            enabled: !Backend.batch.busy
-            onTriggered: Backend.openFolder()
-        }
-        MenuAction {
-            text: "Watched folders"
-            onTriggered: toolbar.watchesClicked()
-        }
-        MenuAction {
-            text: "Capture region"
-            enabled: !Backend.batch.busy
-            onTriggered: toolbar.captureClicked()
-        }
         MenuAction {
             text: "Paste image  (Ctrl+V)"
             onTriggered: Backend.pasteImage()
