@@ -77,7 +77,7 @@ class ModuleSplitTests(unittest.TestCase):
         modules = sorted(path for path in package.glob('*.py') if path.name != '__init__.py')
         self.assertEqual(
             [path.stem for path in modules],
-            ['activity', 'alerts', 'batch', 'folder', 'review', 'settings', 'state',
+            ['activity', 'alerts', 'auto_watch', 'batch', 'folder', 'review', 'settings', 'state',
              'updates', 'watches'],
         )
         for path in modules:
