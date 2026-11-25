@@ -258,29 +258,34 @@ def wrapped_boxes(lines, size, min_confidence, expressions):
     ordered = [words for words in lines if words]
     ordered.sort(key=lambda words: min(word[2] for word in words))
     result = []
-    for words_a, words_b in zip(ordered, ordered[1:]):
+    for index, words_a in enumerate(ordered):
         last = words_a[-1]
-        first = words_b[0]
-        height = max(1, min(last[4] - last[2], first[4] - first[2]))
-        if first[2] - last[4] > 1.5 * height or first[1] >= last[3]:
-            continue
-        if last[5] < min_confidence or first[5] < min_confidence:
-            continue
-        joined = last[0] + first[0]
-        if len(joined) > 80:
-            continue
-        for label, expression in expressions:
-            validate = VALIDATORS.get(label)
-            for match in expression.finditer(joined):
-                if not (match.start() < len(last[0]) < match.end()):
-                    continue
-                if validate is not None and not validate(match.group(0)):
-                    continue
-                box = (max(0, min(last[1], first[1]) - 4),
-                       max(0, min(last[2], first[2]) - 4),
-                       min(size[0], max(last[3], first[3]) + 4),
-                       min(size[1], max(last[4], first[4]) + 4))
-                result.append((box, label))
+        left = words_a[0][1]
+        height = max(1, last[4] - last[2])
+        for words_b in ordered[index + 1:]:
+            first = words_b[0]
+            if first[2] - last[4] > 1.5 * height:
+                break
+            if (abs(first[1] - last[1]) > 1.5 * height
+                    and abs(first[1] - left) > 1.5 * height):
+                continue
+            if last[5] < min_confidence or first[5] < min_confidence:
+                continue
+            joined = last[0] + first[0]
+            if len(joined) > 80:
+                continue
+            for label, expression in expressions:
+                validate = VALIDATORS.get(label)
+                for match in expression.finditer(joined):
+                    if not (match.start() < len(last[0]) < match.end()):
+                        continue
+                    if validate is not None and not validate(match.group(0)):
+                        continue
+                    box = (max(0, min(last[1], first[1]) - 4),
+                           max(0, min(last[2], first[2]) - 4),
+                           min(size[0], max(last[3], first[3]) + 4),
+                           min(size[1], max(last[4], first[4]) + 4))
+                    result.append((box, label))
     return result
 
 

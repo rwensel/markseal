@@ -334,6 +334,17 @@ class DetectionTests(unittest.TestCase):
         self.assertFalse(found('PROJ-123ABC'))
         self.assertFalse(found('PROJ-1234ABC'))
 
+    def test_wrapped_identifier_skips_a_side_column(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        tsv = (header
+               + '1\t1\t1\t1\t10\t20\t50\t20\t95\t001-01-\n'
+               + '1\t1\t1\t2\t120\t22\t200\t20\t95\tInvalid area number\n'
+               + '1\t1\t1\t3\t10\t42\t40\t20\t95\t0001\n')
+        found = detect_regions(tsv, (400, 120), categories={'SSNs'})
+        self.assertEqual(len(found), 1)
+        self.assertLessEqual(found[0][1], 20)
+        self.assertGreaterEqual(found[0][3], 62)
+
     def test_model_word_boxes_keep_regex_matches_tight(self):
         def polygon(left, right):
             return [(left, 12), (right, 12), (right, 27), (left, 27)]
