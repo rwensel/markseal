@@ -52,6 +52,11 @@ CASES = [
         'expected': {'Personal names': ['Katie Miller']},
     },
     {
+        'name': 'slash-name',
+        'lines': [make_line(['John/Jane', 'Doe'])],
+        'expected': {'Personal names': ['John/Jane Doe']},
+    },
+    {
         'name': 'two-column',
         'lines': [[
             ('Name:', 0, 20, 64, 44, 99),

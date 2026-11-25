@@ -20,6 +20,7 @@ PROMPT_ENT = '<<ENT>>'
 PROMPT_SEP = '<<SEP>>'
 CAPTURE = frozenset({'Personal names', 'Postal addresses'})
 CODE_SHAPE = re.compile(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9_-]+$')
+MODEL_SPLIT = re.compile(r"[A-Za-z][A-Za-z'.-]*/[A-Za-z][A-Za-z'.-]*")
 STREET_SUFFIXES = frozenset({
     'street', 'st', 'avenue', 'ave', 'road', 'rd', 'lane', 'ln', 'boulevard', 'blvd',
     'drive', 'dr', 'court', 'ct', 'way', 'place', 'pl', 'terrace', 'ter',
@@ -190,6 +191,21 @@ def _valid_span(words, category):
     return True
 
 
+def _model_words(words):
+    model = []
+    sources = []
+    for word in words:
+        text = str(word[0])
+        if MODEL_SPLIT.fullmatch(text) is None:
+            model.append(word)
+            sources.append(word)
+            continue
+        for part in text.split('/'):
+            model.append((part,) + tuple(word[1:]))
+            sources.append(word)
+    return model, sources
+
+
 def detect_entities(lines, size, min_confidence, categories, *, model_dir=None,
                     session=None, tokenizer=None):
     selected = set(categories) & CAPTURE
@@ -215,9 +231,11 @@ def detect_entities(lines, size, min_confidence, categories, *, model_dir=None,
         words = [word for word in line if str(word[0]).strip()]
         if not words:
             continue
+        model_words, sources = _model_words(words)
         size_words = max(1, manifest.max_words)
-        for offset in range(0, len(words), size_words):
-            chunk = words[offset:offset + size_words]
+        for offset in range(0, len(model_words), size_words):
+            chunk = model_words[offset:offset + size_words]
+            source_chunk = sources[offset:offset + size_words]
             try:
                 inputs, _ = build_inputs(chunk, prompt_tokens, tokenizer)
                 output = session.run(None, inputs)
@@ -225,7 +243,10 @@ def detect_entities(lines, size, min_confidence, categories, *, model_dir=None,
             except Exception:
                 continue
             for start, end, category, _ in decode_spans(logits, chunk, prompts):
-                value = chunk[start:end + 1]
+                value = []
+                for word in source_chunk[start:end + 1]:
+                    if not value or value[-1] is not word:
+                        value.append(word)
                 if (any(word[5] < min_confidence for word in value)
                         or not _valid_span(value, category)):
                     continue

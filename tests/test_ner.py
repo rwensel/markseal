@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from markseal.ner import Prompt, build_inputs, decode_spans, detect_entities, load_manifest
+from markseal.ner import Prompt, _model_words, build_inputs, decode_spans, detect_entities, load_manifest
 
 
 class FakeEncoding:
@@ -46,6 +46,29 @@ class NerTests(unittest.TestCase):
             'max_words': max_words,
         }), encoding='utf-8')
         return path.parent
+
+    def test_model_words_split_alpha_slash_pairs(self):
+        words = [word('John/Jane', 10), word('https://example.com', 80),
+                 word('and/or', 200), word('12/14', 260)]
+        model, sources = _model_words(words)
+        self.assertEqual([item[0] for item in model],
+                         ['John', 'Jane', 'https://example.com', 'and', 'or', '12/14'])
+        self.assertIs(sources[0], words[0])
+        self.assertIs(sources[1], words[0])
+
+    def test_slash_pair_span_maps_to_original_box(self):
+        words = [word('John/Jane', 10), word('Doe', 100)]
+        logits = np.full((1, 3, 2, 3), 0.05)
+        logits[0, 1, 0, 0] = 0.9
+        logits[0, 2, 0, 1] = 0.9
+        logits[0, 1:3, 0, 2] = 0.9
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.manifest(folder)
+            boxes, rules = detect_entities(
+                [words], (300, 100), 50, {'Personal names'}, model_dir=root,
+                session=FakeSession(logits), tokenizer=FakeTokenizer())
+        self.assertEqual(boxes, [(6, 16, 164, 48)])
+        self.assertEqual(rules[boxes[0]], ('Personal names',))
 
     def test_build_inputs_marks_prompt_words_zero(self):
         inputs, count = build_inputs(
