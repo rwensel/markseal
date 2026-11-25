@@ -412,10 +412,74 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
+                        anchors.margins: -4
+                        radius: 2
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Theme.ink
+                        opacity: 0.7
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
                         radius: 1
                         color: box.boxData.selected ? Theme.amberFill : Theme.redFill
                         border.width: 2
                         border.color: box.boxData.selected ? Theme.amber : Theme.red
+                    }
+
+                    Item {
+                        id: stateBadge
+                        z: 12
+                        width: 16
+                        height: 16
+                        x: box.x < 16 ? 2 : -16
+                        y: box.y < 16 ? 2 : -16
+                        Accessible.role: Accessible.Indicator
+                        Accessible.name: box.boxData.selected
+                                        ? "Included box" : "Excluded box"
+                        Accessible.description: box.boxData.selected
+                                                ? "This area will be redacted."
+                                                : "This area will remain visible."
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 2
+                            color: Theme.panelRaised
+                            border.width: 1
+                            border.color: box.boxData.selected ? Theme.amber : Theme.red
+                        }
+
+                        Rectangle {
+                            visible: box.boxData.selected
+                            width: 3
+                            height: 6
+                            radius: 1
+                            x: 3
+                            y: 8
+                            rotation: -45
+                            color: Theme.white
+                        }
+
+                        Rectangle {
+                            visible: box.boxData.selected
+                            width: 3
+                            height: 10
+                            radius: 1
+                            x: 7
+                            y: 4
+                            rotation: 45
+                            color: Theme.white
+                        }
+
+                        Rectangle {
+                            visible: !box.boxData.selected
+                            anchors.centerIn: parent
+                            width: 7
+                            height: 2
+                            radius: 1
+                            color: Theme.white
+                        }
                     }
 
                     Rectangle {

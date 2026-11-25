@@ -2,7 +2,7 @@
 
 ## Boxes and selection
 
-Suggestions start selected. The theme accent marks selected boxes and the primary action; the stop color marks excluded boxes (amber and red in the default Split-flap theme).
+Suggestions start selected. The theme accent marks selected boxes and the primary action; the stop color marks excluded boxes (amber and red in the default Split-flap theme). Selected boxes carry a check mark, excluded boxes a dash, and a dark keyline keeps the boundary visible on light screenshots.
 
 - Click a box to exclude it; click again to include it.
 - Click the X at a box's upper-right corner, or press Delete with the viewer focused, to remove it.

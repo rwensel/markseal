@@ -19,6 +19,7 @@ Window {
     visible: false
 
     property string tab: "engine"
+    readonly property bool immediateTab: tab === "watched" || tab === "blocked"
     property string errorText: ""
     property bool showDiagnostics: false
     property var selectedCategories: []
@@ -766,7 +767,7 @@ Window {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: "CHANGES ON THIS PAGE SAVE IMMEDIATELY, EVEN IF YOU CANCEL"
+                                text: "CHANGES ON THIS PAGE SAVE IMMEDIATELY. CLOSE WHEN DONE."
                                 wrapMode: Text.WordWrap
                                 color: Theme.amber
                                 font.family: Theme.displayFont
@@ -780,6 +781,7 @@ Window {
 
                                 ConcourseButton {
                                     text: "ADD FOLDER"
+                                    variant: "primary"
                                     onClicked: Backend.watches.chooseFolder()
                                 }
 
@@ -938,7 +940,7 @@ Window {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: "CHANGES ON THIS PAGE SAVE IMMEDIATELY, EVEN IF YOU CANCEL"
+                                text: "CHANGES ON THIS PAGE SAVE IMMEDIATELY. CLOSE WHEN DONE."
                                 wrapMode: Text.WordWrap
                                 color: Theme.amber
                                 font.family: Theme.displayFont
@@ -1306,12 +1308,13 @@ Window {
             Item { Layout.fillWidth: true; visible: settings.errorText.length === 0 }
 
             ConcourseButton {
-                text: "CANCEL"
+                text: settings.immediateTab ? "CLOSE" : "CANCEL"
                 onClicked: settings.closeSettings()
             }
 
             ConcourseButton {
                 text: "APPLY"
+                visible: !settings.immediateTab
                 variant: "primary"
                 onClicked: {
                     if (settings.tryApply()) {

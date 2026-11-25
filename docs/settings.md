@@ -1,6 +1,6 @@
 # Settings
 
-Settings open in a separate window. **Apply** saves preferences; Cancel, Escape, or closing the window discards edits. Blocked-pattern and watched-folder changes save immediately. Preferences are stored locally.
+Settings open in a separate window. **Apply** saves preferences; Cancel, Escape, or closing the window discards edits on settings tabs. Watched folders and blocked patterns save immediately; those tabs show **Close** instead of Cancel and hide Apply. Preferences are stored locally.
 
 ## OCR
 
@@ -75,13 +75,13 @@ Each row shows the folder name and path, a **MANUAL** or **AUTO** control, an **
 
 Exports from a watch go to that folder's own `redacted` subfolder, not to the global output folder. When **Include subfolders** is on, the source's subfolders are repeated under `redacted`, so `sub/a.png` exports to `redacted/sub/a_redacted.png`. That keeps one watch's files from colliding with another's, and a manual save from a watched folder uses the same mirrored destination. The **Coordinate log** setting still applies.
 
-Changes on this page save immediately, even if you cancel the settings window. See [Watch folders](../README.md#watch-folders) for the two policies and [Reviewing and redacting](reviewing.md#watched-folders-and-the-inbox) for the inbox.
+Changes on this page save immediately. Close the window when you are done. See [Watch folders](../README.md#watch-folders) for the two policies and [Reviewing and redacting](reviewing.md#watched-folders-and-the-inbox) for the inbox.
 
 ## Appearance
 
 ![Theme picker](images/settings-appearance.png)
 
-Choose one of six themes: Split-flap Concourse (default), Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram. Clicking a card previews it across the window; **Apply** keeps it. The bottom status line names the current theme's selected and excluded colors. No network calls are involved.
+Choose one of six themes: Split-flap Concourse (default), Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram. Clicking a card previews it across the window; **Apply** keeps it. The bottom status line names the theme's selected and excluded colors and their check and dash marks. No network calls are involved.
 
 ![Switching between MarkSeal themes](images/themes.gif)
 

@@ -22,9 +22,12 @@ Item {
         color: pointer.pressed
                ? Qt.lighter(Theme.tabActiveFace, 1.06)
                : tab.active ? Theme.tabActiveFace
-               : (pointer.containsMouse ? Theme.tabHover : "transparent")
-        border.width: tab.active || pointer.pressed ? 1 : 0
-        border.color: pointer.pressed ? Theme.amber : Theme.tabBorder
+               : "transparent"
+        border.width: tab.active || pointer.pressed || pointer.containsMouse ? 1 : 0
+        border.color: pointer.pressed
+                      ? Theme.amber
+                      : tab.active ? Theme.tabBorder
+                      : (pointer.containsMouse ? Theme.steelMid : "transparent")
         Behavior on color { ColorAnimation { duration: 100 } }
     }
 
