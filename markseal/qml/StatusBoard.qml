@@ -6,6 +6,19 @@ import Redactor 1.0
 Item {
     id: board
 
+    readonly property bool hasImage: Backend.review.hasImage
+    readonly property bool hasBoxes: Backend.review.totalBoxes > 0
+    readonly property string stateValue: !hasImage ? "EMPTY"
+                                                : Backend.review.confirmed ? "APPLIED"
+                                                : hasBoxes ? "PENDING" : "READY"
+    readonly property string stateDescription: !hasImage
+                                                ? "No screenshot is open."
+                                                : Backend.review.confirmed
+                                                ? "Boxes are applied to the preview."
+                                                : hasBoxes
+                                                ? "Boxes exist but are not confirmed. Press Confirm to apply them."
+                                                : "A screenshot is open. Scan it or drag a box."
+
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
@@ -67,19 +80,17 @@ Item {
 
         FlipTile {
             id: stateTile
-            value: Backend.review.confirmed ? "APPLIED" : "PENDING"
+            value: board.stateValue
             label: "STATE"
-            accent: Backend.review.confirmed ? Theme.amber : Theme.steelMid
-            Accessible.description: Backend.review.confirmed
-                                    ? "Boxes are applied to the preview."
-                                    : "Boxes exist but are not confirmed."
+            accent: !board.hasImage || (board.hasBoxes && !Backend.review.confirmed)
+                    ? Theme.steelMid
+                    : Backend.review.confirmed ? Theme.amber : Theme.steelLight
+            Accessible.description: board.stateDescription
 
             HoverHandler { id: stateHover }
             ToolTip.visible: stateHover.hovered
             ToolTip.delay: 500
-            ToolTip.text: Backend.review.confirmed
-                          ? "The selected boxes are applied to the preview."
-                          : "Boxes exist but are not confirmed. Press Confirm to apply them."
+            ToolTip.text: board.stateDescription
         }
     }
 }

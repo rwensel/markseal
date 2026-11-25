@@ -4,15 +4,6 @@ from __future__ import annotations
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QMessageBox
 
-from .. import themes
-
-
-def box_hint(theme_id):
-    entry = themes.spec(theme_id)
-    return (f'Space includes or excludes. '
-            f'Check ({entry.selected_name}) = selected; dash ({entry.excluded_name}) = excluded. '
-            f'× removes a box.')
-
 
 class Alerts(QObject):
     statusChanged = Signal()
@@ -29,11 +20,6 @@ class Alerts(QObject):
     def set_status(self, text):
         self.status_text = text
         self.statusChanged.emit()
-
-    def set_hint_theme(self, theme_id):
-        if self.status_text in {box_hint(name) for name in themes.THEME_IDS}:
-            self.status_text = box_hint(theme_id)
-            self.statusChanged.emit()
 
     def ask(self, title, text):
         answer = QMessageBox.question(

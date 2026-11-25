@@ -144,7 +144,6 @@ class SettingsFacade(QObject):
             self.session.folder)
         self._preview_theme = self.session.preferences.theme
         self._palette.set_theme(self.session.preferences.theme)
-        self.alerts.set_hint_theme(self.session.preferences.theme)
         self.themeChanged.emit()
 
     @Slot(bool)
@@ -295,7 +294,6 @@ class SettingsFacade(QObject):
             return
         self._preview_theme = theme_id
         self._palette.set_theme(theme_id)
-        self.alerts.set_hint_theme(theme_id)
         self.themeChanged.emit()
 
     @Slot()
@@ -305,7 +303,6 @@ class SettingsFacade(QObject):
             return
         self._preview_theme = saved
         self._palette.set_theme(saved)
-        self.alerts.set_hint_theme(saved)
         self.themeChanged.emit()
 
     @Slot(result=str)

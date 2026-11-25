@@ -15,7 +15,6 @@ from .facades import (
     Alerts, BatchFacade, FolderFacade, JobCenter, ReviewFacade, SessionState,
     SettingsFacade, UpdateFacade, WatchFacade,
 )
-from .facades.alerts import box_hint
 from .ui.models import DisplayImageProvider
 
 
@@ -69,7 +68,7 @@ class Controller(QObject):
         self._settings.load_preferences()
         self._updates.check()
         if not self.alerts.status_text:
-            self.alerts.set_status(box_hint(self.session.preferences.theme))
+            self.alerts.set_status('Ready. No screenshot open.')
         QTimer.singleShot(0, self._watches.start)
 
     @Property(QObject, constant=True)
