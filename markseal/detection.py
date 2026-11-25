@@ -391,10 +391,20 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
                 labels = found_rules.get(box, ())
                 match = next((existing for existing in boxes
                               if same_region(existing, box)), None)
-                if match is None:
-                    match = next((existing for existing in boxes
-                                  if set(box_rules.get(existing, ())) & set(labels)
-                                  and _contains(existing, box)), None)
+                if match is not None:
+                    if ((box[2]-box[0]) * (box[3]-box[1])
+                            > (match[2]-match[0]) * (match[3]-match[1])):
+                        previous = box_rules.pop(match, ())
+                        boxes[boxes.index(match)] = box
+                        box_rules[box] = list(previous)
+                        match = box
+                    for label in labels:
+                        if label not in box_rules.get(match, ()):
+                            box_rules.setdefault(match, []).append(label)
+                    continue
+                match = next((existing for existing in boxes
+                              if set(box_rules.get(existing, ())) & set(labels)
+                              and _contains(existing, box)), None)
                 if match is None:
                     boxes.append(box)
                     box_rules[box] = list(labels)
@@ -402,6 +412,21 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
                     for label in labels:
                         if label not in box_rules.get(match, ()):
                             box_rules.setdefault(match, []).append(label)
+    kept = []
+    for box in boxes:
+        labels = box_rules.get(box, ())
+        container = next((other for other in boxes
+                          if other != box
+                          and other[0] <= box[0] and other[1] <= box[1]
+                          and other[2] >= box[2] and other[3] >= box[3]
+                          and set(box_rules.get(other, ())) & set(labels)), None)
+        if container is None:
+            kept.append(box)
+            continue
+        for label in labels:
+            if label not in box_rules.get(container, ()):
+                box_rules.setdefault(container, []).append(label)
+    boxes[:] = kept
     if rules is not None:
         rules.clear()
         rules.update({box: tuple(labels) for box, labels in box_rules.items()})

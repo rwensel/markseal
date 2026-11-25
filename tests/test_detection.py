@@ -345,6 +345,19 @@ class DetectionTests(unittest.TestCase):
         self.assertLessEqual(found[0][1], 20)
         self.assertGreaterEqual(found[0][3], 62)
 
+    def test_contained_same_category_boxes_are_merged(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        tsv = (header
+               + '1\t1\t1\t1\t10\t20\t80\t20\t95\tAddress:\n'
+               + '1\t1\t1\t1\t100\t20\t30\t20\t95\t30\n'
+               + '1\t1\t1\t1\t140\t20\t100\t20\t95\tCommercial\n'
+               + '1\t1\t1\t1\t250\t20\t50\t20\t95\tRoad\n')
+        found = detect_regions(tsv, (400, 100), categories={'Postal addresses'},
+                               min_confidence=40, personal=True)
+        self.assertEqual(len(found), 1)
+        self.assertLessEqual(found[0][0], 96)
+        self.assertGreaterEqual(found[0][2], 304)
+
     def test_model_word_boxes_keep_regex_matches_tight(self):
         def polygon(left, right):
             return [(left, 12), (right, 12), (right, 27), (left, 27)]
