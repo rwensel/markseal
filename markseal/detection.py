@@ -9,6 +9,7 @@ import re
 
 from .boxset import same_region
 from .performance_log import timed
+from .suggestions import SuggestionSet, padded_box, padded_rect
 
 
 PATTERNS = {
@@ -200,7 +201,7 @@ def credential_boxes(lines, size, min_confidence):
                 char_width = math.ceil((x2-x1) / len(value))
                 x1 = max(right+5, x1-(5-len(marker[1]))*char_width)
                 x2 += (5-len(marker[2]))*char_width
-            result.append((max(0,x1-4), max(0,y1-4), min(size[0],x2+4), min(size[1],y2+4)))
+            result.append(padded_rect((x1, y1, x2, y2), size))
     return result
 
 
@@ -281,20 +282,12 @@ def wrapped_boxes(lines, size, min_confidence, expressions):
                         continue
                     if validate is not None and not validate(match.group(0)):
                         continue
-                    box = (max(0, min(last[1], first[1]) - 4),
-                           max(0, min(last[2], first[2]) - 4),
-                           min(size[0], max(last[3], first[3]) + 4),
-                           min(size[1], max(last[4], first[4]) + 4))
+                    box = padded_box([first, last], size)
                     result.append((box, label))
     return result
 
 
 @timed('match_patterns')
-def _contains(outer, inner):
-    return (outer[0] <= inner[0] and outer[1] <= inner[1]
-            and outer[2] >= inner[2] and outer[3] >= inner[3])
-
-
 def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0, custom_pattern='',
                    learned_patterns=(), rules=None, personal=False):
     categories = set(PATTERNS) if categories is None else categories
@@ -317,8 +310,7 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
         except (ValueError, KeyError): continue
         if width <= 0 or height <= 0: continue
         lines.setdefault(key, []).append((word, left, top, left+width, top+height, confidence))
-    boxes = []
-    box_rules = {}
+    suggestions = SuggestionSet()
     assignments = []
     for words in lines.values():
         text = ' '.join(word[0] for word in words)
@@ -349,87 +341,36 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
                     if start < right and end > left and label not in matched:
                         matched.append(label)
             if matched:
-                box = (max(0,x1-4), max(0,y1-4), min(size[0],x2+4), min(size[1],y2+4))
-                if box not in box_rules:
-                    box_rules[box] = []
-                    boxes.append(box)
+                box = padded_rect((x1, y1, x2, y2), size)
                 for label in matched:
-                    if label not in box_rules[box]:
-                        box_rules[box].append(label)
+                    suggestions.add_exact(box, label)
             offset = end + 1
         for _, field_words in fields:
             if field_words and max(word[4] for word in field_words) >= min_confidence:
                 x1, y1, x2, y2 = zip(*(word[:4] for word in field_words))
-                assignments.append((max(0, min(x1)-4), max(0, min(y1)-4),
-                                    min(size[0], max(x2)+4), min(size[1], max(y2)+4)))
+                assignments.append(padded_rect(
+                    (min(x1), min(y1), max(x2), max(y2)), size))
     if not all_text:
+        wrapped = SuggestionSet()
         for box, label in wrapped_boxes(list(lines.values()), size, min_confidence, expressions):
-            match = next((existing for existing in boxes if same_region(existing, box)), None)
-            if match is None:
-                boxes.append(box)
-                box_rules[box] = [label]
-            elif label not in box_rules.get(match, ()):
-                box_rules.setdefault(match, []).append(label)
+            wrapped.add(box, label)
+        suggestions.merge(wrapped)
     if not all_text and 'Secrets' in categories:
         credentials = credential_boxes(lines.values(), size, min_confidence)
         for source in (assignments, credentials):
             for left, top, right, bottom in source:
-                covered = [box for box in boxes if
-                           (left <= box[0] and top <= box[1] and box[2] <= right and box[3] <= bottom)]
-                for box in covered:
-                    boxes.remove(box)
-                    box_rules.pop(box, None)
-                box = (left, top, right, bottom)
-                boxes.append(box)
-                box_rules[box] = ['Secrets']
+                suggestions.cover((left, top, right, bottom), 'Secrets')
     if personal and not all_text:
         from . import field_detection, ner
         personal_lines = list(lines.values())
         for finder in (field_detection.field_boxes, ner.detect_entities):
             found, found_rules = finder(personal_lines, size, min_confidence, categories)
-            for box in found:
-                labels = found_rules.get(box, ())
-                match = next((existing for existing in boxes
-                              if same_region(existing, box)), None)
-                if match is not None:
-                    if ((box[2]-box[0]) * (box[3]-box[1])
-                            > (match[2]-match[0]) * (match[3]-match[1])):
-                        previous = box_rules.pop(match, ())
-                        boxes[boxes.index(match)] = box
-                        box_rules[box] = list(previous)
-                        match = box
-                    for label in labels:
-                        if label not in box_rules.get(match, ()):
-                            box_rules.setdefault(match, []).append(label)
-                    continue
-                match = next((existing for existing in boxes
-                              if set(box_rules.get(existing, ())) & set(labels)
-                              and _contains(existing, box)), None)
-                if match is None:
-                    boxes.append(box)
-                    box_rules[box] = list(labels)
-                else:
-                    for label in labels:
-                        if label not in box_rules.get(match, ()):
-                            box_rules.setdefault(match, []).append(label)
-    kept = []
-    for box in boxes:
-        labels = box_rules.get(box, ())
-        container = next((other for other in boxes
-                          if other != box
-                          and other[0] <= box[0] and other[1] <= box[1]
-                          and other[2] >= box[2] and other[3] >= box[3]
-                          and set(box_rules.get(other, ())) & set(labels)), None)
-        if container is None:
-            kept.append(box)
-            continue
-        for label in labels:
-            if label not in box_rules.get(container, ()):
-                box_rules.setdefault(container, []).append(label)
-    boxes[:] = kept
+            suggestions.merge_personal(SuggestionSet.from_parts(found, found_rules))
+    suggestions.prune_contained()
+    boxes = suggestions.boxes
     if rules is not None:
         rules.clear()
-        rules.update({box: tuple(labels) for box, labels in box_rules.items()})
+        rules.update({box: tuple(labels) for box, labels in suggestions.rules.items()})
     return boxes
 
 

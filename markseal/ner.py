@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .boxset import same_region
+from .suggestions import SuggestionSet, padded_box
 
 MODEL_DIRECTORY = Path(__file__).resolve().parent / 'models' / 'ner'
 MANIFEST_FILENAME = 'manifest.json'
@@ -137,26 +137,6 @@ def decode_spans(logits, words, prompts):
     return sorted(kept, key=lambda span: span[0])
 
 
-def _box(words, size):
-    left = max(0, min(word[1] for word in words) - 4)
-    top = max(0, min(word[2] for word in words) - 4)
-    right = min(size[0], max(word[3] for word in words) + 4)
-    bottom = min(size[1], max(word[4] for word in words) + 4)
-    return (left, top, right, bottom)
-
-
-def _add(boxes, rules, box, category):
-    for existing in boxes:
-        if same_region(existing, box):
-            labels = list(rules[existing])
-            if category not in labels:
-                labels.append(category)
-            rules[existing] = tuple(labels)
-            return
-    boxes.append(box)
-    rules[box] = (category,)
-
-
 def _resources(model_dir):
     root = Path(model_dir) if model_dir else MODEL_DIRECTORY
     key = str(root.resolve())
@@ -225,8 +205,7 @@ def detect_entities(lines, size, min_confidence, categories, *, model_dir=None,
         except Exception:
             return [], {}
     prompt_tokens = prompt_words(prompts)
-    boxes = []
-    rules = {}
+    found = SuggestionSet()
     for line in lines:
         words = [word for word in line if str(word[0]).strip()]
         if not words:
@@ -250,5 +229,5 @@ def detect_entities(lines, size, min_confidence, categories, *, model_dir=None,
                 if (any(word[5] < min_confidence for word in value)
                         or not _valid_span(value, category)):
                     continue
-                _add(boxes, rules, _box(value, size), category)
-    return boxes, rules
+                found.add(padded_box(value, size), category)
+    return found.parts()

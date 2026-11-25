@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import statistics
 
-from .boxset import same_region
+from .suggestions import SuggestionSet, padded_box
 
 LABELS = {
     'Personal names': (
@@ -175,14 +175,6 @@ def _extend_address(lines, line_index, value, left, bottom, height):
     return result
 
 
-def _box(words, size):
-    left = max(0, min(word[1] for word in words) - 4)
-    top = max(0, min(word[2] for word in words) - 4)
-    right = min(size[0], max(word[3] for word in words) + 4)
-    bottom = min(size[1], max(word[4] for word in words) + 4)
-    return (left, top, right, bottom)
-
-
 def _valid_value(value, category):
     text = ' '.join(word[0] for word in value)
     compact = ''.join(character for character in text if character.isalnum())
@@ -199,25 +191,12 @@ def _valid_value(value, category):
     return len(compact) >= 2
 
 
-def _add(boxes, rules, box, category):
-    for existing in boxes:
-        if same_region(existing, box):
-            labels = list(rules[existing])
-            if category not in labels:
-                labels.append(category)
-            rules[existing] = tuple(labels)
-            return
-    boxes.append(box)
-    rules[box] = (category,)
-
-
 def field_boxes(lines, size, min_confidence, categories):
     selected = set(categories) & set(LABELS)
     if not selected:
         return [], {}
     lines = [list(line) for line in lines if line]
-    boxes = []
-    rules = {}
+    found = SuggestionSet()
     for line_index, words in enumerate(lines):
         if not words:
             continue
@@ -254,6 +233,6 @@ def field_boxes(lines, size, min_confidence, categories):
                     lines, line_index, label_left, label_bottom, height)
             kept = [word for word in value if word[5] >= min_confidence]
             if kept and _valid_value(kept, category):
-                _add(boxes, rules, _box(kept, size), category)
+                found.add(padded_box(kept, size), category)
             index = max(index + length, stop)
-    return boxes, rules
+    return found.parts()

@@ -15,21 +15,21 @@ from .boxset import BoxList, same_region
 from .detection import detect_regions, learned_pattern_rules
 from .images import read_folder_image
 from .jobs import ScanCancelled
+from .suggestions import SuggestionSet
 
 
 def add_boxes(boxes, rules, candidates, candidate_rules):
+    found = SuggestionSet.from_parts(boxes, rules)
     for candidate in candidates:
         labels = tuple(candidate_rules.get(candidate, ()))
-        match = next((box for box in boxes if same_region(box, candidate)), None)
-        if match is None:
-            boxes.append(candidate)
-            rules[candidate] = labels
+        if not labels:
+            found.add_unlabeled(candidate)
             continue
-        merged = list(rules.get(match, ()))
         for label in labels:
-            if label not in merged:
-                merged.append(label)
-        rules[match] = tuple(merged)
+            found.add(candidate, label)
+    boxes[:] = found.boxes
+    rules.clear()
+    rules.update(found.rules)
     return boxes, rules
 
 
