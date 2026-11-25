@@ -156,20 +156,21 @@ class WatchFacade(QObject):
         for folder in list(self.store.folders):
             folder_key = watch_store.key(folder.path)
             scan_issues = []
-            images = watch_store._images(folder, self.store, scan_issues)
-            if images is None:
+            entries = watch_store.scan(self.store, folder, scan_issues)
+            if entries is None:
                 counts[folder_key] = watch_store.WatchCounts(available=False)
                 errors[folder_key] = 'Folder unavailable'
                 continue
-            names = [name for name, _path, _stamp in images]
+            names = [entry.key for entry in entries]
             if not scan_issues and watch_store.prune(self.store, folder, names):
                 changed = True
             records = self.store.seen.get(folder_key, {})
-            if any(_unsettled(stamp, moment)
-                   and (records.get(name) is None
-                        or records[name].stamp() != (stamp.st_size, stamp.st_mtime_ns))
-                   and watch_store.key(path) not in export_targets
-                   for name, path, stamp in images):
+            if any(_unsettled(entry.stamp, moment)
+                   and (records.get(entry.key) is None
+                        or records[entry.key].stamp() != (
+                            entry.stamp.st_size, entry.stamp.st_mtime_ns))
+                   and watch_store.key(entry.path) not in export_targets
+                   for entry in entries):
                 young = True
             counts[folder_key] = watch_store.counts(self.store, folder, now=moment)
             self._watch_path(folder.path)
@@ -278,25 +279,16 @@ class WatchFacade(QObject):
         folder = watch_store.find(self.store, path)
         if folder is None:
             self.session.facades.folder.open_path(Path(path))
-        else:
-            self.session.facades.folder.open_path(
-                folder.path, recursive=folder.recursive,
-                skip=[item.export_directory for item in self.store.folders])
+            return
+        entries = watch_store.scan(self.store, folder)
+        if entries is None:
+            self.alerts.error('Cannot open folder', 'The folder could not be read.')
+            return
+        self.session.facades.folder.open_paths(folder.path,
+                                                [entry.path for entry in entries])
 
     def watch_for(self, path):
-        path = Path(path)
-        best = None
-        for folder in self.store.folders:
-            if watch_store.key(folder.path) == watch_store.key(path):
-                return folder
-            if folder.recursive and watch_store._within(folder.path, path):
-                if best is None or len(str(folder.path)) > len(str(best.path)):
-                    best = folder
-            elif (not folder.recursive
-                  and watch_store.key(path.parent) == watch_store.key(folder.path)):
-                if best is None or len(str(folder.path)) > len(str(best.path)):
-                    best = folder
-        return best
+        return watch_store.folder_for(self.store, path)
 
     def output_for(self, path):
         folder = watch_store.find(self.store, path)
@@ -304,18 +296,10 @@ class WatchFacade(QObject):
 
     def output_for_source(self, path):
         """The export folder for one source, mirroring its subfolder when needed."""
-        folder = self.watch_for(path)
+        folder = watch_store.folder_for(self.store, path)
         if folder is None:
             return None
-        if not folder.recursive:
-            return folder.export_directory
-        try:
-            relative = Path(os.path.relpath(str(Path(path).parent), str(folder.path)))
-        except ValueError:
-            return folder.export_directory
-        if '..' in relative.parts:
-            return folder.export_directory
-        return folder.export_directory / relative
+        return watch_store.destination(folder, path)
 
     def note_export(self, path, target):
         folder = self.watch_for(path)

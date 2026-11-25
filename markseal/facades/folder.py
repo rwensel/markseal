@@ -96,22 +96,25 @@ class FolderFacade(QObject):
         self.folderChanged.emit()
 
     def _label(self, path):
-        if self.session.folder is not None:
-            try:
-                return Path(path).relative_to(self.session.folder).as_posix()
-            except ValueError:
-                pass
-        return Path(path).name
+        return self._folder_model.label(path)
 
-    def open_path(self, chosen, recursive=False, skip=()):
+    def open_path(self, chosen):
         if self.session.jobs.busy or not self.can_leave():
             return
         chosen = Path(chosen)
-        found = images.scan_images(chosen, recursive=recursive, skip=skip)
+        found = images.scan_images(chosen)
         if found is None:
             self.alerts.error('Cannot open folder', 'The folder could not be read.')
             return
-        paths = [path for _relative, path, _stamp in found]
+        self._open_paths(chosen, [path for _relative, path, _stamp in found])
+
+    def open_paths(self, chosen, paths):
+        if self.session.jobs.busy or not self.can_leave():
+            return
+        self._open_paths(Path(chosen), paths)
+
+    def _open_paths(self, chosen, paths):
+        paths = list(paths)
         if not paths:
             self.alerts.info('No images',
                              'Choose a folder containing PNG, JPEG, BMP or TIFF images. '

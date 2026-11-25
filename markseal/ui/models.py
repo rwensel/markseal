@@ -1,6 +1,8 @@
 """Qt item and image models used by the QML shell."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Property, QAbstractListModel, QModelIndex, Qt
 from PySide6.QtQuick import QQuickImageProvider
 
@@ -39,6 +41,14 @@ class FolderModel(QAbstractListModel):
 
     def set_base(self, base):
         self.base = base
+
+    def label(self, path):
+        if self.base is not None:
+            try:
+                return Path(path).relative_to(self.base).as_posix()
+            except ValueError:
+                pass
+        return Path(path).name
 
     def set_entries(self, entries):
         self.beginResetModel()
@@ -97,12 +107,7 @@ class FolderModel(QAbstractListModel):
             return None
         row = index.row()
         entry = self.entries[row]
-        name = entry.path.name
-        if self.base is not None:
-            try:
-                name = entry.path.relative_to(self.base).as_posix()
-            except ValueError:
-                pass
+        name = self.label(entry.path)
         values = {
             self.NameRole: name,
             self.StatusRole: entry.status,

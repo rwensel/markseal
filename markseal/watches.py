@@ -146,27 +146,26 @@ def _settled(stamp, moment):
     return not 0 <= age < STABLE_SECONDS
 
 
-def _images(folder, store=None, issues=None):
-    """``(relative key, path, stat)`` for the images a watch covers.
+def exclusions(store):
+    return tuple(folder.export_directory for folder in store.folders)
 
-    Returns ``None`` when the folder cannot be listed, which callers treat as
-    unavailable rather than empty. Export directories are never intake
-    candidates, so a recursive watch cannot ingest its own output. Unreadable
-    subfolders are added to ``issues`` when a list is supplied.
-    """
-    skip = [folder.export_directory]
-    if store is not None:
-        skip.extend(item.export_directory for item in store.folders)
+
+@dataclass(frozen=True)
+class ScanFile:
+    key: str
+    path: Path
+    stamp: os.stat_result
+
+
+def scan(store, folder, issues=None):
+    skip = list(exclusions(store))
+    skip.append(folder.export_directory)
     found = images.scan_images(folder.path, recursive=folder.recursive, skip=skip,
                                problems=issues)
     if found is None:
         return None
-    return [(os.path.normcase(relative), path, stamp)
-            for relative, path, stamp in found]
-
-
-def _sorted(paths):
-    return sorted(paths, key=lambda path: (path.name.casefold(), path.name))
+    return [ScanFile(file_key(folder.path, path), path, stamp)
+            for _relative, path, stamp in found]
 
 
 def _within(parent, child):
@@ -179,23 +178,56 @@ def _within(parent, child):
         return False
 
 
+def contains(folder, path):
+    target = Path(path)
+    if key(folder.path) == key(target):
+        return True
+    if folder.recursive:
+        return _within(folder.path, target)
+    return key(target.parent) == key(folder.path)
+
+
+def folder_for(store, path):
+    target = Path(path)
+    best = None
+    for folder in store.folders:
+        if key(folder.path) == key(target):
+            return folder
+        if not contains(folder, target):
+            continue
+        if best is None or len(str(folder.path)) > len(str(best.path)):
+            best = folder
+    return best
+
+
+def destination(folder, source):
+    try:
+        relative = Path(os.path.relpath(str(Path(source).parent), str(folder.path)))
+    except ValueError:
+        return folder.export_directory
+    if '..' in relative.parts:
+        return folder.export_directory
+    return folder.export_directory / relative
+
+
 def baseline(store, folder, *, nested_only=False):
     """Record current images as presented without scanning or exporting them.
 
     ``nested_only`` leaves top-level records alone, so turning recursion on
     cannot hide a root-level arrival that has not been swept yet.
     """
-    found = _images(folder, store)
+    found = scan(store, folder)
     if found is None:
         return False
     records = store.seen.setdefault(key(folder.path), {})
     changed = False
-    for name, _path, stamp in found:
-        if nested_only and Path(name).parent == Path('.'):
+    for entry in found:
+        if nested_only and Path(entry.key).parent == Path('.'):
             continue
-        if name in records:
+        if entry.key in records:
             continue
-        records[name] = SeenFile(stamp.st_size, stamp.st_mtime_ns, PRESENTED)
+        records[entry.key] = SeenFile(entry.stamp.st_size, entry.stamp.st_mtime_ns,
+                                       PRESENTED)
         changed = True
     return changed
 
@@ -237,12 +269,13 @@ def add(store, folder):
     problem = validate(store, folder)
     if problem is not None:
         raise WatchError(problem)
-    images = _images(folder, store)
+    images = scan(store, folder)
     if images is None:
         raise WatchError('The folder could not be read.')
     baseline = {}
-    for name, _path, stamp in images:
-        baseline[name] = SeenFile(stamp.st_size, stamp.st_mtime_ns, PRESENTED)
+    for entry in images:
+        baseline[entry.key] = SeenFile(entry.stamp.st_size, entry.stamp.st_mtime_ns,
+                                       PRESENTED)
     store.seen[key(folder.path)] = baseline
     store.folders.append(folder)
     return folder
@@ -273,44 +306,44 @@ def mark(store, folder, path, *, state, export=None, detail='', stamp=None):
 
 def unseen(store, folder, *, now=None):
     """Stable images that are new or changed and were not written by the app."""
-    images = _images(folder, store)
+    images = scan(store, folder)
     if images is None:
         return []
     moment = time.time() if now is None else now
     records = store.seen.get(key(folder.path), {})
     targets = export_targets(store)
     found = []
-    for name, path, stamp in images:
-        if key(path) in targets or not _settled(stamp, moment):
+    for entry in images:
+        if key(entry.path) in targets or not _settled(entry.stamp, moment):
             continue
-        previous = records.get(name)
+        previous = records.get(entry.key)
         if (previous is not None
-                and previous.stamp() == (stamp.st_size, stamp.st_mtime_ns)):
+                and previous.stamp() == (entry.stamp.st_size, entry.stamp.st_mtime_ns)):
             continue
-        found.append(path)
-    return _sorted(found)
+        found.append(entry.path)
+    return found
 
 
 def pending_queued(store, folder):
     """Files whose ``queued`` record still matches, so a crash resumes them."""
-    images = _images(folder, store)
+    images = scan(store, folder)
     if images is None:
         return []
     records = store.seen.get(key(folder.path), {})
     found = []
-    for name, path, stamp in images:
-        previous = records.get(name)
+    for entry in images:
+        previous = records.get(entry.key)
         if previous is None or previous.state != QUEUED:
             continue
-        if previous.stamp() == (stamp.st_size, stamp.st_mtime_ns):
-            found.append(path)
-    return _sorted(found)
+        if previous.stamp() == (entry.stamp.st_size, entry.stamp.st_mtime_ns):
+            found.append(entry.path)
+    return found
 
 
 def counts(store, folder, *, now=None):
     """Per-watch counts, all requiring a matching stamp; never mutates the store."""
     scan_issues = []
-    images = _images(folder, store, scan_issues)
+    images = scan(store, folder, scan_issues)
     if images is None:
         return WatchCounts(available=False)
     moment = time.time() if now is None else now
@@ -318,14 +351,14 @@ def counts(store, folder, *, now=None):
     targets = export_targets(store)
     fresh = queued = existing = review = exported = 0
     issues = []
-    for name, path, stamp in images:
-        if key(path) in targets:
+    for entry in images:
+        if key(entry.path) in targets:
             continue
-        previous = records.get(name)
+        previous = records.get(entry.key)
         matched = (previous is not None
-                   and previous.stamp() == (stamp.st_size, stamp.st_mtime_ns))
+                   and previous.stamp() == (entry.stamp.st_size, entry.stamp.st_mtime_ns))
         if not matched:
-            if _settled(stamp, moment):
+            if _settled(entry.stamp, moment):
                 fresh += 1
             continue
         if previous.state == PRESENTED:
@@ -335,7 +368,7 @@ def counts(store, folder, *, now=None):
         elif previous.state == NEEDS_REVIEW:
             review += 1
             if len(issues) < 5:
-                issues.append((Path(name).as_posix(), previous.detail))
+                issues.append((Path(entry.key).as_posix(), previous.detail))
         elif previous.state == EXPORTED and previous.export:
             if Path(previous.export).is_file():
                 exported += 1

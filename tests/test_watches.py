@@ -54,7 +54,7 @@ class WatchTests(unittest.TestCase):
 
     def test_add_refuses_an_unlistable_folder(self):
         self.write('a.png')
-        with mock.patch('markseal.watches._images', return_value=None):
+        with mock.patch('markseal.watches.scan', return_value=None):
             with self.assertRaises(watches.WatchError):
                 self.add()
         self.assertEqual(self.store.folders, [])
@@ -307,3 +307,37 @@ class WatchTests(unittest.TestCase):
         records = self.store.seen[watches.key(self.folder)]
         self.assertIn(os.path.normcase('sub/a.png'), records)
         self.assertEqual(records[os.path.normcase('sub/a.png')].state, watches.QUEUED)
+
+    def test_scan_exposes_relative_entries_and_skips_exports(self):
+        folder = self.add(recursive=True)
+        nested = self.write_in('sub/a.png')
+        self.write_in('redacted/out.png')
+        entries = watches.scan(self.store, folder)
+        self.assertEqual([entry.key for entry in entries],
+                         [os.path.normcase('sub/a.png')])
+        self.assertEqual(entries[0].path, nested)
+
+    def test_folder_for_and_contains_respect_recursion(self):
+        folder = self.add(recursive=True)
+        root = self.write('root.png')
+        nested = self.write_in('sub/a.png')
+        self.assertIs(watches.folder_for(self.store, root), folder)
+        self.assertIs(watches.folder_for(self.store, nested), folder)
+        self.assertTrue(watches.contains(folder, root))
+        self.assertTrue(watches.contains(folder, nested))
+        folder.recursive = False
+        self.assertIs(watches.folder_for(self.store, root), folder)
+        self.assertIsNone(watches.folder_for(self.store, nested))
+        self.assertFalse(watches.contains(folder, nested))
+
+    def test_destination_mirrors_a_nested_source(self):
+        folder = self.add(recursive=True)
+        root = self.folder / 'root.png'
+        nested = self.folder / 'sub' / 'a.png'
+        self.assertEqual(watches.destination(folder, root), folder.export_directory)
+        self.assertEqual(watches.destination(folder, nested),
+                         folder.export_directory / 'sub')
+
+    def test_exclusions_lists_each_watch_export_directory(self):
+        folder = self.add()
+        self.assertEqual(watches.exclusions(self.store), (folder.export_directory,))
