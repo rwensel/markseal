@@ -254,6 +254,36 @@ def phone_ok(text):
 VALIDATORS = {'Card numbers': luhn_ok, 'IBANs': iban_ok, 'Phone numbers': phone_ok}
 
 
+def wrapped_boxes(lines, size, min_confidence, expressions):
+    ordered = [words for words in lines if words]
+    ordered.sort(key=lambda words: min(word[2] for word in words))
+    result = []
+    for words_a, words_b in zip(ordered, ordered[1:]):
+        last = words_a[-1]
+        first = words_b[0]
+        height = max(1, min(last[4] - last[2], first[4] - first[2]))
+        if first[2] - last[4] > 1.5 * height or first[1] >= last[3]:
+            continue
+        if last[5] < min_confidence or first[5] < min_confidence:
+            continue
+        joined = last[0] + first[0]
+        if len(joined) > 80:
+            continue
+        for label, expression in expressions:
+            validate = VALIDATORS.get(label)
+            for match in expression.finditer(joined):
+                if not (match.start() < len(last[0]) < match.end()):
+                    continue
+                if validate is not None and not validate(match.group(0)):
+                    continue
+                box = (max(0, min(last[1], first[1]) - 4),
+                       max(0, min(last[2], first[2]) - 4),
+                       min(size[0], max(last[3], first[3]) + 4),
+                       min(size[1], max(last[4], first[4]) + 4))
+                result.append((box, label))
+    return result
+
+
 @timed('match_patterns')
 def _contains(outer, inner):
     return (outer[0] <= inner[0] and outer[1] <= inner[1]
@@ -327,6 +357,14 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
                 x1, y1, x2, y2 = zip(*(word[:4] for word in field_words))
                 assignments.append((max(0, min(x1)-4), max(0, min(y1)-4),
                                     min(size[0], max(x2)+4), min(size[1], max(y2)+4)))
+    if not all_text:
+        for box, label in wrapped_boxes(list(lines.values()), size, min_confidence, expressions):
+            match = next((existing for existing in boxes if same_region(existing, box)), None)
+            if match is None:
+                boxes.append(box)
+                box_rules[box] = [label]
+            elif label not in box_rules.get(match, ()):
+                box_rules.setdefault(match, []).append(label)
     if not all_text and 'Secrets' in categories:
         credentials = credential_boxes(lines.values(), size, min_confidence)
         for source in (assignments, credentials):

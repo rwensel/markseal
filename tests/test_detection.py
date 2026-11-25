@@ -306,6 +306,22 @@ class DetectionTests(unittest.TestCase):
         self.assertTrue(found('Address: 123 Main St'))
         self.assertTrue(found('123 Main Street, Springfield, IL 62704'))
 
+    def test_identifier_wrapped_across_lines_is_matched(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+
+        def wrapped(first, second, categories):
+            tsv = (header
+                   + f'1\t1\t1\t1\t10\t20\t60\t20\t95\t{first}\n'
+                   + f'1\t1\t1\t2\t10\t42\t40\t20\t95\t{second}\n')
+            return detect_regions(tsv, (300, 120), categories=categories)
+
+        ssn = wrapped('001-01-', '0001', {'SSNs'})
+        self.assertEqual(len(ssn), 1)
+        self.assertLessEqual(ssn[0][1], 20)
+        self.assertGreaterEqual(ssn[0][3], 62)
+        self.assertFalse(wrapped('Total', '1234', {'SSNs'}))
+        self.assertTrue(wrapped('/etc/', 'passwd', {'Paths'}))
+
     def test_model_word_boxes_keep_regex_matches_tight(self):
         def polygon(left, right):
             return [(left, 12), (right, 12), (right, 27), (left, 27)]
