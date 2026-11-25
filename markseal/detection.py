@@ -61,6 +61,11 @@ PATTERNS = {
         r"\d{2,4}[\s.-]\d{2,4}(?:[\s.-]\d{2,4})?(?!\d)"
     ),
 }
+STREET_ADDRESS = re.compile(
+    r"\b\d{1,6}\s+(?:[A-Z][\w.'-]*\s+){0,4}"
+    r"(?i:Street|St|Avenue|Ave|Road|Rd|Lane|Ln|Boulevard|Blvd|Drive|Dr|"
+    r"Court|Ct|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy|Highway|Hwy|Circle|Cir|Square|Sq)\b"
+)
 PERSONAL_CATEGORY_NAMES = (
     'Personal names', 'Postal addresses', 'Dates of birth', 'License & ID numbers',
 )
@@ -260,6 +265,8 @@ def detect_regions(tsv, size, all_text=False, categories=None, min_confidence=0,
     categories = set(PATTERNS) if categories is None else categories
     expressions = [(name, re.compile(PATTERNS[name], re.IGNORECASE))
                    for name in PATTERNS if name in categories]
+    if 'Postal addresses' in categories:
+        expressions.append(('Postal addresses', STREET_ADDRESS))
     if custom_pattern:
         expressions.append(('Custom pattern', re.compile(custom_pattern, re.IGNORECASE)))
     expressions.extend((label, re.compile(pattern, re.IGNORECASE))

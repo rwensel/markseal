@@ -291,6 +291,21 @@ class DetectionTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(found(text), expected)
 
+    def test_unlabeled_street_address_is_matched(self):
+        header = 'page_num\tblock_num\tpar_num\tline_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+
+        def found(text):
+            tsv = header + f'1\t1\t1\t1\t10\t20\t500\t20\t95\t{text}\n'
+            return detect_regions(tsv, (600, 100), categories={'Postal addresses'})
+
+        address = found('30 Commercial Road')
+        self.assertEqual(len(address), 1)
+        self.assertEqual(address[0][0], 6)
+        self.assertFalse(found('the 1920 novel Main Street'))
+        self.assertFalse(found('2024 was a good year'))
+        self.assertTrue(found('Address: 123 Main St'))
+        self.assertTrue(found('123 Main Street, Springfield, IL 62704'))
+
     def test_model_word_boxes_keep_regex_matches_tight(self):
         def polygon(left, right):
             return [(left, 12), (right, 12), (right, 27), (left, 27)]
