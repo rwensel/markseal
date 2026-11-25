@@ -110,6 +110,24 @@ class ReviewFacadeTests(unittest.TestCase):
         self.assertEqual(self.review.excludedCount, 1)
         self.assertFalse(self.review.confirmed)
 
+    def test_box_edits_do_not_reload_the_unconfirmed_display(self):
+        self.open_image()
+        self.controller.session.review.boxes = [(0, 0, 10, 10)]
+        self.controller.session.review.selected = {0}
+        revision = self.review.imageRevision
+        self.review.toggleBox(0)
+        self.review.removeBox(0)
+        self.assertEqual(self.review.imageRevision, revision)
+
+    def test_undo_after_confirmation_reloads_the_display(self):
+        self.open_image()
+        self.controller.session.review.boxset.add((0, 0, 10, 10))
+        self.controller.session.review.confirmed = True
+        revision = self.review.imageRevision
+        self.review.undo()
+        self.assertFalse(self.review.confirmed)
+        self.assertEqual(self.review.imageRevision, revision + 1)
+
     def test_adopt_entry_borrows_the_folder_box_set(self):
         entry = FolderImage(Path('shared.png'))
         self.review.adopt_entry(entry)

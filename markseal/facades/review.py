@@ -477,7 +477,6 @@ class ReviewFacade(QObject):
         if self.session.review.confirmed:
             return
         if self.session.review.toggle_box(index):
-            self.refresh_display()
             self.session.store_active()
             self.emit_review()
             self.alerts.set_status(self.review_status())
@@ -487,7 +486,6 @@ class ReviewFacade(QObject):
         if self.session.review.confirmed:
             return
         if self.session.review.remove_box(index):
-            self.refresh_display()
             self.session.store_active()
             self.emit_review()
             self.emit_view()
@@ -499,8 +497,10 @@ class ReviewFacade(QObject):
 
     @Slot()
     def undo(self):
+        was_confirmed = self.session.review.confirmed
         if self.session.review.undo():
-            self.refresh_display()
+            if was_confirmed:
+                self.refresh_display()
             self.session.store_active()
             self.emit_review()
             self.emit_view()
@@ -513,8 +513,10 @@ class ReviewFacade(QObject):
 
     @Slot()
     def redo(self):
+        was_confirmed = self.session.review.confirmed
         if self.session.review.redo():
-            self.refresh_display()
+            if was_confirmed:
+                self.refresh_display()
             self.session.store_active()
             self.emit_review()
             self.emit_view()
@@ -539,8 +541,10 @@ class ReviewFacade(QObject):
             return
         if not self.alerts.ask('Clear boxes', 'Remove all suggested and manually drawn boxes?'):
             return
+        was_confirmed = self.session.review.confirmed
         self.session.review.clear()
-        self.refresh_display()
+        if was_confirmed:
+            self.refresh_display()
         self.session.store_active()
         self.emit_review()
         self.emit_view()
