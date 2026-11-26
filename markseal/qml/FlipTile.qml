@@ -6,6 +6,7 @@ Item {
     property string value: ""
     property string label: ""
     property color accent: Theme.steelLight
+    property color faceColor: Theme.tile
     property string displayValue: value
     property string pendingValue: value
 
@@ -33,7 +34,7 @@ Item {
         id: face
         anchors.fill: parent
         radius: 6
-        color: Theme.tile
+        color: tile.faceColor
         border.width: 1
         border.color: Theme.hairline
         transform: Rotation {

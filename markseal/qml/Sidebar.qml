@@ -407,7 +407,7 @@ Item {
                               : model.jobState === "queued" ? "QUEUED" : model.status
                         elide: Text.ElideRight
                         color: model.jobState !== "" ? Theme.amber
-                               : model.hasError || model.partial ? Theme.red
+                               : model.hasError || model.partial ? Theme.dangerText
                                : model.saved ? Theme.steelLight
                                : model.reviewed ? Theme.amber
                                : model.scanned ? Theme.white

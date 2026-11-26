@@ -69,7 +69,8 @@ Item {
         FlipTile {
             value: String(Backend.review.excludedCount)
             label: "EXCLUDED"
-            accent: Theme.red
+            accent: Backend.review.excludedCount > 0 ? Theme.dangerText : Theme.mutedText
+            faceColor: Backend.review.excludedCount > 0 ? Theme.dangerFace : Theme.tile
         }
 
         FlipTile {
@@ -83,7 +84,7 @@ Item {
             value: board.stateValue
             label: "STATE"
             accent: !board.hasImage || (board.hasBoxes && !Backend.review.confirmed)
-                    ? Theme.steelMid
+                    ? Theme.mutedText
                     : Backend.review.confirmed ? Theme.amber : Theme.steelLight
             Accessible.description: board.stateDescription
 
