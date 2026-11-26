@@ -10,8 +10,8 @@ from PIL import Image
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
 
-from .. import export, images, ocr, workflows
-from ..audit_exports import verify_export
+from .. import images, ocr, workflows
+from ..export_copy import CopyRequest, ExportCopies, export_succeeded
 from ..preferences import PreferencesError, enabled_blocked_patterns, preferences_path
 
 
@@ -207,9 +207,10 @@ class BatchFacade(QObject):
         self.auditChanged.emit()
         run_ocr = self._audit_run_ocr
         cancel = Event()
+        copies = ExportCopies(self.session.preferences)
 
         def operation(path):
-            return verify_export(path, originals, patterns=patterns, run_ocr=run_ocr)
+            return copies.verify(path, originals, patterns=patterns, run_ocr=run_ocr)
 
         def accept(index, result, error):
             if error:
@@ -580,12 +581,11 @@ class BatchFacade(QObject):
                         return directory
             return self.session.output_directory
 
+        copies = ExportCopies(self.session.preferences)
         try:
-            plan = workflows.plan_exports(
-                pending,
+            plan = copies.plan(
+                [CopyRequest.from_entry(entry) for _index, entry in pending],
                 output_directory=output_for,
-                template=self.session.preferences.filename_template,
-                include_log=self.session.preferences.include_log,
                 choose=choose if individual else None,
             )
         except (ValueError, KeyError, IndexError, AttributeError, OSError) as error:
@@ -595,7 +595,6 @@ class BatchFacade(QObject):
             return
         if plan is None:
             return
-        jobs = list(plan.jobs)
         unredacted = plan.unredacted
         if unredacted and not self.alerts.ask(
                 'Save unredacted copies?',
@@ -604,24 +603,24 @@ class BatchFacade(QObject):
                 'Save them as unredacted PNG copies?'):
             return
 
-        include_log = self.session.preferences.include_log
         snapshots = [
-            (entry, export.snapshot(entry.path, target, entry.boxes, entry.selected,
-                                    entry.method, stamp=entry.stamp))
-            for entry, target in jobs
+            (planned.request.entry, copies.snapshot(planned))
+            for planned in plan.jobs
         ]
 
         def operation(job):
-            entry, snapshot = job
+            _entry, snapshot = job
             snapshot.target.parent.mkdir(parents=True, exist_ok=True)
-            export.write_copy(snapshot, include_log=include_log)
+            copies.write(snapshot, include_log=plan.include_log)
 
         def accept(index, result, error):
-            entry, target = jobs[index]
+            planned = plan.jobs[index]
+            entry = planned.request.entry
+            target = planned.target
             snapshot = snapshots[index][1]
             if error:
                 self.alerts.set_status(f'{entry.path.name} · {error}')
-            elif workflows.export_succeeded(entry, snapshot):
+            elif export_succeeded(entry, snapshot):
                 entry.mark_saved(target)
                 entry.error = ''
                 self.session.facades.review.last_export = target
@@ -633,7 +632,7 @@ class BatchFacade(QObject):
         self.session.jobs.run(
             'Saving', snapshots, operation, accept,
             metrics_settings={'method': self.session.preferences.method,
-                              'coordinate_logs': include_log},
+                              'coordinate_logs': plan.include_log},
             rows=self.session.facades.folder.rows(),
         )
 
@@ -644,11 +643,12 @@ class BatchFacade(QObject):
         self.session.store_active()
         saved = [entry for entry in self.session.entries
                  if entry.saved and entry.export_path is not None]
+        copies = ExportCopies(self.session.preferences)
         files = []
         for entry in saved:
             target = entry.export_path
             if target.is_file():
-                files.append(verify_export(target, entry.path.parent))
+                files.append(copies.verify(target, entry.path.parent))
         result = {
             'files': files,
             'all_ok': bool(files) and all(

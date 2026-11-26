@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
-from . import export
 from .boxset import new_ocr_boxes
 
 
@@ -64,60 +62,6 @@ def scan_summary(processed, *, area=None, area_completed=False):
     return f'{complete} succeeded' + (f' · {partial} partial' if partial else '')
 
 
-@dataclass(frozen=True)
-class ExportPlan:
-    jobs: tuple
-    unredacted: int
-
-
-def plan_exports(pending, *, output_directory, template, include_log, choose=None):
-    jobs = []
-    targets = set()
-    for index, entry in pending:
-        directory = (output_directory(entry) if callable(output_directory)
-                     else output_directory)
-        target = export.output_path(directory, template, entry.path, index + 1)
-        if choose is not None:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            chosen = choose(target)
-            if chosen is None:
-                return None
-            target = Path(chosen)
-            if target.suffix.lower() != '.png':
-                raise ValueError('Choose a filename ending in .png.')
-        outputs = [target]
-        if include_log:
-            outputs.append(target.with_suffix('.redactions.json'))
-        for path in outputs:
-            key = str(path.resolve()).casefold()
-            if key in targets or path.exists():
-                raise ValueError(
-                    f'{path.name} already exists or would be written twice. '
-                    'Choose another name or folder.'
-                )
-            targets.add(key)
-        jobs.append((entry, target))
-    return ExportPlan(tuple(jobs), sum(not entry.selected for _, entry in pending))
-
-
-def export_succeeded(entry, snapshot):
-    return (
-        entry.reviewed
-        and (tuple(entry.boxes), set(entry.selected), entry.method)
-        == (tuple(snapshot.boxes), set(snapshot.selected), snapshot.method)
-    )
-
-
-def auto_export_snapshot(entry, output_directory, template, include_log):
-    """Confirm one image and plan its own export, refusing an existing target."""
-    entry.confirm(True)
-    plan = plan_exports(
-        [(0, entry)], output_directory=output_directory,
-        template=template, include_log=include_log,
-    )
-    _entry, target = plan.jobs[0]
-    return export.snapshot(entry.path, target, entry.boxes, entry.selected,
-                           entry.method, stamp=entry.stamp), include_log
 
 
 def copy_boxes_to_entry(entry, boxes, stamp, matches):

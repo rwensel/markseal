@@ -5,8 +5,9 @@ from threading import Event
 
 from PySide6.QtCore import QObject, Signal
 
-from .. import boxset, export, ocr, workflows
+from .. import boxset, ocr, workflows
 from .. import watches as watch_store
+from ..export_copy import ExportCopies
 from ..jobs import ScanCancelled
 from .activity import JobCenter
 
@@ -120,8 +121,7 @@ class AutomaticLane(QObject):
         enhanced = preferences.enhanced_ocr
         color_assisted = preferences.color_ocr
         method = preferences.method
-        template = preferences.filename_template
-        include_log = preferences.include_log
+        copies = ExportCopies(preferences)
         cancel = Event()
         self._status = ''
         stats = {'exported': 0, 'needs_review': 0}
@@ -152,11 +152,10 @@ class AutomaticLane(QObject):
                     cancel.set()
                     return (path, stamp, PAUSED, None, '')
                 try:
-                    snapshot, with_log = workflows.auto_export_snapshot(
-                        entry, watch_store.destination(watch, path),
-                        template, include_log)
+                    snapshot, with_log = copies.auto_snapshot(
+                        entry, watch_store.destination(watch, path))
                     snapshot.target.parent.mkdir(parents=True, exist_ok=True)
-                    export.write_copy(snapshot, include_log=with_log)
+                    copies.write(snapshot, include_log=with_log)
                 except Exception as error:
                     return (path, stamp, watch_store.NEEDS_REVIEW, None, str(error))
                 target = str(snapshot.target)

@@ -10,8 +10,8 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtGui import QGuiApplication, QImage
 from PySide6.QtWidgets import QFileDialog
 
-from .. import documents, export, images, ocr, redaction
-from ..audit_exports import verify_export
+from .. import documents, images, ocr, redaction
+from ..export_copy import CopyRequest, ExportCopies
 from ..boxset import BoxSet
 from ..performance_log import PerformanceRun
 
@@ -813,17 +813,40 @@ class ReviewFacade(QObject):
         page = self.pdfPage if self._pdf is not None else None
         if page is not None:
             initial = f'{self.session.review.path.stem}_page-{page:03d}_redacted.png'
-        chosen, _ = QFileDialog.getSaveFileName(
-            None, 'Save redacted copy', initial, 'PNG image (*.png)'
+        copies = ExportCopies(self.session.preferences)
+
+        def choose(target):
+            chosen, _ = QFileDialog.getSaveFileName(
+                None, 'Save redacted copy', str(target), 'PNG image (*.png)'
+            )
+            return chosen or None
+
+        request = CopyRequest(
+            source=self.session.review.path,
+            method=self.session.preferences.method,
+            boxes=tuple(self.session.review.boxes),
+            selected=frozenset(self.session.review.selected),
+            image=self.session.review.image,
+            pasted=self.session.pasted_image,
+            page=page,
+            target=Path(initial),
         )
-        if not chosen:
+        try:
+            plan = copies.plan(
+                [request], output_directory=Path('.'), choose=choose,
+                allow_overwrite=True,
+            )
+        except (ValueError, KeyError, IndexError, AttributeError, OSError) as error:
+            self.alerts.error('Cannot save image', str(error), 'RETRY', self.save)
             return
-        target = Path(chosen)
+        if plan is None:
+            return
+        target = plan.jobs[0].target
         if target.resolve() == self.session.review.path.resolve():
             self.alerts.error('Choose a different file',
                               'The original image cannot be overwritten.')
             return
-        include_log = self.session.preferences.include_log
+        include_log = plan.include_log
         trace = PerformanceRun('Saving image', 1, {
             'method': self.session.preferences.method, 'coordinate_logs': include_log,
         })
@@ -833,13 +856,8 @@ class ReviewFacade(QObject):
         error = None
         try:
             with trace.image(0):
-                job = export.snapshot(
-                    self.session.review.path, target, self.session.review.boxes,
-                    self.session.review.selected, self.session.preferences.method,
-                    image=self.session.review.image, pasted=self.session.pasted_image,
-                    page=page,
-                )
-                export.write_copy(job, include_log=include_log, overwrite=True)
+                job = copies.snapshot(plan.jobs[0])
+                copies.write(job, include_log=include_log, overwrite=True)
         except Exception as exc:
             error = exc
         finally:
@@ -887,7 +905,8 @@ class ReviewFacade(QObject):
                 'then verify.',
             )
             return
-        result = verify_export(Path(path), Path(source).parent)
+        result = ExportCopies(self.session.preferences).verify(
+            Path(path), Path(source).parent)
         self.last_verify = result
         self.verifyResult.emit(result)
         name = Path(path).name

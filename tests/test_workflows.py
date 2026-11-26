@@ -3,7 +3,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from markseal import workflows
+from markseal import preferences, workflows
+from markseal.export_copy import CopyRequest, ExportCopies, export_succeeded
 from tests.support import BoxList, FolderImage
 
 
@@ -69,16 +70,18 @@ class ScanPlanningTests(unittest.TestCase):
 
 
 class ExportPlanningTests(unittest.TestCase):
+    def setUp(self):
+        self.copies = ExportCopies(preferences.defaults())
+
     def test_export_plan_builds_targets_and_counts_unredacted(self):
         with TemporaryDirectory() as folder:
             redacted = entry('a.png', boxes=[(0, 0, 5, 5)], selected={0})
             unredacted = entry('b.png')
-            plan = workflows.plan_exports(
-                [(0, redacted), (1, unredacted)],
-                output_directory=Path(folder), template='{stem}_redacted',
-                include_log=True,
+            plan = self.copies.plan(
+                [CopyRequest.from_entry(redacted), CopyRequest.from_entry(unredacted)],
+                output_directory=Path(folder),
             )
-            self.assertEqual([target.name for _, target in plan.jobs],
+            self.assertEqual([job.target.name for job in plan.jobs],
                              ['a_redacted.png', 'b_redacted.png'])
             self.assertEqual(plan.unredacted, 1)
 
@@ -86,27 +89,25 @@ class ExportPlanningTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             (Path(folder) / 'a_redacted.redactions.json').write_text('{}')
             with self.assertRaises(ValueError):
-                workflows.plan_exports(
-                    [(0, entry('a.png'))],
-                    output_directory=Path(folder), template='{stem}_redacted',
-                    include_log=True,
+                self.copies.plan(
+                    [CopyRequest.from_entry(entry('a.png'))],
+                    output_directory=Path(folder),
                 )
 
     def test_export_plan_returns_none_when_the_chooser_cancels(self):
         with TemporaryDirectory() as folder:
-            plan = workflows.plan_exports(
-                [(0, entry('a.png'))], output_directory=Path(folder),
-                template='{stem}_redacted', include_log=False,
-                choose=lambda target: None,
+            plan = self.copies.plan(
+                [CopyRequest.from_entry(entry('a.png'))],
+                output_directory=Path(folder), choose=lambda target: None,
             )
         self.assertIsNone(plan)
 
     def test_export_success_requires_the_snapshot_to_match(self):
         image = entry('a.png', boxes=[(0, 0, 5, 5)], selected={0}, reviewed=True)
         snapshot = SimpleNamespace(boxes=[(0, 0, 5, 5)], selected={0}, method='Pixelate')
-        self.assertTrue(workflows.export_succeeded(image, snapshot))
+        self.assertTrue(export_succeeded(image, snapshot))
         image.selected = set()
-        self.assertFalse(workflows.export_succeeded(image, snapshot))
+        self.assertFalse(export_succeeded(image, snapshot))
 
 
 class AutoExportTests(unittest.TestCase):
@@ -116,8 +117,8 @@ class AutoExportTests(unittest.TestCase):
         entry = FolderImage(Path('shots/a.png'))
         entry.boxes = [(1, 2, 3, 4)]
         entry.selected = {0}
-        snapshot, include_log = workflows.auto_export_snapshot(
-            entry, Path('shots/redacted'), '{stem}_redacted', True)
+        copies = ExportCopies(preferences.defaults())
+        snapshot, include_log = copies.auto_snapshot(entry, Path('shots/redacted'))
         self.assertEqual(snapshot.target, Path('shots/redacted/a_redacted.png'))
         self.assertTrue(include_log)
         self.assertEqual(list(snapshot.boxes), [(1, 2, 3, 4)])
@@ -130,9 +131,9 @@ class AutoExportTests(unittest.TestCase):
             entry = FolderImage(Path(directory) / 'a.png')
             entry.boxes = [(1, 2, 3, 4)]
             entry.selected = {0}
+            copies = ExportCopies(preferences.defaults())
             with self.assertRaises(ValueError):
-                workflows.auto_export_snapshot(
-                    entry, Path(directory), '{stem}_redacted', True)
+                copies.auto_snapshot(entry, Path(directory))
 
 
 class BatchToolTests(unittest.TestCase):
