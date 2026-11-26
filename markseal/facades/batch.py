@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from threading import Event
 
@@ -10,8 +9,9 @@ from PIL import Image
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
 
-from .. import images, ocr, workflows
+from .. import images, workflows
 from ..export_copy import CopyRequest, ExportCopies, export_succeeded
+from ..scan import Scan, ScanError
 from ..preferences import PreferencesError, enabled_blocked_patterns, preferences_path
 
 
@@ -311,21 +311,23 @@ class BatchFacade(QObject):
             )
             return
         try:
-            engine = self.session.scan_engine()
-            settings = self.session.scan_settings()
-        except OSError as error:
-            self.alerts.error(
-                'OCR unavailable', str(error), 'RETRY',
-                lambda: self.start_scan(entries, rescan=rescan, follow=follow, area=area),
+            scan = Scan(
+                self.session.preferences,
+                engine_factory=self.session.scan_engine,
             )
-            return
-        except (ValueError, re.error) as error:
-            self.alerts.error('Invalid detection settings', str(error), 'OPEN SETTINGS',
-                              self.session.facades.settings.requestSettings)
+        except ScanError as error:
+            if error.kind == 'unavailable':
+                self.alerts.error(
+                    'OCR unavailable', str(error), 'RETRY',
+                    lambda: self.start_scan(
+                        entries, rescan=rescan, follow=follow, area=area),
+                )
+            else:
+                self.alerts.error(
+                    'Invalid detection settings', str(error), 'OPEN SETTINGS',
+                    self.session.facades.settings.requestSettings)
             return
         cancel = Event()
-        enhanced = self.session.preferences.enhanced_ocr
-        color_assisted = self.session.preferences.color_ocr
         processed = []
         area_completed = False
         review = self.session.facades.review
@@ -336,10 +338,8 @@ class BatchFacade(QObject):
 
         def operation(job):
             path, stamp = job
-            return ocr.scan_folder_image(
-                path, stamp, engine, settings, enhanced, cancel,
-                color_assisted=color_assisted, area=area,
-            )
+            result = scan.file(path, stamp, cancel=cancel, area=area)
+            return result.stamp, result.found, result.incomplete
 
         def accept(index, result, error):
             nonlocal area_completed

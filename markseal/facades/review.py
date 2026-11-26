@@ -1,7 +1,6 @@
 """The current image's review: boxes, selection, viewport, and clipboard."""
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from queue import Queue
 
@@ -10,9 +9,10 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtGui import QGuiApplication, QImage
 from PySide6.QtWidgets import QFileDialog
 
-from .. import documents, images, ocr, redaction
+from .. import documents, images, redaction
 from ..export_copy import CopyRequest, ExportCopies
 from ..pdf_review import PdfReview
+from ..scan import Scan, ScanError
 from ..performance_log import PerformanceRun
 
 
@@ -619,29 +619,26 @@ class ReviewFacade(QObject):
             return
         self._invalidate_export()
         try:
-            engine = self.session.scan_engine()
-            settings = self.session.scan_settings()
-        except OSError as error:
-            self.alerts.error('OCR unavailable', str(error), 'RETRY',
-                              lambda: self.start_single_scan(area=area))
-            return
-        except (ValueError, re.error) as error:
-            self.alerts.error('Invalid detection settings', str(error), 'OPEN SETTINGS',
-                              self.session.facades.settings.requestSettings)
+            scan = Scan(
+                self.session.preferences,
+                engine_factory=self.session.scan_engine,
+            )
+        except ScanError as error:
+            if error.kind == 'unavailable':
+                self.alerts.error('OCR unavailable', str(error), 'RETRY',
+                                  lambda: self.start_single_scan(area=area))
+            else:
+                self.alerts.error('Invalid detection settings', str(error), 'OPEN SETTINGS',
+                                  self.session.facades.settings.requestSettings)
             return
         stages = Queue()
         info = {'added': None, 'incomplete': [], 'error': None}
         label = 'Scanning area' if area is not None else 'Scanning image'
 
         def operation(job):
-            incomplete = []
-            found = ocr.recognize_regions(
-                self.session.review.image, engine, settings,
-                self.session.preferences.enhanced_ocr,
-                color_assisted=self.session.preferences.color_ocr, incomplete=incomplete,
-                area=area, progress=stages.put,
-            )
-            return None, found, incomplete
+            result = scan.image(
+                self.session.review.image, area=area, progress=stages.put)
+            return None, result.found, list(result.incomplete)
 
         def accept(index, result, error):
             if error is not None:

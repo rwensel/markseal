@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import re
 from threading import Event
 
 from PySide6.QtCore import QObject, Signal
 
-from .. import boxset, ocr, workflows
+from .. import boxset, workflows
 from .. import watches as watch_store
 from ..export_copy import ExportCopies
+from ..scan import Scan, ScanError
 from ..jobs import ScanCancelled
 from .activity import JobCenter
 
@@ -104,22 +104,19 @@ class AutomaticLane(QObject):
         self._status = ''
         self.changed.emit()
         self.recordsChanged.emit()
-        try:
-            engine = self.session.scan_engine()
-            settings = self.session.scan_settings()
-        except OSError as error:
-            self._records_failed(jobs, str(error))
-            self.alerts.error('OCR unavailable', str(error), 'RETRY',
-                              lambda: self._retry(jobs))
-            return
-        except (ValueError, re.error) as error:
-            self._records_failed(jobs, str(error))
-            self.alerts.error('Invalid detection settings', str(error), 'OPEN SETTINGS',
-                              self.session.facades.settings.requestSettings)
-            return
         preferences = self.session.preferences
-        enhanced = preferences.enhanced_ocr
-        color_assisted = preferences.color_ocr
+        try:
+            scan = Scan(preferences, engine_factory=self.session.scan_engine)
+        except ScanError as error:
+            self._records_failed(jobs, str(error))
+            if error.kind == 'unavailable':
+                self.alerts.error('OCR unavailable', str(error), 'RETRY',
+                                  lambda: self._retry(jobs))
+            else:
+                self.alerts.error(
+                    'Invalid detection settings', str(error), 'OPEN SETTINGS',
+                    self.session.facades.settings.requestSettings)
+            return
         method = preferences.method
         copies = ExportCopies(preferences)
         cancel = Event()
@@ -132,17 +129,15 @@ class AutomaticLane(QObject):
                 cancel.set()
                 return (path, None, PAUSED, None, '')
             try:
-                scanned = ocr.scan_folder_image(
-                    path, None, engine, settings, enhanced, cancel,
-                    color_assisted=color_assisted,
-                )
+                scanned = scan.file(path, None, cancel=cancel)
             except ScanCancelled:
                 raise
             except Exception as error:
                 return (path, None, watch_store.NEEDS_REVIEW, None, str(error))
-            stamp, _found, _incomplete = scanned
+            stamp = scanned.stamp
             entry = boxset.FolderImage(path, method=method)
-            outcome = workflows.apply_scan_result(entry, scanned)
+            outcome = workflows.apply_scan_result(
+                entry, (scanned.stamp, scanned.found, scanned.incomplete))
             if outcome.error:
                 return (path, stamp, watch_store.NEEDS_REVIEW, None, outcome.error)
             state, detail = watch_store.automatic_outcome(entry)
