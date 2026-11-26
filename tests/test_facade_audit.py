@@ -118,7 +118,7 @@ class AuditFacadeTests(unittest.TestCase):
         self.batch.startAudit()
         self.wait_for_batch()
         report = self.root / 'audit.json'
-        with patch('markseal.facades.batch.QFileDialog.getSaveFileName',
+        with patch('markseal.facades.batch_audit.QFileDialog.getSaveFileName',
                    return_value=(str(report), 'JSON report (*.json)')):
             self.batch.saveAuditReport()
         self.assertTrue(report.is_file())

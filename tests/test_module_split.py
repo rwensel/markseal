@@ -78,9 +78,10 @@ class ModuleSplitTests(unittest.TestCase):
         modules = sorted(path for path in package.glob('*.py') if path.name != '__init__.py')
         self.assertEqual(
             [path.stem for path in modules],
-            ['activity', 'alerts', 'auto_watch', 'batch', 'folder', 'review',
-             'review_actions', 'review_load', 'review_scan_actions', 'review_view',
-             'settings', 'state', 'updates', 'watch_inbox', 'watch_sweep', 'watches'],
+            ['activity', 'alerts', 'auto_watch', 'batch', 'batch_audit', 'batch_scan',
+             'batch_tools', 'folder', 'review', 'review_actions', 'review_load',
+             'review_scan_actions', 'review_view', 'settings', 'state', 'updates',
+             'watch_inbox', 'watch_sweep', 'watches'],
         )
         for path in modules:
             tree = ast.parse(path.read_text(encoding='utf-8'))
