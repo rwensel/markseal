@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/rwensel/markseal/actions/workflows/tests.yml"><img src="https://github.com/rwensel/markseal/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
   <a href="https://github.com/rwensel/markseal/releases/latest"><img src="https://img.shields.io/github/v/release/rwensel/markseal" alt="latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/rwensel/markseal" alt="MIT license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/rwensel/markseal" alt="AGPL-3.0 license"></a>
 </p>
 
 ## Download
@@ -150,4 +150,4 @@ If MarkSeal saves you a cleanup pass, a star helps other people find it.
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Third-party components and their licenses are listed in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and under **Settings → Updates → Third-party licenses**.
+AGPL-3.0-only. See [LICENSE](LICENSE). Third-party components and their licenses are listed in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and under **Settings → Updates → Third-party licenses**.
