@@ -14,7 +14,10 @@ Item {
     Accessible.name: tab.text
     Accessible.selected: tab.active
     scale: pointer.pressed ? 0.985 : 1
-    Behavior on scale { NumberAnimation { duration: 90 } }
+    Behavior on scale {
+        enabled: !Theme.reduceMotion
+        NumberAnimation { duration: 90 }
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -28,7 +31,10 @@ Item {
                       ? Theme.amber
                       : tab.active ? Theme.tabBorder
                       : (pointer.containsMouse ? Theme.steelMid : "transparent")
-        Behavior on color { ColorAnimation { duration: 100 } }
+        Behavior on color {
+            enabled: !Theme.reduceMotion
+            ColorAnimation { duration: 100 }
+        }
     }
 
     Rectangle {
@@ -48,8 +54,19 @@ Item {
         text: tab.text
         color: tab.active ? Theme.white : Theme.steelLight
         font.family: Theme.displayFont
-        font.pixelSize: 11
+        font.pixelSize: Theme.scaleFont(11)
         font.letterSpacing: 1.1
+    }
+
+    MouseArea {
+        id: touchMargin
+        anchors.fill: parent
+        anchors.topMargin: -3
+        anchors.bottomMargin: -3
+        onClicked: {
+            tab.forceActiveFocus()
+            tab.clicked()
+        }
     }
 
     MouseArea {

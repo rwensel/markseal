@@ -10,7 +10,7 @@ Window {
     width: 790
     height: 680
     minimumWidth: 700
-    minimumHeight: 650
+    minimumHeight: 600
     modality: Qt.ApplicationModal
     flags: Qt.Dialog
     transientParent: parentWindow
@@ -115,7 +115,7 @@ Window {
                 text: "SETTINGS"
                 color: Theme.white
                 font.family: Theme.displayFont
-                font.pixelSize: 24
+                font.pixelSize: Theme.scaleFont(24)
                 font.letterSpacing: 2.4
                 font.weight: Font.DemiBold
             }
@@ -124,7 +124,7 @@ Window {
                 text: "LOCAL DETECTION / REDACTION / OUTPUT"
                 color: Theme.steelLight
                 font.family: Theme.displayFont
-                font.pixelSize: 9
+                font.pixelSize: Theme.scaleFont(9)
                 font.letterSpacing: 1.2
             }
         }
@@ -206,7 +206,7 @@ Window {
                     wrapMode: Text.WordWrap
                     color: Theme.steelMid
                     font.family: Theme.displayFont
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.scaleFont(9)
                     font.letterSpacing: 1.1
                 }
             }
@@ -473,7 +473,7 @@ Window {
                                         text: "PIXELATE"
                                         color: Theme.amber
                                         font.family: Theme.displayFont
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.scaleFont(10)
                                         font.letterSpacing: 1
                                     }
 
@@ -483,7 +483,7 @@ Window {
                                         wrapMode: Text.WordWrap
                                         color: Theme.steelLight
                                         font.family: Theme.bodyFont
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.scaleFont(11)
                                     }
                                 }
                             }
@@ -503,7 +503,7 @@ Window {
                                         text: "SOLID BLACK"
                                         color: Theme.dangerText
                                         font.family: Theme.displayFont
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.scaleFont(10)
                                         font.letterSpacing: 1
                                     }
 
@@ -513,7 +513,7 @@ Window {
                                         wrapMode: Text.WordWrap
                                         color: Theme.steelLight
                                         font.family: Theme.bodyFont
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.scaleFont(11)
                                     }
                                 }
                             }
@@ -533,7 +533,7 @@ Window {
                                         text: "BLUR"
                                         color: Theme.amber
                                         font.family: Theme.displayFont
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.scaleFont(10)
                                         font.letterSpacing: 1
                                     }
 
@@ -543,7 +543,7 @@ Window {
                                         wrapMode: Text.WordWrap
                                         color: Theme.steelLight
                                         font.family: Theme.bodyFont
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.scaleFont(11)
                                     }
                                 }
                             }
@@ -563,7 +563,7 @@ Window {
                                         text: "ERASE"
                                         color: Theme.dangerText
                                         font.family: Theme.displayFont
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.scaleFont(10)
                                         font.letterSpacing: 1
                                     }
 
@@ -573,7 +573,7 @@ Window {
                                         wrapMode: Text.WordWrap
                                         color: Theme.steelLight
                                         font.family: Theme.bodyFont
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.scaleFont(11)
                                     }
                                 }
                             }
@@ -688,7 +688,7 @@ Window {
                                     wrapMode: Text.WordWrap
                                     color: Theme.steelLight
                                     font.family: Theme.bodyFont
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.scaleFont(11)
                                     lineHeight: 1.2
                                 }
 
@@ -709,7 +709,7 @@ Window {
                                         verticalAlignment: Text.AlignVCenter
                                         color: Theme.steelLight
                                         font.family: Theme.bodyFont
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.scaleFont(11)
                                     }
                                 }
 
@@ -761,7 +761,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.steelLight
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 12
+                                font.pixelSize: Theme.scaleFont(12)
                                 lineHeight: 1.25
                             }
 
@@ -771,7 +771,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.amber
                                 font.family: Theme.displayFont
-                                font.pixelSize: 9
+                                font.pixelSize: Theme.scaleFont(9)
                                 font.letterSpacing: 0.8
                             }
 
@@ -795,7 +795,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.scaleFont(11)
                             }
 
                             Repeater {
@@ -830,7 +830,7 @@ Window {
                                                 elide: Text.ElideRight
                                                 color: Theme.white
                                                 font.family: Theme.displayFont
-                                                font.pixelSize: 12
+                                                font.pixelSize: Theme.scaleFont(12)
                                                 font.letterSpacing: 0.4
                                                 font.weight: Font.DemiBold
                                             }
@@ -860,7 +860,7 @@ Window {
                                             elide: Text.ElideMiddle
                                             color: Theme.mutedText
                                             font.family: Theme.bodyFont
-                                            font.pixelSize: 10
+                                            font.pixelSize: Theme.scaleFont(10)
                                         }
 
                                         RowLayout {
@@ -871,7 +871,7 @@ Window {
                                                 text: "OUTPUT"
                                                 color: Theme.steelLight
                                                 font.family: Theme.displayFont
-                                                font.pixelSize: 9
+                                                font.pixelSize: Theme.scaleFont(9)
                                                 font.letterSpacing: 1.1
                                             }
 
@@ -882,7 +882,7 @@ Window {
                                                 elide: Text.ElideMiddle
                                                 color: Theme.steelLight
                                                 font.family: Theme.bodyFont
-                                                font.pixelSize: 10
+                                                font.pixelSize: Theme.scaleFont(10)
                                             }
                                         }
 
@@ -934,7 +934,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.steelLight
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 12
+                                font.pixelSize: Theme.scaleFont(12)
                                 lineHeight: 1.25
                             }
 
@@ -944,7 +944,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.amber
                                 font.family: Theme.displayFont
-                                font.pixelSize: 9
+                                font.pixelSize: Theme.scaleFont(9)
                                 font.letterSpacing: 0.8
                             }
 
@@ -980,7 +980,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.scaleFont(10)
                             }
 
                             FieldLabel {
@@ -995,7 +995,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.scaleFont(11)
                             }
 
                             Repeater {
@@ -1032,7 +1032,7 @@ Window {
                                                 elide: Text.ElideRight
                                                 color: Theme.white
                                                 font.family: Theme.bodyFont
-                                                font.pixelSize: 11
+                                                font.pixelSize: Theme.scaleFont(11)
                                                 font.weight: Font.DemiBold
                                             }
 
@@ -1065,7 +1065,7 @@ Window {
                                             wrapMode: Text.WrapAnywhere
                                             color: Theme.steelLight
                                             font.family: Theme.bodyFont
-                                            font.pixelSize: 10
+                                            font.pixelSize: Theme.scaleFont(10)
                                         }
                                     }
                                 }
@@ -1103,11 +1103,23 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.scaleFont(11)
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                visible: Backend.settings.systemHighContrast
+                                text: "WINDOWS HIGH CONTRAST IS ON. THE SYSTEM PALETTE OVERRIDES THESE THEME CHOICES."
+                                wrapMode: Text.WordWrap
+                                color: Theme.amber
+                                font.family: Theme.displayFont
+                                font.pixelSize: Theme.scaleFont(9)
+                                font.letterSpacing: 0.8
                             }
 
                             GridLayout {
                                 Layout.fillWidth: true
+                                visible: !Backend.settings.systemHighContrast
                                 columns: 2
                                 rowSpacing: 10
                                 columnSpacing: 10
@@ -1167,7 +1179,7 @@ Window {
                                             text: "MARKSEAL"
                                             color: Theme.steelLight
                                             font.family: Theme.displayFont
-                                            font.pixelSize: 9
+                                            font.pixelSize: Theme.scaleFont(9)
                                             font.letterSpacing: 1.2
                                         }
 
@@ -1176,7 +1188,7 @@ Window {
                                                   + (Backend.settings.betaChannel ? "  ·  Beta" : "")
                                             color: Theme.white
                                             font.family: Theme.displayFont
-                                            font.pixelSize: 15
+                                            font.pixelSize: Theme.scaleFont(15)
                                             font.letterSpacing: 0.8
                                         }
                                     }
@@ -1190,7 +1202,7 @@ Window {
                                             text: "PLATFORM"
                                             color: Theme.steelLight
                                             font.family: Theme.displayFont
-                                            font.pixelSize: 9
+                                            font.pixelSize: Theme.scaleFont(9)
                                             font.letterSpacing: 1.2
                                         }
 
@@ -1198,7 +1210,7 @@ Window {
                                             text: Backend.updates.platform
                                             color: Theme.white
                                             font.family: Theme.bodyFont
-                                            font.pixelSize: 12
+                                            font.pixelSize: Theme.scaleFont(12)
                                         }
                                     }
                                 }
@@ -1220,7 +1232,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.scaleFont(11)
                             }
 
                             ToggleRow {
@@ -1251,7 +1263,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.scaleFont(11)
                             }
 
                             ConcourseButton {
@@ -1269,7 +1281,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.mutedText
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.scaleFont(10)
                             }
 
                             Text {
@@ -1279,7 +1291,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.steelLight
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.scaleFont(10)
                             }
 
                             Item { Layout.fillHeight: true }
@@ -1302,7 +1314,7 @@ Window {
                 elide: Text.ElideRight
                 color: Theme.dangerText
                 font.family: Theme.bodyFont
-                font.pixelSize: 11
+                font.pixelSize: Theme.scaleFont(11)
             }
 
             Item { Layout.fillWidth: true; visible: settings.errorText.length === 0 }
@@ -1361,7 +1373,7 @@ Window {
                             text: "THIRD-PARTY LICENSES"
                             color: Theme.white
                             font.family: Theme.displayFont
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.scaleFont(11)
                             font.letterSpacing: 1.0
                         }
 
@@ -1392,7 +1404,7 @@ Window {
                                 wrapMode: Text.WordWrap
                                 color: Theme.steelLight
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.scaleFont(10)
                             }
                         }
 

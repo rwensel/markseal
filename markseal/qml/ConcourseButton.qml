@@ -24,6 +24,7 @@ Item {
     ToolTip.timeout: 5000
     ToolTip.text: control.tip
     Behavior on scale {
+        enabled: !Theme.reduceMotion
         NumberAnimation {
             duration: control.isPressed ? 80 : 160
             easing.type: Easing.OutCubic
@@ -70,7 +71,10 @@ Item {
                       : control.danger
                         ? Theme.dangerBorder
                         : control.primary ? Theme.amberBorder : Theme.buttonBorder
-        Behavior on color { ColorAnimation { duration: 110 } }
+        Behavior on color {
+            enabled: !Theme.reduceMotion
+            ColorAnimation { duration: 110 }
+        }
     }
 
     MultiEffect {
@@ -132,9 +136,21 @@ Item {
                ? Theme.mutedText
                : control.primary ? Theme.ink : Theme.white
         font.family: Theme.displayFont
-        font.pixelSize: (control.compact ? 10 : 11) * Theme.labelScale
+        font.pixelSize: Theme.scaleFont((control.compact ? 10 : 11) * Theme.labelScale)
         font.letterSpacing: Theme.labelTracking
         font.weight: Font.DemiBold
+    }
+
+    MouseArea {
+        id: touchMargin
+        anchors.fill: parent
+        anchors.topMargin: -6
+        anchors.bottomMargin: -6
+        enabled: control.enabled
+        onClicked: {
+            control.forceActiveFocus()
+            control.activate()
+        }
     }
 
     MouseArea {
@@ -158,7 +174,7 @@ Item {
         property: "pressPulse"
         from: 1
         to: 0
-        duration: 240
+        duration: Theme.reduceMotion ? 0 : 240
         easing.type: Easing.OutCubic
     }
 }

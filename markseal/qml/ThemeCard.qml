@@ -42,7 +42,7 @@ Item {
             color: Theme.white
             elide: Text.ElideRight
             font.family: Theme.displayFont
-            font.pixelSize: 12 * Theme.labelScale
+            font.pixelSize: Theme.scaleFont(12 * Theme.labelScale)
             font.letterSpacing: Theme.labelTracking
             font.weight: Font.DemiBold
         }
@@ -55,7 +55,7 @@ Item {
             maximumLineCount: 2
             elide: Text.ElideRight
             font.family: Theme.bodyFont
-            font.pixelSize: 10
+            font.pixelSize: Theme.scaleFont(10)
         }
 
         Row {

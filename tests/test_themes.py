@@ -29,6 +29,13 @@ class ThemeTests(unittest.TestCase):
         self.assertEqual(themes.resolve('nope'), themes.resolve(themes.DEFAULT_ID))
         self.assertFalse(themes.is_known('nope'))
 
+    def test_hidden_high_contrast_palette_is_valid(self):
+        tokens = themes.resolve('high-contrast')
+        self.assertEqual(set(tokens), set(themes.REQUIRED_TOKENS))
+        self.assertEqual(themes.contrast_report('high-contrast'), [])
+        self.assertEqual(tokens['selectedSignalName'], 'yellow')
+        self.assertEqual(tokens['excludedSignalName'], 'red')
+
     def test_contrast_report_is_empty_for_every_theme(self):
         for theme_id in themes.THEME_IDS:
             self.assertEqual(themes.contrast_report(theme_id), [], theme_id)

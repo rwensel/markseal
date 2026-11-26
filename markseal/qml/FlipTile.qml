@@ -18,6 +18,12 @@ Item {
 
     onValueChanged: {
         pendingValue = value
+        if (Theme.reduceMotion) {
+            flip.stop()
+            flipRotation.angle = 0
+            displayValue = value
+            return
+        }
         flip.restart()
     }
 
@@ -83,7 +89,7 @@ Item {
             text: tile.displayValue
             color: tile.accent
             font.family: Theme.displayFont
-            font.pixelSize: 13
+            font.pixelSize: Theme.scaleFont(13)
             font.letterSpacing: 0.8
             font.weight: Font.DemiBold
             font.features: ({ "tnum": 1 })
@@ -96,7 +102,7 @@ Item {
             text: tile.label
             color: Theme.mutedText
             font.family: Theme.displayFont
-            font.pixelSize: 9
+            font.pixelSize: Theme.scaleFont(9)
             font.letterSpacing: 0.8
         }
     }

@@ -7,7 +7,7 @@ ComboBox {
     implicitHeight: 34
     implicitWidth: 160
     font.family: Theme.bodyFont
-    font.pixelSize: 12
+    font.pixelSize: Theme.scaleFont(12)
     hoverEnabled: true
 
     background: Rectangle {
@@ -25,7 +25,7 @@ ComboBox {
         rightPadding: 26
         text: control.displayText
         font.family: Theme.bodyFont
-        font.pixelSize: 12
+        font.pixelSize: Theme.scaleFont(12)
         color: Theme.white
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
@@ -36,7 +36,7 @@ ComboBox {
         y: (control.height - height) / 2
         text: "v"
         font.family: Theme.displayFont
-        font.pixelSize: 11
+        font.pixelSize: Theme.scaleFont(11)
         color: Theme.steelLight
     }
 
@@ -49,7 +49,7 @@ ComboBox {
             leftPadding: 10
             text: modelData
             font.family: Theme.bodyFont
-            font.pixelSize: 12
+            font.pixelSize: Theme.scaleFont(12)
             color: item.highlighted ? Theme.ink : Theme.white
             verticalAlignment: Text.AlignVCenter
         }

@@ -9,6 +9,19 @@ Item {
     property int hoveredBox: -1
     property int keyboardBox: -1
     readonly property bool compactCaption: width < 900
+    readonly property var focusedBox: keyboardBox >= 0 && keyboardBox < Backend.review.boxes.length
+                                               ? Backend.review.boxes[keyboardBox] : null
+    readonly property string stageDescription: {
+        if (Backend.review.totalBoxes === 0)
+            return "Image with no boxes. Scan the image or draw a box."
+        if (focusedBox === null)
+            return "Image with " + Backend.review.totalBoxes
+                   + " boxes. Use arrow keys to review them."
+        return "Box " + (keyboardBox + 1) + " of " + Backend.review.totalBoxes
+               + ", " + (focusedBox.selected ? "included" : "excluded")
+               + ". Rule: " + (focusedBox.ruleLabel || "Manual box")
+               + ". Space toggles inclusion; Delete removes."
+    }
     readonly property string captureTitle: Backend.review.captureMode === "area" ? "SCAN AREA"
                                           : Backend.review.captureMode === "anchor" ? "ANCHOR MATCH"
                                           : Backend.review.captureMode === "learn" ? "LEARN PATTERN" : ""
@@ -64,14 +77,14 @@ Item {
             elide: Text.ElideMiddle
             color: Theme.white
             font.family: Theme.bodyFont
-            font.pixelSize: 11
+            font.pixelSize: Theme.scaleFont(11)
         }
 
         Text {
             text: Backend.review.imageSizeText
             color: Theme.steelLight
             font.family: Theme.displayFont
-            font.pixelSize: 10
+            font.pixelSize: Theme.scaleFont(10)
             font.letterSpacing: 0.7
         }
 
@@ -85,7 +98,7 @@ Item {
             text: "METHOD"
             color: Theme.mutedText
             font.family: Theme.displayFont
-            font.pixelSize: 10
+            font.pixelSize: Theme.scaleFont(10)
             font.letterSpacing: 0.8
         }
 
@@ -113,7 +126,7 @@ Item {
             text: Math.round(Backend.review.viewScale * 100) + "%"
             color: Theme.white
             font.family: Theme.displayFont
-            font.pixelSize: 10
+            font.pixelSize: Theme.scaleFont(10)
             font.letterSpacing: 0.6
             font.features: ({ "tnum": 1 })
             Accessible.role: Accessible.StaticText
@@ -210,7 +223,7 @@ Item {
             text: "PAGE " + Backend.review.pdfPage + " / " + Backend.review.pdfPageCount
             color: Theme.white
             font.family: Theme.displayFont
-            font.pixelSize: 10
+            font.pixelSize: Theme.scaleFont(10)
             font.letterSpacing: 0.8
             font.features: ({ "tnum": 1 })
         }
@@ -230,7 +243,7 @@ Item {
             text: "PDF · RENDERED LOCALLY"
             color: Theme.mutedText
             font.family: Theme.displayFont
-            font.pixelSize: 9
+            font.pixelSize: Theme.scaleFont(9)
             font.letterSpacing: 0.8
         }
     }
@@ -289,8 +302,7 @@ Item {
             activeFocusOnTab: true
             Accessible.role: Accessible.Pane
             Accessible.name: "Screenshot review area"
-            Accessible.description: "Image with " + Backend.review.totalBoxes
-                                  + " boxes. Arrow keys move between boxes, Space includes or excludes, Delete removes, Shift with arrows pans, Ctrl+Enter confirms."
+            Accessible.description: viewer.stageDescription
 
             onWidthChanged: Backend.review.setViewSize(width, height)
             onHeightChanged: Backend.review.setViewSize(width, height)
@@ -407,6 +419,11 @@ Item {
                     id: box
                     property var boxData: modelData
                     z: 2
+                    Accessible.role: Accessible.ListItem
+                    Accessible.name: "Box " + (index + 1) + " of " + Backend.review.totalBoxes
+                                    + ": " + (boxData.selected ? "included" : "excluded")
+                    Accessible.description: "Rule: " + (boxData.ruleLabel || "Manual box")
+                    Accessible.selected: boxData.selected
                     x: boxData.x1 * Backend.review.viewScale + Backend.review.viewOffsetX
                     y: boxData.y1 * Backend.review.viewScale + Backend.review.viewOffsetY
                     width: Math.max(1, (boxData.x2 - boxData.x1) * Backend.review.viewScale)
@@ -541,7 +558,7 @@ Item {
                             elide: Text.ElideRight
                             color: Theme.amber
                             font.family: Theme.displayFont
-                            font.pixelSize: 9
+                            font.pixelSize: Theme.scaleFont(9)
                             font.letterSpacing: 0.5
                         }
                     }
@@ -584,7 +601,7 @@ Item {
 
                         MouseArea {
                             anchors.fill: parent
-                            anchors.margins: -4
+                            anchors.margins: -12
                             acceptedButtons: Qt.LeftButton
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
@@ -617,7 +634,7 @@ Item {
                     text: "ARROWS MOVE · SPACE TOGGLE · DEL REMOVE · SHIFT PAN · CTRL+= ZOOM"
                     color: Theme.steelLight
                     font.family: Theme.displayFont
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.scaleFont(9)
                     font.letterSpacing: 0.6
                 }
             }
@@ -701,7 +718,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.white
                         font.family: Theme.displayFont
-                        font.pixelSize: 34
+                        font.pixelSize: Theme.scaleFont(34)
                         font.letterSpacing: 4
                         font.weight: Font.DemiBold
                     }
@@ -726,7 +743,7 @@ Item {
                         wrapMode: Text.WordWrap
                         color: Theme.steelLight
                         font.family: Theme.bodyFont
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.scaleFont(13)
                         lineHeight: 1.25
                     }
 
@@ -759,7 +776,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.steelLight
                         font.family: Theme.displayFont
-                        font.pixelSize: 9
+                        font.pixelSize: Theme.scaleFont(9)
                         font.letterSpacing: 0.8
                     }
 
@@ -769,7 +786,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.mutedText
                         font.family: Theme.displayFont
-                        font.pixelSize: 9
+                        font.pixelSize: Theme.scaleFont(9)
                         font.letterSpacing: 1.1
                     }
                 }
@@ -830,7 +847,7 @@ Item {
                             text: viewer.captureTitle
                             color: Theme.amber
                             font.family: Theme.displayFont
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.scaleFont(11)
                             font.letterSpacing: 1.2
                             font.weight: Font.DemiBold
                         }
@@ -840,7 +857,7 @@ Item {
                             text: viewer.captureInstruction + " Esc cancels."
                             color: Theme.white
                             font.family: Theme.bodyFont
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.scaleFont(11)
                             elide: Text.ElideRight
                         }
                     }
@@ -870,7 +887,7 @@ Item {
                     to: stage.width
                     duration: 1500
                     loops: Animation.Infinite
-                    running: Backend.batch.busy
+                    running: Backend.batch.busy && !Theme.reduceMotion
                 }
             }
 
@@ -919,7 +936,7 @@ Item {
                             text: Backend.batch.busyLabel.toUpperCase()
                             color: Theme.white
                             font.family: Theme.displayFont
-                            font.pixelSize: 10
+                            font.pixelSize: Theme.scaleFont(10)
                             font.letterSpacing: 1.1
                         }
 
@@ -930,7 +947,7 @@ Item {
                             elide: Text.ElideRight
                             color: Theme.white
                             font.family: Theme.bodyFont
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.scaleFont(11)
                         }
 
                         Text {
@@ -939,7 +956,7 @@ Item {
                             elide: Text.ElideRight
                             color: Theme.steelLight
                             font.family: Theme.bodyFont
-                            font.pixelSize: 10
+                            font.pixelSize: Theme.scaleFont(10)
                         }
                     }
                 }

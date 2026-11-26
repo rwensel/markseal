@@ -33,6 +33,28 @@ Item {
         border.color: Theme.buttonBorder
     }
 
+    Rectangle {
+        z: 3
+        anchors.fill: parent
+        radius: 5
+        color: "transparent"
+        border.width: 2
+        border.color: Theme.focusRing
+        visible: control.activeFocus
+    }
+
+    MouseArea {
+        id: touchMargin
+        anchors.fill: parent
+        anchors.topMargin: -9
+        anchors.bottomMargin: -9
+        enabled: control.enabled
+        onClicked: {
+            control.forceActiveFocus()
+            control.cycle(1)
+        }
+    }
+
     Row {
         id: segments
         anchors.fill: parent
@@ -51,14 +73,17 @@ Item {
                 color: control.method === control.methods[index]
                        ? (hover.pressed ? Theme.amberPressed : Theme.amber)
                        : hover.containsMouse ? Theme.rowSelected : "transparent"
-                Behavior on color { ColorAnimation { duration: 90 } }
+                Behavior on color {
+                    enabled: !Theme.reduceMotion
+                    ColorAnimation { duration: 90 }
+                }
 
                 Text {
                     anchors.centerIn: parent
                     text: control.labels[index]
                     color: control.method === control.methods[index] ? Theme.ink : Theme.steelLight
                     font.family: Theme.displayFont
-                    font.pixelSize: 9 * Theme.labelScale
+                    font.pixelSize: Theme.scaleFont(9 * Theme.labelScale)
                     font.letterSpacing: Theme.labelTracking
                 }
 

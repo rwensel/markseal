@@ -8,7 +8,7 @@ Window {
     width: 1360
     height: 860
     minimumWidth: 1080
-    minimumHeight: 680
+    minimumHeight: 600
     visible: true
     color: Theme.bg
     title: Backend.review.imageName.length > 0
@@ -117,7 +117,7 @@ Window {
                     text: "DROP TO OPEN"
                     color: Theme.white
                     font.family: Theme.displayFont
-                    font.pixelSize: 30
+                    font.pixelSize: Theme.scaleFont(30)
                     font.letterSpacing: 3
                     font.weight: Font.DemiBold
                 }
@@ -126,7 +126,7 @@ Window {
                     text: "PNG / JPEG / BMP / TIFF / FOLDER"
                     color: Theme.steelLight
                     font.family: Theme.displayFont
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.scaleFont(9)
                     font.letterSpacing: 1.2
                 }
             }

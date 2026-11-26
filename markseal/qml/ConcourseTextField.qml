@@ -13,7 +13,7 @@ TextField {
     selectionColor: Theme.amber
     selectedTextColor: Theme.ink
     font.family: Theme.bodyFont
-    font.pixelSize: 12
+    font.pixelSize: Theme.scaleFont(12)
     selectByMouse: true
 
     background: Rectangle {

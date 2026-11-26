@@ -87,7 +87,7 @@ Item {
                     text: "MARKSEAL"
                     color: Theme.white
                     font.family: Theme.displayFont
-                    font.pixelSize: 15
+                    font.pixelSize: Theme.scaleFont(15)
                     font.letterSpacing: 1.5
                     font.weight: Font.DemiBold
                 }
@@ -96,7 +96,7 @@ Item {
                     text: "SCREENSHOT / VERIFIED / LOCAL"
                     color: Theme.steelLight
                     font.family: Theme.displayFont
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.scaleFont(9)
                     font.letterSpacing: 1.2
                 }
             }

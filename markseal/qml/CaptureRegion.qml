@@ -6,7 +6,7 @@ Window {
     id: overlay
     visible: false
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
-    color: "#66000000"
+    color: Theme.captureScrim
 
     property real startX: 0
     property real startY: 0
@@ -65,7 +65,7 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        color: "#66000000"
+        color: Theme.captureScrim
     }
 
     Rectangle {

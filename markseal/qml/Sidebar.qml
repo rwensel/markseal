@@ -65,7 +65,7 @@ Item {
                 text: "FOLDER"
                 color: Theme.amber
                 font.family: Theme.displayFont
-                font.pixelSize: 9
+                font.pixelSize: Theme.scaleFont(9)
                 font.letterSpacing: 1.4
             }
 
@@ -75,7 +75,7 @@ Item {
                 elide: Text.ElideMiddle
                 color: Theme.white
                 font.family: Theme.displayFont
-                font.pixelSize: 17
+                font.pixelSize: Theme.scaleFont(17)
                 font.letterSpacing: 0.6
             }
 
@@ -85,7 +85,7 @@ Item {
                 elide: Text.ElideRight
                 color: Theme.steelLight
                 font.family: Theme.bodyFont
-                font.pixelSize: 11
+                font.pixelSize: Theme.scaleFont(11)
             }
         }
 
@@ -220,7 +220,7 @@ Item {
                         text: "JOB STATUS"
                         color: Theme.steelLight
                         font.family: Theme.displayFont
-                        font.pixelSize: 9
+                        font.pixelSize: Theme.scaleFont(9)
                         font.letterSpacing: 1.2
                     }
 
@@ -230,7 +230,7 @@ Item {
                         text: Backend.batch.busy ? "RUNNING" : "IDLE"
                         color: Backend.batch.busy ? Theme.amber : Theme.mutedText
                         font.family: Theme.displayFont
-                        font.pixelSize: 9
+                        font.pixelSize: Theme.scaleFont(9)
                         font.letterSpacing: 1
                     }
                 }
@@ -241,7 +241,7 @@ Item {
                     elide: Text.ElideRight
                     color: Theme.white
                     font.family: Theme.bodyFont
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.scaleFont(11)
                 }
 
                 Rectangle {
@@ -259,7 +259,10 @@ Item {
                         height: parent.height
                         radius: 3
                         color: Theme.amber
-                        Behavior on width { NumberAnimation { duration: 140 } }
+                        Behavior on width {
+                            enabled: !Theme.reduceMotion
+                            NumberAnimation { duration: 140 }
+                        }
                     }
                 }
 
@@ -270,7 +273,7 @@ Item {
                     elide: Text.ElideRight
                     color: Theme.steelLight
                     font.family: Theme.bodyFont
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.scaleFont(10)
                 }
 
                 Text {
@@ -282,7 +285,7 @@ Item {
                     elide: Text.ElideRight
                     color: Theme.steelLight
                     font.family: Theme.bodyFont
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.scaleFont(10)
                 }
 
                 Item { Layout.fillHeight: true }
@@ -307,7 +310,7 @@ Item {
                 text: "IMAGES"
                 color: Theme.steelLight
                 font.family: Theme.displayFont
-                font.pixelSize: 9
+                font.pixelSize: Theme.scaleFont(9)
                 font.letterSpacing: 1.2
             }
 
@@ -317,7 +320,7 @@ Item {
                 text: "CTRL / SHIFT SELECT"
                 color: Theme.mutedText
                 font.family: Theme.displayFont
-                font.pixelSize: 9
+                font.pixelSize: Theme.scaleFont(9)
                 font.letterSpacing: 0.7
             }
         }
@@ -397,7 +400,7 @@ Item {
                         elide: Text.ElideMiddle
                         color: model.active || model.selected ? Theme.white : Theme.steelLight
                         font.family: Theme.bodyFont
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.scaleFont(12)
                     }
 
                     Text {
@@ -413,10 +416,15 @@ Item {
                                : model.scanned ? Theme.white
                                : Theme.mutedText
                         font.family: Theme.displayFont
-                        font.pixelSize: 9
+                        font.pixelSize: Theme.scaleFont(9)
                         font.letterSpacing: 0.5
                     }
                 }
+
+                Accessible.role: Accessible.ListItem
+                Accessible.name: model.name + ", " + model.status
+                Accessible.description: "Folder image row"
+                Accessible.selected: model.active || model.selected
 
                 Rectangle {
                     id: activity
@@ -439,7 +447,7 @@ Item {
                         opacity: model.jobState === "queued" ? 0.35 : 1
 
                         SequentialAnimation on x {
-                            running: model.jobState === "running"
+                            running: model.jobState === "running" && !Theme.reduceMotion
                             loops: Animation.Infinite
                             NumberAnimation {
                                 from: -54

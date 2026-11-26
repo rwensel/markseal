@@ -66,7 +66,7 @@ Item {
                     text: "UPDATE " + (Backend.updates.updateInfo.version || "") + " AVAILABLE"
                     color: Theme.white
                     font.family: Theme.displayFont
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.scaleFont(11)
                     font.letterSpacing: 1.0
                 }
 
@@ -97,7 +97,7 @@ Item {
                 text: Backend.updates.status
                 color: Theme.steelLight
                 font.family: Theme.bodyFont
-                font.pixelSize: 10
+                font.pixelSize: Theme.scaleFont(10)
                 elide: Text.ElideRight
             }
 
@@ -141,7 +141,7 @@ Item {
                             wrapMode: Text.WordWrap
                             color: banner.isHeading(modelData) ? Theme.amber : Theme.steelLight
                             font.family: banner.isHeading(modelData) ? Theme.displayFont : Theme.bodyFont
-                            font.pixelSize: banner.isHeading(modelData) ? 9 : 10
+                            font.pixelSize: Theme.scaleFont(banner.isHeading(modelData) ? 9 : 10)
                             font.letterSpacing: banner.isHeading(modelData) ? 1.0 : 0
                             topPadding: banner.isHeading(modelData) ? 3 : 0
                         }
@@ -156,7 +156,7 @@ Item {
                 wrapMode: Text.WordWrap
                 color: Theme.dangerText
                 font.family: Theme.bodyFont
-                font.pixelSize: 10
+                font.pixelSize: Theme.scaleFont(10)
             }
         }
     }

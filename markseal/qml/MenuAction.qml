@@ -10,7 +10,7 @@ MenuItem {
         leftPadding: 12
         text: control.text
         font.family: Theme.bodyFont
-        font.pixelSize: 12
+        font.pixelSize: Theme.scaleFont(12)
         color: control.enabled ? Theme.white : Theme.mutedText
         verticalAlignment: Text.AlignVCenter
     }

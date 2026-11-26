@@ -81,7 +81,7 @@ Changes on this page save immediately. Close the window when you are done. See [
 
 ![Theme picker](images/settings-appearance.png)
 
-Choose one of six themes: Split-flap Concourse (default), Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram. Clicking a card previews it across the window; **Apply** keeps it. The bottom status line names the theme's selected and excluded colors and their check and dash marks. No network calls are involved.
+Choose one of six themes: Split-flap Concourse (default), Railway Timetable Rack, Jet-age Ticket Wallet, Centre-rail Reference, Crouwel Grid Specimen, and Midnight Transit Diagram. Clicking a card previews it across the window; **Apply** keeps it. The bottom status line names the theme's selected and excluded colors and their check and dash marks. No network calls are involved. MarkSeal follows Windows text size, reduced-motion, and high-contrast preferences at launch; high contrast uses a system palette and overrides theme choices. Text scaling is capped at 110%; use Windows display scaling for a larger desktop surface.
 
 ![Switching between MarkSeal themes](images/themes.gif)
 

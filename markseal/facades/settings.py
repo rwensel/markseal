@@ -11,6 +11,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog
 
 from .. import detection, dialogs, ocr, patterns, preferences, themes
+from .. import system_appearance
 from ..performance_log import log_directory
 from ..themes import Palette
 from ..ui.models import preference_property
@@ -41,8 +42,24 @@ class SettingsFacade(QObject):
         self.alerts = alerts
         self._preview_theme = session.preferences.theme
         self._palette = Palette(self)
+        self._system_high_contrast = system_appearance.high_contrast()
         self.on_method_changed = None
         self.retry_learn = None
+
+    def _active_theme(self):
+        return 'high-contrast' if self._system_high_contrast else self.session.preferences.theme
+
+    @Property(bool, constant=True)
+    def systemHighContrast(self):
+        return self._system_high_contrast
+
+    @Property(float, constant=True)
+    def textScale(self):
+        return system_appearance.text_scale()
+
+    @Property(bool, constant=True)
+    def reduceMotion(self):
+        return system_appearance.reduce_motion()
 
     @Property(str, notify=themeChanged)
     def themeName(self):
@@ -143,7 +160,7 @@ class SettingsFacade(QObject):
         self.session.output_directory = self.session.output_directory_for(
             self.session.folder)
         self._preview_theme = self.session.preferences.theme
-        self._palette.set_theme(self.session.preferences.theme)
+        self._palette.set_theme(self._active_theme())
         self.themeChanged.emit()
 
     @Slot(bool)
@@ -286,12 +303,14 @@ class SettingsFacade(QObject):
     @Slot()
     def requestSettings(self):
         self._preview_theme = self.session.preferences.theme
-        self._palette.set_theme(self.session.preferences.theme)
+        self._palette.set_theme(self._active_theme())
         self.themeChanged.emit()
         self.settingsRequested.emit()
 
     @Slot(str)
     def previewThemeById(self, theme_id):
+        if self._system_high_contrast:
+            return
         if not themes.is_known(theme_id) or theme_id == self._preview_theme:
             return
         self._preview_theme = theme_id
@@ -300,6 +319,10 @@ class SettingsFacade(QObject):
 
     @Slot()
     def clearThemePreview(self):
+        if self._system_high_contrast:
+            self._palette.set_theme('high-contrast')
+            self.themeChanged.emit()
+            return
         saved = self.session.preferences.theme
         if self._preview_theme == saved:
             return

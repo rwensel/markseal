@@ -18,6 +18,7 @@ Item {
         id: revealShift
         y: banner.visible ? 0 : 6
         Behavior on y {
+            enabled: !Theme.reduceMotion
             NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
         }
     }
@@ -72,7 +73,7 @@ Item {
                 elide: Text.ElideRight
                 color: Theme.white
                 font.family: Theme.displayFont
-                font.pixelSize: 10
+                font.pixelSize: Theme.scaleFont(10)
                 font.letterSpacing: 1.1
             }
 
@@ -84,7 +85,7 @@ Item {
                 elide: Text.ElideRight
                 color: Theme.steelLight
                 font.family: Theme.bodyFont
-                font.pixelSize: 11
+                font.pixelSize: Theme.scaleFont(11)
                 ToolTip.visible: detailHover.hovered
                 ToolTip.delay: 500
                 ToolTip.text: Backend.errorDetail

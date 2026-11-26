@@ -72,6 +72,7 @@ QtObject {
     readonly property color bannerFace: t.bannerFace
     readonly property color bannerBorder: t.bannerBorder
     readonly property color scrim: t.scrim
+    readonly property color captureScrim: t.captureScrim
     readonly property color dropBorder: t.dropBorder
     readonly property color shadow: t.shadow
     readonly property color highlight: t.highlight
@@ -80,6 +81,12 @@ QtObject {
     readonly property string bodyFont: t.bodyFont
     readonly property real labelTracking: t.labelTracking
     readonly property real labelScale: t.labelScale
+    readonly property real textScale: Backend.settings.textScale
+    readonly property bool reduceMotion: Backend.settings.reduceMotion
+
+    function scaleFont(value) {
+        return value * textScale
+    }
 
     readonly property real radiusShell: 12
     readonly property real radiusPanel: 10

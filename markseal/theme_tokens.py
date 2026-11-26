@@ -102,9 +102,23 @@ _SPECS = {
         selected_name='red', excluded_name='blue',
         label_tracking=0.8,
     ),
+    'high-contrast': ThemeSpec(
+        id='high-contrast',
+        name='High Contrast',
+        tagline='Black, white, and yellow signals for reduced vision.',
+        bg='#000000', surface='#000000', ink='#FFFFFF', muted='#B8B8B8',
+        accent='#FFFF00', stop='#FF0000',
+        display='Segoe UI, Arial, sans-serif',
+        body='Segoe UI, Arial, sans-serif',
+        selected_name='yellow', excluded_name='red',
+        label_tracking=1.0,
+    ),
 }
 
-THEME_IDS = tuple(_SPECS)
+THEME_IDS = (
+    'split-flap-concourse', 'timetable-slide-rack', 'jet-age-ticket-wallet',
+    'centre-rail-reference', 'crouwel-grid-specimen', 'midnight-transit-diagram',
+)
 
 
 def is_known(theme_id: str) -> bool:
@@ -262,6 +276,7 @@ def _tokens(spec: ThemeSpec) -> dict[str, object]:
         'bannerFace': mix(bg, stop, 0.08),
         'bannerBorder': mix(stop, bg, 0.25),
         'scrim': with_alpha(bg, 0.85),
+        'captureScrim': with_alpha(bg, 0.40),
         'dropBorder': accent,
         'shadow': shadow,
         'highlight': highlight,
@@ -341,6 +356,7 @@ _DEFAULT_OVERRIDES = {
     'bannerFace': '#1A1418',
     'bannerBorder': '#8C1A2E',
     'scrim': '#B0000000',
+    'captureScrim': '#66000000',
     'dropBorder': '#FFB000',
     'shadow': '#000000',
     'highlight': '#FFFFFF',
@@ -359,7 +375,7 @@ REQUIRED_TOKENS = frozenset({
     'ghostHover', 'disabledFace', 'disabledText', 'focusRing',
     'fieldFace', 'fieldBorder', 'fieldHover', 'placeholder',
     'tabFace', 'tabHover', 'tabActiveFace', 'tabBorder',
-    'bannerFace', 'bannerBorder', 'scrim', 'dropBorder',
+    'bannerFace', 'bannerBorder', 'scrim', 'captureScrim', 'dropBorder',
     'shadow', 'highlight', 'viewerTop', 'viewerBottom',
     'toolbarDivider', 'toolbarEdge', 'insetBorder',
     'displayFont', 'bodyFont', 'labelTracking', 'labelScale',

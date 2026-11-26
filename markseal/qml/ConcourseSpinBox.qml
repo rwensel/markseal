@@ -11,7 +11,7 @@ SpinBox {
     contentItem: TextInput {
         text: control.textFromValue(control.value, control.locale)
         font.family: Theme.bodyFont
-        font.pixelSize: 12
+        font.pixelSize: Theme.scaleFont(12)
         color: Theme.white
         selectionColor: Theme.amber
         selectedTextColor: Theme.ink
@@ -37,7 +37,7 @@ SpinBox {
             text: "+"
             color: up.pressed ? Theme.amber : Theme.steelLight
             font.family: Theme.displayFont
-            font.pixelSize: 12
+            font.pixelSize: Theme.scaleFont(12)
         }
     }
 
@@ -54,7 +54,7 @@ SpinBox {
             text: "-"
             color: down.pressed ? Theme.amber : Theme.steelLight
             font.family: Theme.displayFont
-            font.pixelSize: 12
+            font.pixelSize: Theme.scaleFont(12)
         }
     }
 

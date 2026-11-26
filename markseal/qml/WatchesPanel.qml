@@ -64,7 +64,7 @@ Item {
                     text: "INBOX"
                     color: Theme.white
                     font.family: Theme.displayFont
-                    font.pixelSize: 24
+                    font.pixelSize: Theme.scaleFont(24)
                     font.letterSpacing: 2.4
                     font.weight: Font.DemiBold
                 }
@@ -85,7 +85,7 @@ Item {
                         text: Backend.watches.newCount + " NEW"
                         color: parent.hot ? Theme.amber : Theme.steelLight
                         font.family: Theme.displayFont
-                        font.pixelSize: 9 * Theme.labelScale
+                        font.pixelSize: Theme.scaleFont(9 * Theme.labelScale)
                         font.letterSpacing: Theme.labelTracking
                         font.weight: Font.DemiBold
                     }
@@ -135,6 +135,12 @@ Item {
                         color: pointer.hovered ? Theme.rowHover : Theme.fieldFace
                         border.width: 1
                         border.color: Theme.hairline
+                        Accessible.role: Accessible.ListItem
+                        Accessible.name: modelData.name + ", " + modelData.policy + ", "
+                                        + root.countText(modelData)
+                        Accessible.description: modelData.path
+                                                + (modelData.error.length > 0
+                                                   ? ". Error: " + modelData.error : "")
 
                         HoverHandler { id: pointer }
 
@@ -157,7 +163,7 @@ Item {
                                     elide: Text.ElideRight
                                     color: Theme.white
                                     font.family: Theme.displayFont
-                                    font.pixelSize: 13
+                                    font.pixelSize: Theme.scaleFont(13)
                                     font.letterSpacing: 0.5
                                     font.weight: Font.DemiBold
                                 }
@@ -179,7 +185,7 @@ Item {
                                         color: row.modelData.policy === "AUTO"
                                                ? Theme.amber : Theme.steelLight
                                         font.family: Theme.displayFont
-                                        font.pixelSize: 9 * Theme.labelScale
+                                        font.pixelSize: Theme.scaleFont(9 * Theme.labelScale)
                                         font.letterSpacing: Theme.labelTracking
                                         font.weight: Font.DemiBold
                                     }
@@ -200,7 +206,7 @@ Item {
                                 elide: Text.ElideMiddle
                                 color: Theme.mutedText
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.scaleFont(10)
                             }
 
                             Text {
@@ -209,7 +215,7 @@ Item {
                                 elide: Text.ElideRight
                                 color: Theme.steelLight
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.scaleFont(11)
                             }
 
                             Text {
@@ -220,7 +226,7 @@ Item {
                                 elide: Text.ElideRight
                                 color: Theme.dangerText
                                 font.family: Theme.bodyFont
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.scaleFont(10)
                             }
 
                             Repeater {
@@ -236,7 +242,7 @@ Item {
                                     elide: Text.ElideRight
                                     color: Theme.dangerText
                                     font.family: Theme.bodyFont
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.scaleFont(10)
                                 }
                             }
 
@@ -284,7 +290,7 @@ Item {
                         text: "NO WATCHED FOLDERS"
                         color: Theme.white
                         font.family: Theme.displayFont
-                        font.pixelSize: 17
+                        font.pixelSize: Theme.scaleFont(17)
                         font.letterSpacing: 1.6
                         font.weight: Font.DemiBold
                     }
@@ -297,7 +303,7 @@ Item {
                         text: "Add a folder to collect screenshots here."
                         color: Theme.steelLight
                         font.family: Theme.bodyFont
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.scaleFont(11)
                     }
                 }
             }
@@ -315,7 +321,7 @@ Item {
                     elide: Text.ElideRight
                     color: Theme.steelLight
                     font.family: Theme.bodyFont
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.scaleFont(11)
                 }
 
                 Item { Layout.fillWidth: true }
