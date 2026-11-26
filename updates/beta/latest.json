@@ -1,19 +1,19 @@
 {
-  "version": "2.5.0",
-  "notes": "This is a minor release because it adds a new in-app audit workflow.\n\nFEATURES\n\n- Added **Audit exports** to the More menu. Choose an originals folder and an export folder to run the same local checks as `markseal.audit_exports` without a terminal.\n- The audit shows per-file issues, logged box counts, wide-box warnings, masked percentages, and optional OCR candidates. It supports progress, cancellation, and a JSON report.\n- Added optional OCR verification and saved blocked-pattern checks. Both stay local and are off unless selected.\n\nENHANCEMENTS\n\n- Audit results remain available while the panel is open and can be saved as a JSON report.\n\nFIXES\n\n- Malformed coordinate logs now produce an audit issue instead of an unhandled exception.\n- Verify now explains when coordinate logs are disabled and tells you to enable and save before verifying, instead of reporting a missing file.\n\nOPTIMIZATIONS\n\n- None.\n\nThe Windows installer is unsigned; Windows may show an unknown-publisher warning. Linux and macOS builds are produced in CI without running the test suite on those platforms.",
-  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.5.0",
+  "version": "2.5.1",
+  "notes": "This is a security patch release for a dependency update.\n\nFIXES\n\n- Upgraded Pillow from 12.3.0 to 13.0.0, addressing the 43 open Dependabot advisories in image parsing and encoding.\n- Source builds now require Python 3.11 or newer because Pillow 13 requires it. The packaged Windows, Linux, and macOS builds use Python 3.11.\n\nThe Windows installer is unsigned; Windows may show an unknown-publisher warning. Linux and macOS builds are produced in CI without running the test suite on those platforms.\n",
+  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.5.1",
   "downloads": {
     "windows-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.5.0/Markseal-Setup.exe",
-      "sha256": "efc0c1b5aec4804854872e25c3f153a04b61a7cf1332031ed6b70ada6c734f17"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.5.1/Markseal-Setup.exe",
+      "sha256": "10039e30ff119449f2f459680c6d97dc1eeff546b4acb12b3c6b7b817392c0d9"
     },
     "linux-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.5.0/Markseal-linux-x64.tar.gz",
-      "sha256": "8374100713e6bd7e39fdfa4b01e311b66f9cdc9eb3943182311e507270e617d7"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.5.1/Markseal-linux-x64.tar.gz",
+      "sha256": "7894ba2286eccebd657c0170f41b9716341a72b21e4b5dbbd430054cd1ae4c6f"
     },
     "macos-aarch64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.5.0/Markseal-macos-arm64.zip",
-      "sha256": "256ddcc980fa3f258089248556213818b3bb923410218638942af9ac25a9dbd4"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.5.1/Markseal-macos-arm64.zip",
+      "sha256": "6aa680e7ff64a17ed26c4650910327946d809eb2d4e41176a43b9ba7b4d80002"
     }
   }
 }
