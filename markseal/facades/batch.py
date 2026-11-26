@@ -2,11 +2,9 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from PySide6.QtWidgets import QFileDialog
-
-from ..export_copy import CopyRequest, ExportCopies, export_succeeded
 from .batch_audit import BatchAudit
 from .batch_scan import BatchScan
+from .batch_export import BatchExport
 from .batch_tools import BatchTools
 
 
@@ -36,6 +34,7 @@ class BatchFacade(QObject):
         self._audit_run = BatchAudit(self)
         self._scan = BatchScan(self)
         self._tools = BatchTools(self)
+        self._export = BatchExport(self)
 
     @Property(bool, notify=busyChanged)
     def busy(self):
@@ -128,159 +127,75 @@ class BatchFacade(QObject):
         self.auditChanged.emit()
 
     @Slot()
-    def prepareAudit(self): self._audit_run.prepareAudit()
+    def prepareAudit(self):
+        self._audit_run.prepareAudit()
 
     @Slot()
-    def chooseAuditOriginals(self): self._audit_run.chooseAuditOriginals()
-    @Slot()
-    def chooseAuditExports(self): self._audit_run.chooseAuditExports()
+    def chooseAuditOriginals(self):
+        self._audit_run.chooseAuditOriginals()
 
     @Slot()
-    def startAudit(self): self._audit_run.startAudit()
+    def chooseAuditExports(self):
+        self._audit_run.chooseAuditExports()
+
     @Slot()
-    def cancelAudit(self): self._audit_run.cancelAudit()
+    def startAudit(self):
+        self._audit_run.startAudit()
+
     @Slot()
-    def saveAuditReport(self): self._audit_run.saveAuditReport()
+    def cancelAudit(self):
+        self._audit_run.cancelAudit()
+
     @Slot()
-    def scanAll(self): self._scan.scanAll()
+    def saveAuditReport(self):
+        self._audit_run.saveAuditReport()
+
     @Slot()
-    def scanSelected(self): self._scan.scanSelected()
+    def scanAll(self):
+        self._scan.scanAll()
+
     @Slot()
-    def rescanAll(self): self._scan.rescanAll()
-    def start_scan(self, entries, rescan=False, *, follow=False, area=None): self._scan.start_scan(entries, rescan, follow=follow, area=area)
-    def scan_entry(self, entry, rescan=False, area=None): self._scan.scan_entry(entry, rescan, area)
+    def scanSelected(self):
+        self._scan.scanSelected()
+
     @Slot()
-    def cancelScan(self): self._scan.cancelScan()
+    def rescanAll(self):
+        self._scan.rescanAll()
+
+    def start_scan(self, entries, rescan=False, *, follow=False, area=None):
+        self._scan.start_scan(entries, rescan, follow=follow, area=area)
+
+    def scan_entry(self, entry, rescan=False, area=None):
+        self._scan.scan_entry(entry, rescan, area)
+
     @Slot()
-    def copyBoxesToFolder(self): self._tools.copyBoxesToFolder()
-    def match_boxes_to_folder(self, anchor): self._tools.match_boxes_to_folder(anchor)
+    def cancelScan(self):
+        self._scan.cancelScan()
+
     @Slot()
-    def confirmAll(self): self._tools.confirmAll()
-    def confirm_entries(self, entries, title): self._tools.confirm_entries(entries, title)
+    def copyBoxesToFolder(self):
+        self._tools.copyBoxesToFolder()
+
+    def match_boxes_to_folder(self, anchor):
+        self._tools.match_boxes_to_folder(anchor)
+
+    @Slot()
+    def confirmAll(self):
+        self._tools.confirmAll()
+
+    def confirm_entries(self, entries, title):
+        self._tools.confirm_entries(entries, title)
+
     @Slot()
     def saveReviewed(self):
-        if self.session.jobs.busy:
-            return
-        self.session.store_active()
-        pending = [(index, entry) for index, entry in enumerate(self.session.entries)
-                   if entry.reviewed and not entry.saved]
-        if not pending:
-            self.alerts.info('Save reviewed',
-                             'Confirm the selection on each image you want to save.')
-            return
-        self.export_entries(pending)
+        self._export.saveReviewed()
 
     def save_active(self):
-        entry = self.session.entries[self.session.active]
-        self.export_entries([(self.session.active, entry)], individual=True)
+        self._export.save_active()
 
     def export_entries(self, pending, individual=False):
-        def choose(target):
-            chosen, _ = QFileDialog.getSaveFileName(
-                None, 'Save redacted copy', str(target), 'PNG image (*.png)'
-            )
-            return chosen or None
-
-        def output_for(entry):
-            watches = getattr(self.session.facades, 'watches', None)
-            if watches is not None:
-                directory_for = getattr(watches, 'output_for_source', None)
-                if directory_for is not None:
-                    directory = directory_for(entry.path)
-                    if directory is not None:
-                        return directory
-            return self.session.output_directory
-
-        copies = ExportCopies(self.session.preferences)
-        try:
-            plan = copies.plan(
-                [CopyRequest.from_entry(entry) for _index, entry in pending],
-                output_directory=output_for,
-                choose=choose if individual else None,
-            )
-        except (ValueError, KeyError, IndexError, AttributeError, OSError) as error:
-            title = 'Cannot save image' if individual else 'Cannot save images'
-            retry = self.save_active if individual else self.saveReviewed
-            self.alerts.error(title, str(error), 'RETRY', retry)
-            return
-        if plan is None:
-            return
-        unredacted = plan.unredacted
-        if unredacted and not self.alerts.ask(
-                'Save unredacted copies?',
-                f'{unredacted} reviewed image{"" if unredacted == 1 else "s"} '
-                f'{"has" if unredacted == 1 else "have"} no selected boxes. '
-                'Save them as unredacted PNG copies?'):
-            return
-
-        snapshots = [
-            (planned.request.entry, copies.snapshot(planned))
-            for planned in plan.jobs
-        ]
-
-        def operation(job):
-            _entry, snapshot = job
-            snapshot.target.parent.mkdir(parents=True, exist_ok=True)
-            copies.write(snapshot, include_log=plan.include_log)
-
-        def accept(index, result, error):
-            planned = plan.jobs[index]
-            entry = planned.request.entry
-            target = planned.target
-            snapshot = snapshots[index][1]
-            if error:
-                self.alerts.set_status(f'{entry.path.name} · {error}')
-            elif export_succeeded(entry, snapshot):
-                entry.mark_saved(target)
-                entry.error = ''
-                self.session.facades.review.last_export = target
-                watches = getattr(self.session.facades, 'watches', None)
-                if watches is not None:
-                    watches.note_export(entry.path, target)
-                self.alerts.set_status(f'Saved {target.name} to {target.parent}')
-
-        self.session.jobs.run(
-            'Saving', snapshots, operation, accept,
-            metrics_settings={'method': self.session.preferences.method,
-                              'coordinate_logs': plan.include_log},
-            rows=self.session.facades.folder.rows(),
-        )
+        self._export.export_entries(pending, individual)
 
     @Slot()
     def verifyReviewed(self):
-        if self.session.jobs.busy:
-            return
-        self.session.store_active()
-        saved = [entry for entry in self.session.entries
-                 if entry.saved and entry.export_path is not None]
-        copies = ExportCopies(self.session.preferences)
-        files = []
-        for entry in saved:
-            target = entry.export_path
-            if target.is_file():
-                files.append(copies.verify(target, entry.path.parent))
-        result = {
-            'files': files,
-            'all_ok': bool(files) and all(
-                item['outside_pixels_unchanged'] and not item['issue'] for item in files),
-        }
-        self.last_verify = result
-        self.verifyResult.emit(result)
-        if not files:
-            self.alerts.set_status(
-                'No exported copies found to verify. Save reviewed images first.'
-            )
-        elif result['all_ok']:
-            count = len(files)
-            noun = 'export' if count == 1 else 'exports'
-            self.alerts.set_status(
-                f'Verified {count} {noun}: pixels outside redactions unchanged.'
-            )
-        else:
-            problems = [
-                f'{item["export"]}: '
-                f'{item["issue"] or "pixels changed outside redactions"}'
-                for item in files
-                if item['issue'] or not item['outside_pixels_unchanged']
-            ]
-            self.alerts.error('Verify failed', '; '.join(problems))
+        self._export.verifyReviewed()
