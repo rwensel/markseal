@@ -1,4 +1,4 @@
-"""Non-Qt planning and result handling for scans, batch tools, and exports."""
+"""Non-Qt planning and result handling for scans and batch tools."""
 from __future__ import annotations
 
 from dataclasses import dataclass
