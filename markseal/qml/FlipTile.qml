@@ -86,6 +86,7 @@ Item {
             font.pixelSize: 13
             font.letterSpacing: 0.8
             font.weight: Font.DemiBold
+            font.features: ({ "tnum": 1 })
         }
 
         Text {

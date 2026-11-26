@@ -113,6 +113,7 @@ Item {
             font.family: Theme.displayFont
             font.pixelSize: 10
             font.letterSpacing: 0.6
+            font.features: ({ "tnum": 1 })
             Accessible.role: Accessible.StaticText
             Accessible.name: "Display scale " + text
             ToolTip.visible: zoomPointer.containsMouse
@@ -196,6 +197,7 @@ Item {
             font.family: Theme.displayFont
             font.pixelSize: 10
             font.letterSpacing: 0.8
+            font.features: ({ "tnum": 1 })
         }
 
         ConcourseButton {
