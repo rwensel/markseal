@@ -92,4 +92,4 @@ The audit checks for unreadable PNGs, missing coordinate logs, changed pixels ou
 
 ## Sharing
 
-**Copy image** puts the confirmed preview on the local clipboard so you can paste it into chat, a ticket, documentation, or a sharing service you already use. **Save** writes a PNG and, when enabled, a coordinate log. For a PDF, Save writes the current page and its page-specific log entry. MarkSeal has no upload integrations; sharing happens through your own clipboard or file workflow. Closing MarkSeal with unsaved review work asks before discarding it.
+**Copy image** puts the confirmed preview on the local clipboard so you can paste it into chat, a ticket, documentation, or a sharing service you already use. **Save** writes a PNG and, when enabled, a coordinate log. For a PDF, Save writes the current page and its page-specific log entry. MarkSeal has no upload integrations; sharing happens through your own clipboard or file workflow. Closing MarkSeal with unsaved review work asks before discarding it. On a narrow confirmed image, Rule tags, Copy image, and Verify are grouped under Actions so the filename and method controls stay visible.

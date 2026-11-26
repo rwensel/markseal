@@ -8,6 +8,7 @@ Item {
     id: viewer
     property int hoveredBox: -1
     property int keyboardBox: -1
+    readonly property bool compactCaption: width < 900
     readonly property string captureTitle: Backend.review.captureMode === "area" ? "SCAN AREA"
                                           : Backend.review.captureMode === "anchor" ? "ANCHOR MATCH"
                                           : Backend.review.captureMode === "learn" ? "LEARN PATTERN" : ""
@@ -101,6 +102,7 @@ Item {
             Layout.preferredHeight: 26
             text: "RULE TAGS"
             compact: true
+            visible: !viewer.compactCaption || !Backend.review.confirmed
             variant: Backend.settings.showRules ? "primary" : "secondary"
             tip: "Show which rule flagged each box"
             onClicked: Backend.settings.setShowRules(!Backend.settings.showRules)
@@ -147,10 +149,23 @@ Item {
         }
 
         ConcourseButton {
+            id: compactActionsButton
+            Layout.preferredHeight: 26
+            text: "ACTIONS"
+            compact: true
+            visible: Backend.review.confirmed && viewer.compactCaption
+            tip: "Rule tags, copy, and verify"
+            onClicked: compactActions.popup(
+                compactActionsButton,
+                compactActionsButton.width - compactActions.width,
+                compactActionsButton.height + 6)
+        }
+
+        ConcourseButton {
             Layout.preferredHeight: 26
             text: "COPY IMAGE"
             compact: true
-            visible: Backend.review.confirmed
+            visible: Backend.review.confirmed && !viewer.compactCaption
             tip: "Copy the redacted image to the clipboard (Ctrl+C)"
             enabled: !Backend.batch.busy
             onClicked: Backend.review.copyRedacted()
@@ -160,7 +175,7 @@ Item {
             Layout.preferredHeight: 26
             text: "VERIFY"
             compact: true
-            visible: Backend.review.confirmed && Backend.review.canVerify
+            visible: Backend.review.confirmed && Backend.review.canVerify && !viewer.compactCaption
             tip: "Prove pixels outside the redactions are unchanged"
             enabled: !Backend.batch.busy
             onClicked: Backend.review.verifyCurrent()
@@ -929,6 +944,36 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    Menu {
+        id: compactActions
+        width: 196
+        padding: 6
+        background: Rectangle {
+            color: Theme.panel
+            radius: 8
+            border.width: 1
+            border.color: Theme.hairline
+        }
+
+        MenuAction {
+            text: Backend.settings.showRules ? "Hide rule tags" : "Show rule tags"
+            onTriggered: Backend.settings.setShowRules(!Backend.settings.showRules)
+        }
+
+        MenuAction {
+            text: "Copy redacted image"
+            enabled: !Backend.batch.busy
+            onTriggered: Backend.review.copyRedacted()
+        }
+
+        MenuAction {
+            text: "Verify export"
+            visible: Backend.review.canVerify
+            enabled: !Backend.batch.busy
+            onTriggered: Backend.review.verifyCurrent()
         }
     }
 
