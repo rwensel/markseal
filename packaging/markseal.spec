@@ -8,7 +8,8 @@ root = packaging_dir.parent
 
 datas = list(collect_data_files('markseal'))
 datas += collect_data_files('PySide6', subdir='qml')
-datas += [(str(root / 'THIRD_PARTY_NOTICES.txt'), '.')]
+datas += [(str(root / 'THIRD_PARTY_NOTICES.txt'), '.'),
+         (str(root / 'LICENSE'), '.')]
 binaries = []
 hiddenimports = []
 for package in ('rapidocr', 'onnxruntime', 'pypdfium2'):

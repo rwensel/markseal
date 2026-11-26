@@ -7,4 +7,5 @@ if [ "${SKIP_TESTS:-0}" != "1" ]; then
 fi
 ./.venv/bin/python packaging/fetch_ner_model.py
 ./.venv/bin/python -m PyInstaller --noconfirm --clean packaging/markseal.spec
+cp LICENSE dist/Markseal/LICENSE
 printf 'Built dist/Markseal/ - wrap it as an AppImage with appimagetool if you want a single file\n'
