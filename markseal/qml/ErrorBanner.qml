@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Effects
 import QtQuick.Layouts
 import Redactor 1.0
@@ -70,12 +71,17 @@ Item {
             Text {
                 Layout.fillWidth: true
                 text: Backend.errorDetail
-                wrapMode: Text.WordWrap
+                wrapMode: Text.WrapAnywhere
                 maximumLineCount: 2
                 elide: Text.ElideRight
                 color: Theme.steelLight
                 font.family: Theme.bodyFont
                 font.pixelSize: 11
+                ToolTip.visible: detailHover.hovered
+                ToolTip.delay: 500
+                ToolTip.text: Backend.errorDetail
+
+                HoverHandler { id: detailHover }
             }
         }
 

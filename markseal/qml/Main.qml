@@ -15,6 +15,18 @@ Window {
            ? Backend.review.imageName + " - MarkSeal"
            : "MarkSeal"
 
+    onActiveChanged: {
+        if (!active) {
+            Backend.review.cancelCapture()
+            Backend.review.endPan()
+        }
+    }
+
+    onClosing: function(close) {
+        if (!Backend.canClose())
+            close.accepted = false
+    }
+
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {

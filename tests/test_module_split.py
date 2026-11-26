@@ -69,6 +69,7 @@ class ModuleSplitTests(unittest.TestCase):
             'statusChanged', 'errorChanged',
             'dismissError', 'runErrorAction',
             'openImage', 'openFolder', 'openDropped', 'pasteImage', 'captureRegion',
+            'canClose',
         })
 
     def test_facade_modules_do_not_import_the_controller(self):

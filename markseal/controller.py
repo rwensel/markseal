@@ -122,6 +122,37 @@ class Controller(QObject):
     def runErrorAction(self):
         self.alerts.run_action()
 
+    @Slot(result=bool)
+    def canClose(self):
+        if self.jobs.busy:
+            return self.alerts.ask(
+                'Close MarkSeal?',
+                'A job is still running. Close MarkSeal anyway?',
+            )
+        if self._review.isPdf and self._review.unsaved_pdf_work() \
+                and self._review.last_export is None:
+            return self.alerts.ask(
+                'Discard PDF markings?',
+                'This PDF has unsaved markings. Close and discard them?',
+            )
+        pending = [
+            entry for entry in self.session.entries
+            if not entry.saved and (entry.boxes or entry.reviewed)
+        ]
+        if pending:
+            count = len(pending)
+            message = ('1 image has unsaved review work. Close and discard it?'
+                       if count == 1 else
+                       f'{count} images have unsaved review work. Close and discard it?')
+            return self.alerts.ask('Close MarkSeal?', message)
+        if not self.session.entries and self.session.review.boxes \
+                and self._review.last_export is None:
+            return self.alerts.ask(
+                'Close MarkSeal?',
+                'The current image has unsaved markings. Close and discard them?',
+            )
+        return True
+
     def _choose_image(self):
         path, _ = QFileDialog.getOpenFileName(
             None, 'Open image', '',

@@ -25,6 +25,13 @@ Window {
         requestActivate()
     }
 
+    onActiveChanged: {
+        if (!active && visible) {
+            dragging = false
+            visible = false
+        }
+    }
+
     function commit() {
         dragging = false
         var left = Math.min(startX, endX)
@@ -93,5 +100,6 @@ Window {
             overlay.endY = mouse.y
             overlay.commit()
         }
+        onCanceled: overlay.dragging = false
     }
 }

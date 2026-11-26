@@ -354,6 +354,21 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.errors, [])
         self.assertTrue(target.is_file())
 
+    def test_close_protects_unsaved_boxes(self):
+        self.open_image()
+        self.controller.session.review.boxes = [(0, 0, 10, 10)]
+        self.controller.session.review.selected = {0}
+        asked = []
+        self.controller.alerts.ask = (
+            lambda title, text: asked.append((title, text)) or False
+        )
+        self.assertFalse(self.controller.canClose())
+        self.assertEqual(asked[0][0], 'Close MarkSeal?')
+        self.controller.alerts.ask = lambda *args, **kwargs: True
+        self.assertTrue(self.controller.canClose())
+        self.controller.review.last_export = Path(self.temporary.name) / 'export.png'
+        self.assertTrue(self.controller.canClose())
+
     def test_main_qml_loads_with_the_backend(self):
         qmlRegisterSingletonInstance(Controller, 'Redactor', 1, 0, 'Backend', self.controller)
         engine = QQmlApplicationEngine()

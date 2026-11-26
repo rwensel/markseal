@@ -119,6 +119,14 @@ class ReviewFacadeTests(unittest.TestCase):
         self.review.removeBox(0)
         self.assertEqual(self.review.imageRevision, revision)
 
+    def test_box_edits_invalidate_the_last_export(self):
+        self.open_image()
+        self.review.last_export = Path('saved.png')
+        self.controller.session.review.boxes = [(0, 0, 10, 10)]
+        self.controller.session.review.selected = {0}
+        self.review.toggleBox(0)
+        self.assertIsNone(self.review.last_export)
+
     def test_undo_after_confirmation_reloads_the_display(self):
         self.open_image()
         self.controller.session.review.boxset.add((0, 0, 10, 10))

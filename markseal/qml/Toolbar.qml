@@ -222,6 +222,7 @@ Item {
 
         MenuAction {
             text: "Paste image  (Ctrl+V)"
+            enabled: !Backend.batch.busy
             onTriggered: Backend.pasteImage()
         }
         MenuAction {

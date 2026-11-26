@@ -41,6 +41,10 @@ class ReviewFacade(QObject):
         self._pdf_index = 0
         self._pdf_states = {}
 
+    def _invalidate_export(self):
+        self.last_export = None
+        self.last_verify = None
+
     @Property(bool, notify=imageChanged)
     def hasImage(self):
         return self.session.review.image is not None
@@ -211,6 +215,7 @@ class ReviewFacade(QObject):
         self._close_pdf()
         self.session.pasted_image = pasted
         self.session.review.load(image, path)
+        self._invalidate_export()
         self.refresh_display()
         self.imageChanged.emit()
         self.emit_review()
@@ -231,6 +236,7 @@ class ReviewFacade(QObject):
         self.session.pasted_image = False
         self.session.review.load(page.image, path)
         self.session.review.boxset = state
+        self._invalidate_export()
         self.refresh_display()
         self.imageChanged.emit()
         self.emit_review()
@@ -261,6 +267,7 @@ class ReviewFacade(QObject):
         self.session.review.load(page.image, self._pdf.path)
         self.session.review.boxset = state[0]
         self.session.review.confirmed = state[1]
+        self._invalidate_export()
         self.refresh_display()
         self.imageChanged.emit()
         self.emit_review()
@@ -300,6 +307,7 @@ class ReviewFacade(QObject):
         self.session.review.boxset = entry.boxset
         self.session.review.confirmed = entry.reviewed
         self.session.review.viewport.clear()
+        self._invalidate_export()
 
     def set_entry_image(self, image):
         self.session.review.image = image
@@ -309,6 +317,7 @@ class ReviewFacade(QObject):
 
     def invalidate(self):
         self.session.review.confirmed = False
+        self._invalidate_export()
         self.refresh_display()
         self.emit_review()
 
@@ -320,6 +329,7 @@ class ReviewFacade(QObject):
 
     def method_changed(self):
         if not self.session.entries:
+            self._invalidate_export()
             if self.session.review.confirmed:
                 self.refresh_display()
             return
@@ -477,6 +487,7 @@ class ReviewFacade(QObject):
         if self.session.review.confirmed:
             return
         if self.session.review.toggle_box(index):
+            self._invalidate_export()
             self.session.store_active()
             self.emit_review()
             self.alerts.set_status(self.review_status())
@@ -486,6 +497,7 @@ class ReviewFacade(QObject):
         if self.session.review.confirmed:
             return
         if self.session.review.remove_box(index):
+            self._invalidate_export()
             self.session.store_active()
             self.emit_review()
             self.emit_view()
@@ -499,6 +511,7 @@ class ReviewFacade(QObject):
     def undo(self):
         was_confirmed = self.session.review.confirmed
         if self.session.review.undo():
+            self._invalidate_export()
             if was_confirmed:
                 self.refresh_display()
             self.session.store_active()
@@ -515,6 +528,7 @@ class ReviewFacade(QObject):
     def redo(self):
         was_confirmed = self.session.review.confirmed
         if self.session.review.redo():
+            self._invalidate_export()
             if was_confirmed:
                 self.refresh_display()
             self.session.store_active()
@@ -528,6 +542,7 @@ class ReviewFacade(QObject):
         if self.session.review.image is None or not self.session.review.confirmed:
             return
         self.session.review.confirmed = False
+        self._invalidate_export()
         self.refresh_display()
         self.session.store_active()
         self.emit_review()
@@ -543,6 +558,7 @@ class ReviewFacade(QObject):
             return
         was_confirmed = self.session.review.confirmed
         self.session.review.clear()
+        self._invalidate_export()
         if was_confirmed:
             self.refresh_display()
         self.session.store_active()
@@ -562,6 +578,7 @@ class ReviewFacade(QObject):
             )
             return
         self.session.review.confirmed = True
+        self._invalidate_export()
         self.refresh_display()
         self.session.store_active()
         self.emit_review()
@@ -579,6 +596,7 @@ class ReviewFacade(QObject):
             return
         review.select_all()
         review.confirmed = True
+        self._invalidate_export()
         self.refresh_display()
         self.session.store_active()
         self.emit_review()
@@ -613,6 +631,7 @@ class ReviewFacade(QObject):
     def start_single_scan(self, area=None):
         if self.session.review.image is None or self.session.jobs.busy:
             return
+        self._invalidate_export()
         try:
             engine = self.session.scan_engine()
             settings = self.session.scan_settings()
@@ -818,6 +837,7 @@ class ReviewFacade(QObject):
             self.alerts.error('Save failed', str(error), 'RETRY', self.save)
             return
         self.last_export = target
+        self.last_verify = None
         note = ' and coordinate log' if include_log else ''
         warning = {
             'Blur': 'blurred text can sometimes be recovered.',

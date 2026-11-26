@@ -371,6 +371,11 @@ Item {
                     }
                 }
 
+                onCanceled: {
+                    Backend.review.cancelCapture()
+                    Backend.review.endPan()
+                }
+
                 onWheel: function(wheel) {
                     Backend.review.zoomAt(wheel.x, wheel.y, wheel.angleDelta.y)
                 }
