@@ -84,7 +84,7 @@ class ReviewFacadeTests(unittest.TestCase):
         self.controller.session.review.selected = {0}
         self.controller.session.review.confirmed = True
         target = Path(self.temporary.name) / 'screen_redacted.png'
-        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+        with patch('markseal.facades.review_actions.QFileDialog.getSaveFileName',
                    return_value=(str(target), 'PNG image (*.png)')):
             self.review.save_single()
         self.assertTrue(target.is_file())
@@ -104,7 +104,7 @@ class ReviewFacadeTests(unittest.TestCase):
         self.controller.session.review.confirmed = True
         self.controller.session.preferences.include_log = False
         target = Path(self.temporary.name) / 'screen_redacted.png'
-        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+        with patch('markseal.facades.review_actions.QFileDialog.getSaveFileName',
                    return_value=(str(target), 'PNG image (*.png)')):
             self.review.save_single()
         info = []

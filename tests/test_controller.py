@@ -117,7 +117,7 @@ class ControllerTests(unittest.TestCase):
         self.assertTrue(self.controller.review.confirmed)
 
         target = Path(self.temporary.name) / 'screenshot_redacted.png'
-        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+        with patch('markseal.facades.review_actions.QFileDialog.getSaveFileName',
                    return_value=(str(target), 'PNG image (*.png)')):
             self.controller.review.save_single()
 
@@ -313,7 +313,7 @@ class ControllerTests(unittest.TestCase):
         self.controller.session.review.boxset.add((10, 10, 20, 20), 'Account')
         self.controller.review.confirmSelection()
         target = Path(self.temporary.name) / 'two-pages_page-001_redacted.png'
-        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+        with patch('markseal.facades.review_actions.QFileDialog.getSaveFileName',
                    return_value=(str(target), 'PNG image (*.png)')) as dialog:
             self.controller.review.save_single()
         self.assertEqual(self.errors, [])
@@ -327,7 +327,7 @@ class ControllerTests(unittest.TestCase):
         self.controller.session.review.boxset.add((10, 10, 20, 20), 'Account')
         self.controller.review.confirmSelection()
         target = Path(self.temporary.name) / 'screenshot_redacted.png'
-        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+        with patch('markseal.facades.review_actions.QFileDialog.getSaveFileName',
                    return_value=(str(target), 'PNG image (*.png)')):
             self.controller.review.save_single()
         self.assertEqual(self.errors, [])
@@ -348,7 +348,7 @@ class ControllerTests(unittest.TestCase):
         self.open_pdf()
         self.controller.review.confirmSelection()
         target = Path(self.temporary.name) / 'blank_page-001_redacted.png'
-        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+        with patch('markseal.facades.review_actions.QFileDialog.getSaveFileName',
                    return_value=(str(target), 'PNG image (*.png)')):
             self.controller.review.save_single()
         self.assertEqual(self.errors, [])
