@@ -1,10 +1,7 @@
 import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 
-from markseal import preferences, workflows
-from markseal.export_copy import CopyRequest, ExportCopies, export_succeeded
+from markseal import workflows
 from tests.support import BoxList, FolderImage
 
 
@@ -67,73 +64,6 @@ class ScanPlanningTests(unittest.TestCase):
             workflows.scan_summary([complete], area=(0, 0, 1, 1), area_completed=True),
             'Area scan finished · review suggested boxes',
         )
-
-
-class ExportPlanningTests(unittest.TestCase):
-    def setUp(self):
-        self.copies = ExportCopies(preferences.defaults())
-
-    def test_export_plan_builds_targets_and_counts_unredacted(self):
-        with TemporaryDirectory() as folder:
-            redacted = entry('a.png', boxes=[(0, 0, 5, 5)], selected={0})
-            unredacted = entry('b.png')
-            plan = self.copies.plan(
-                [CopyRequest.from_entry(redacted), CopyRequest.from_entry(unredacted)],
-                output_directory=Path(folder),
-            )
-            self.assertEqual([job.target.name for job in plan.jobs],
-                             ['a_redacted.png', 'b_redacted.png'])
-            self.assertEqual(plan.unredacted, 1)
-
-    def test_export_plan_rejects_existing_outputs(self):
-        with TemporaryDirectory() as folder:
-            (Path(folder) / 'a_redacted.redactions.json').write_text('{}')
-            with self.assertRaises(ValueError):
-                self.copies.plan(
-                    [CopyRequest.from_entry(entry('a.png'))],
-                    output_directory=Path(folder),
-                )
-
-    def test_export_plan_returns_none_when_the_chooser_cancels(self):
-        with TemporaryDirectory() as folder:
-            plan = self.copies.plan(
-                [CopyRequest.from_entry(entry('a.png'))],
-                output_directory=Path(folder), choose=lambda target: None,
-            )
-        self.assertIsNone(plan)
-
-    def test_export_success_requires_the_snapshot_to_match(self):
-        image = entry('a.png', boxes=[(0, 0, 5, 5)], selected={0}, reviewed=True)
-        snapshot = SimpleNamespace(boxes=[(0, 0, 5, 5)], selected={0}, method='Pixelate')
-        self.assertTrue(export_succeeded(image, snapshot))
-        image.selected = set()
-        self.assertFalse(export_succeeded(image, snapshot))
-
-
-class AutoExportTests(unittest.TestCase):
-    def test_auto_export_snapshot_targets_the_watch_folder(self):
-        from markseal.boxset import FolderImage
-        from pathlib import Path
-        entry = FolderImage(Path('shots/a.png'))
-        entry.boxes = [(1, 2, 3, 4)]
-        entry.selected = {0}
-        copies = ExportCopies(preferences.defaults())
-        snapshot, include_log = copies.auto_snapshot(entry, Path('shots/redacted'))
-        self.assertEqual(snapshot.target, Path('shots/redacted/a_redacted.png'))
-        self.assertTrue(include_log)
-        self.assertEqual(list(snapshot.boxes), [(1, 2, 3, 4)])
-
-    def test_auto_export_snapshot_refuses_an_existing_target(self):
-        from markseal.boxset import FolderImage
-        with TemporaryDirectory() as directory:
-            target = Path(directory) / 'a_redacted.png'
-            target.write_bytes(b'x')
-            entry = FolderImage(Path(directory) / 'a.png')
-            entry.boxes = [(1, 2, 3, 4)]
-            entry.selected = {0}
-            copies = ExportCopies(preferences.defaults())
-            with self.assertRaises(ValueError):
-                copies.auto_snapshot(entry, Path(directory))
 
 
 class BatchToolTests(unittest.TestCase):

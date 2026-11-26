@@ -95,6 +95,16 @@ class ExportCopyTests(unittest.TestCase):
             self.assertTrue(result['outside_pixels_unchanged'])
             self.assertEqual(result['logged_boxes'], 1)
 
+    def test_auto_snapshot_targets_the_watch_folder(self):
+        entry = self.entry(boxes=((1, 2, 3, 4),), selected=(0,))
+
+        snapshot, include_log = self.copies.auto_snapshot(
+            entry, Path('shots/redacted'))
+
+        self.assertEqual(snapshot.target, Path('shots/redacted/a_redacted.png'))
+        self.assertTrue(include_log)
+        self.assertEqual(list(snapshot.boxes), [(1, 2, 3, 4)])
+
     def test_auto_snapshot_confirms_and_refuses_an_existing_target(self):
         with TemporaryDirectory() as folder:
             target = Path(folder) / 'a_redacted.png'
