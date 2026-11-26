@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QFileDialog
 
 from .. import documents, images, ocr, redaction
 from ..export_copy import CopyRequest, ExportCopies
-from ..boxset import BoxSet
+from ..pdf_review import PdfReview
 from ..performance_log import PerformanceRun
 
 
@@ -38,8 +38,6 @@ class ReviewFacade(QObject):
         self.last_export = None
         self.last_verify = None
         self._pdf = None
-        self._pdf_index = 0
-        self._pdf_states = {}
 
     def _invalidate_export(self):
         self.last_export = None
@@ -55,7 +53,7 @@ class ReviewFacade(QObject):
 
     @Property(int, notify=imageChanged)
     def pdfPage(self):
-        return self._pdf_index + 1 if self._pdf is not None else 0
+        return self._pdf.page_index + 1 if self._pdf is not None else 0
 
     @Property(int, notify=imageChanged)
     def pdfPageCount(self):
@@ -63,11 +61,12 @@ class ReviewFacade(QObject):
 
     @Property(bool, notify=imageChanged)
     def canPreviousPdfPage(self):
-        return self._pdf is not None and self._pdf_index > 0
+        return self._pdf is not None and self._pdf.page_index > 0
 
     @Property(bool, notify=imageChanged)
     def canNextPdfPage(self):
-        return self._pdf is not None and self._pdf_index + 1 < self._pdf.page_count
+        return (self._pdf is not None
+                and self._pdf.page_index + 1 < self._pdf.page_count)
 
     @Property(bool, notify=imageChanged)
     def canVerify(self):
@@ -222,83 +221,68 @@ class ReviewFacade(QObject):
         self.emit_view()
 
     def load_pdf(self, path):
-        document = documents.PdfDocument(path)
+        pdf = PdfReview(path)
         try:
-            page = document.render_page(0)
+            state = pdf.open()
         except Exception:
-            document.close()
+            pdf.close()
             raise
         self._close_pdf()
-        self._pdf = document
-        self._pdf_index = 0
-        state = BoxSet()
-        self._pdf_states = {0: (state, False)}
+        self._pdf = pdf
         self.session.pasted_image = False
-        self.session.review.load(page.image, path)
-        self.session.review.boxset = state
+        self.session.review.load(state.page.image, path)
+        self.session.review.boxset = state.boxset
+        self.session.review.confirmed = state.confirmed
         self._invalidate_export()
         self.refresh_display()
         self.imageChanged.emit()
         self.emit_review()
         self.emit_view()
-
-    def _store_pdf_page(self):
-        if self._pdf is not None:
-            self._pdf_states[self._pdf_index] = (
-                self.session.review.boxset, self.session.review.confirmed
-            )
 
     def _switch_pdf_page(self, index):
         if self._pdf is None or self.session.jobs.busy:
             return
-        if not 0 <= index < self._pdf.page_count or index == self._pdf_index:
+        if not 0 <= index < self._pdf.page_count or index == self._pdf.page_index:
             return
-        self._store_pdf_page()
         try:
-            page = self._pdf.render_page(index)
+            state = self._pdf.switch(
+                index, current=self.session.review.boxset,
+                confirmed=self.session.review.confirmed)
         except documents.PdfError as error:
             self.alerts.error('Cannot render PDF page', str(error))
             return
-        state = self._pdf_states.get(index)
-        if state is None:
-            state = (BoxSet(), False)
-            self._pdf_states[index] = state
-        self._pdf_index = index
-        self.session.review.load(page.image, self._pdf.path)
-        self.session.review.boxset = state[0]
-        self.session.review.confirmed = state[1]
+        self.session.review.load(state.page.image, self._pdf.path)
+        self.session.review.boxset = state.boxset
+        self.session.review.confirmed = state.confirmed
         self._invalidate_export()
         self.refresh_display()
         self.imageChanged.emit()
         self.emit_review()
         self.emit_view()
-        self.alerts.set_status(f'Page {index + 1} of {self._pdf.page_count}.')
+        self.alerts.set_status(
+            f'Page {index + 1} of {self._pdf.page_count}.')
 
     @Slot()
     def previousPdfPage(self):
         if self._pdf is not None:
-            self._switch_pdf_page(self._pdf_index - 1)
+            self._switch_pdf_page(self._pdf.page_index - 1)
 
     @Slot()
     def nextPdfPage(self):
         if self._pdf is not None:
-            self._switch_pdf_page(self._pdf_index + 1)
+            self._switch_pdf_page(self._pdf.page_index + 1)
 
     @Slot(int)
     def goToPdfPage(self, page):
         self._switch_pdf_page(page - 1)
 
     def unsaved_pdf_work(self):
-        if self._pdf is None:
-            return False
-        return any(boxset.boxes for boxset, _ in self._pdf_states.values())
+        return self._pdf is not None and self._pdf.unsaved()
 
     def _close_pdf(self):
         if self._pdf is not None:
             self._pdf.close()
         self._pdf = None
-        self._pdf_index = 0
-        self._pdf_states = {}
 
     def adopt_entry(self, entry):
         self._close_pdf()
