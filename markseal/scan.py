@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from . import images, ocr
 from . import preferences as preference_module
+from .boxset import BoxList
 
 
 class ScanError(Exception):
@@ -15,14 +16,14 @@ class ScanError(Exception):
 
 @dataclass(frozen=True)
 class ScannedImage:
-    found: object
+    found: BoxList
     incomplete: tuple
 
 
 @dataclass(frozen=True)
 class ScannedFile:
     stamp: tuple
-    found: object
+    found: BoxList
     incomplete: tuple
 
 

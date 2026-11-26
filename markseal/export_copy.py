@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from PIL import Image
+
 from . import export
 from .audit_exports import verify_export
+from .boxset import FolderImage
 
 
 @dataclass(frozen=True)
@@ -13,9 +16,9 @@ class CopyRequest:
     method: str
     boxes: tuple = ()
     selected: frozenset = frozenset()
-    entry: object | None = None
+    entry: FolderImage | None = None
     stamp: tuple | None = None
-    image: object | None = None
+    image: Image.Image | None = None
     pasted: bool = False
     page: int | None = None
     target: Path | None = None
