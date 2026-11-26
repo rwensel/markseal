@@ -140,9 +140,13 @@ def eligible_for_confirmation(entries):
 
 
 def confirmation_prompt(pending, method):
-    prompt = f'Apply {method} to the selected boxes on {len(pending)} image(s)?'
+    count = len(pending)
+    noun = 'image' if count == 1 else 'images'
+    prompt = f'Apply {method} to the selected boxes on {count} {noun}?'
     partial = sum(bool(entry.incomplete_ocr) for entry in pending)
     if partial:
-        prompt += (f'\n\n{partial} image(s) have partial scans. '
+        partial_text = ('image has a partial scan' if partial == 1
+                        else 'images have partial scans')
+        prompt += (f'\n\n{partial} {partial_text}. '
                    'Confirm only if you have checked those images for missed sensitive text.')
     return prompt

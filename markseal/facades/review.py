@@ -389,7 +389,7 @@ class ReviewFacade(QObject):
             if capture == 'area':
                 if anchor[2] - anchor[0] < 4 or anchor[3] - anchor[1] < 4:
                     self.alerts.set_status(
-                        'Area too small. Click Scan area and draw around the text again.'
+                        'Area too small. Open More, choose Scan a region, and draw around the text again.'
                     )
                 elif self.session.active is None:
                     self.start_single_scan(area=anchor)
@@ -400,7 +400,7 @@ class ReviewFacade(QObject):
             elif capture == 'learn':
                 if anchor[2] - anchor[0] < 4 or anchor[3] - anchor[1] < 4:
                     self.alerts.set_status(
-                        'Area too small. Draw a tight box around the text you want to block.'
+                        'Area too small. Draw a tight box around the text you want to block again.'
                     )
                 else:
                     self.session.facades.settings.learn_pattern(anchor)
@@ -564,7 +564,7 @@ class ReviewFacade(QObject):
         self.session.store_active()
         self.emit_review()
         self.emit_view()
-        self.alerts.set_status('Boxes cleared. Scan again or drag to add an area.')
+        self.alerts.set_status('Boxes cleared. Scan again or drag to add a box.')
 
     @Slot()
     def confirmSelection(self):
@@ -583,8 +583,9 @@ class ReviewFacade(QObject):
         self.session.store_active()
         self.emit_review()
         self.alerts.set_status(
-            f'{len(self.session.review.selected)} boxes applied in preview. '
-            'Save, or click to change your selection.'
+            f'{len(self.session.review.selected)} '
+            f'{"box" if len(self.session.review.selected) == 1 else "boxes"} '
+            'applied in preview. Save, or click to change your selection.'
         )
 
     @Slot()
@@ -600,8 +601,11 @@ class ReviewFacade(QObject):
         self.refresh_display()
         self.session.store_active()
         self.emit_review()
+        count = len(review.selected)
+        noun = 'box' if count == 1 else 'boxes'
+        prefix = 'All ' if count > 1 else ''
         self.alerts.set_status(
-            f'All {len(review.selected)} boxes applied in preview. '
+            f'{prefix}{count} {noun} applied in preview. '
             'Save, or click to change your selection.'
         )
 
@@ -671,14 +675,21 @@ class ReviewFacade(QObject):
             info['added'] = added
             info['incomplete'] = incomplete
             detail = f' Incomplete OCR passes: {", ".join(incomplete)}.' if incomplete else ''
-            self.alerts.set_status(
-                f'{added} selected suggestions added.{detail} Review the entire image.'
-            )
+            if added:
+                noun = 'suggestion' if added == 1 else 'suggestions'
+                message = f'{added} selected {noun} added.'
+            else:
+                message = 'No new suggestions found.'
+            self.alerts.set_status(f'{message}{detail} Review the entire image.')
 
         def finish():
             if info['error'] is not None:
                 return 'Scan failed'
-            return f'{info["added"] or 0} new OCR suggestions'
+            count = info['added'] or 0
+            if count == 0:
+                return 'No new OCR suggestions'
+            noun = 'suggestion' if count == 1 else 'suggestions'
+            return f'{count} new OCR {noun}'
 
         def complete():
             if info['error'] is not None:
@@ -691,11 +702,13 @@ class ReviewFacade(QObject):
                 return
             detail = (f' Incomplete OCR passes: {", ".join(info["incomplete"])}.'
                       if info['incomplete'] else '')
-            self.alerts.info(
-                'Review required',
-                f'Added {info["added"]} selected boxes.{detail} '
-                'Review the image before confirming.',
-            )
+            added = info['added']
+            if added:
+                noun = 'box' if added == 1 else 'boxes'
+                message = f'Added {added} selected {noun}.{detail} Review the image before confirming.'
+            else:
+                message = f'No new boxes were added.{detail} Review the image or draw a box.'
+            self.alerts.info('Review required', message)
 
         self.alerts.set_status(
             'Scanning the selected area. Progress is shown above the screenshot.'
@@ -759,17 +772,18 @@ class ReviewFacade(QObject):
             self.alerts.set_status('Confirm selection to copy the redacted image.')
             return
         if not self.session.review.selected and not self.alerts.ask(
-                'No redactions', 'No areas are selected. Copy the unredacted image?'):
+                'No boxes selected', 'Copy the unredacted image?'):
             return
         if self._display_qimage.isNull():
             self.alerts.error('Copy failed', 'The preview is not available.',
                               'RETRY', self.copyRedacted)
             return
         QGuiApplication.clipboard().setImage(self._display_qimage.copy())
-        if self.session.review.selected:
+        count = len(self.session.review.selected)
+        if count:
+            noun = 'box' if count == 1 else 'boxes'
             self.alerts.set_status(
-                f'Copied the redacted image with {len(self.session.review.selected)} '
-                'box(es) to the clipboard.'
+                f'Copied the redacted image with {count} {noun} to the clipboard.'
             )
         else:
             self.alerts.set_status('Copied the unredacted image to the clipboard.')
@@ -795,7 +809,7 @@ class ReviewFacade(QObject):
             self.alerts.set_status('Confirm the selection before saving.')
             return
         if not self.session.review.selected and not self.alerts.ask(
-                'No redactions', 'No areas are selected. Save an unredacted copy?'):
+                'No boxes selected', 'Save an unredacted copy?'):
             return
         initial = self.session.review.path.stem + '_redacted.png'
         page = self.pdfPage if self._pdf is not None else None

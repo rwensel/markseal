@@ -160,8 +160,10 @@ class SettingsFacade(QObject):
                 self.alerts.status_text + f' Settings could not be saved: {error}'
             )
             return
-        self.alerts.set_status('Rule labels on. Hover a box or select one to inspect its rule.'
-                               if enabled else 'Rule labels hidden.')
+        self.alerts.set_status(
+            'Rule tags on. Hover a box or select one to see its tag.'
+            if enabled else 'Rule tags off.'
+        )
 
     @Property(bool, notify=settingsChanged)
     def checkForUpdates(self):

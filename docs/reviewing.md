@@ -30,7 +30,7 @@ Click **CAPTURE** in the toolbar to dim the screen and drag a rectangle. On rele
 
 ## Redaction method
 
-Use the **Method** toggle in the viewer caption, or **Settings → Redaction**, to switch between Pixelate, Black, Blur, and Erase. The choice is saved immediately and applies to the confirmed preview, the copied image, and the saved PNG. The method applies across the folder and is remembered across restarts. Changing it returns reviewed folder images to review before export.
+Use the **Method** toggle in the viewer caption, or **Settings → Redaction**, to switch between Pixelate, Solid black, Blur, and Erase. The choice is saved immediately and applies to the confirmed preview, the copied image, and the saved PNG. The method applies across the folder and is remembered across restarts. Changing it returns reviewed folder images to review before export.
 
 Pixels outside selected rectangles are preserved. Camera metadata is omitted from saved copies.
 

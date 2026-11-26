@@ -52,7 +52,7 @@ For short codes inside underscore-separated names, use alphanumeric boundaries s
 
 ## Redaction
 
-The **Method** toggle in the viewer caption and **Settings → Redaction** share the same choice: Pixelate, Black, Blur, or Erase. It is saved immediately and applies to the preview, copied image, and PNG. Solid black is the safest choice for highly sensitive material; pixelation and blur can leave recoverable detail. See [Reviewing and redacting](reviewing.md#pixelation-warning).
+The **Method** toggle in the viewer caption and **Settings → Redaction** share the same choice: Pixelate, Solid black, Blur, or Erase. It is saved immediately and applies to the preview, copied image, and PNG. Solid black is the safest choice for highly sensitive material; pixelation and blur can leave recoverable detail. See [Reviewing and redacting](reviewing.md#pixelation-warning).
 
 ## Output
 

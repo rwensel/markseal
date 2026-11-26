@@ -198,9 +198,9 @@ class BatchFacade(QObject):
             return
         if not self.alerts.ask(
                 'Copy selected boxes?',
-                f'Copy {len(boxes)} selected box(es) to the same positions on other images '
-                'of the same size? Check that the content lines up before confirming '
-                'and saving.'):
+                f'Copy {len(boxes)} selected box{"" if len(boxes) == 1 else "es"} '
+                'to the same positions on other images of the same size? '
+                'Check that the content lines up before confirming and saving.'):
             return
         size = self.session.review.image.size
         applied = skipped = unchanged = 0
@@ -332,8 +332,11 @@ class BatchFacade(QObject):
             entry.reviewed = True
         self.session.facades.review.apply_confirmation()
         self.session.facades.folder.refresh_and_emit()
+        count = len(pending)
+        noun = 'image' if count == 1 else 'images'
+        pronoun = 'it' if count == 1 else 'them'
         self.alerts.set_status(
-            f'Confirmed {len(pending)} image(s). Use Save reviewed to export them.'
+            f'Confirmed {count} {noun}. Use Save reviewed to export {pronoun}.'
         )
 
     @Slot()
@@ -379,7 +382,9 @@ class BatchFacade(QObject):
                 choose=choose if individual else None,
             )
         except (ValueError, KeyError, IndexError, AttributeError, OSError) as error:
-            self.alerts.error('Cannot save images', str(error), 'RETRY', self.saveReviewed)
+            title = 'Cannot save image' if individual else 'Cannot save images'
+            retry = self.save_active if individual else self.saveReviewed
+            self.alerts.error(title, str(error), 'RETRY', retry)
             return
         if plan is None:
             return
@@ -387,7 +392,8 @@ class BatchFacade(QObject):
         unredacted = plan.unredacted
         if unredacted and not self.alerts.ask(
                 'Save unredacted copies?',
-                f'{unredacted} reviewed image(s) have no selected boxes. '
+                f'{unredacted} reviewed image{"" if unredacted == 1 else "s"} '
+                f'{"has" if unredacted == 1 else "have"} no selected boxes. '
                 'Save them as unredacted PNG copies?'):
             return
 
@@ -449,8 +455,10 @@ class BatchFacade(QObject):
                 'No exported copies found to verify. Save reviewed images first.'
             )
         elif result['all_ok']:
+            count = len(files)
+            noun = 'export' if count == 1 else 'exports'
             self.alerts.set_status(
-                f'Verified {len(files)} export(s): pixels outside redactions unchanged.'
+                f'Verified {count} {noun}: pixels outside redactions unchanged.'
             )
         else:
             problems = [

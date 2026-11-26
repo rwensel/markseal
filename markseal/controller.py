@@ -319,6 +319,8 @@ class Controller(QObject):
             return
         qimage = self._grab_screen_region(x, y, width, height)
         if qimage is None or qimage.isNull():
-            self.alerts.set_status('Screen capture is unavailable on this display.')
+            self.alerts.set_status(
+                'Screen capture is unavailable on this display. Use Open image instead.'
+            )
             return
         self._present_image(_pil_from_qimage(qimage), Path('captured-region.png'), pasted=True)

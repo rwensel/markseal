@@ -127,7 +127,8 @@ Item {
                 text: "SAVE REVIEWED"
                 compact: true
                 tip: Backend.folder.reviewedCount > 0
-                     ? "Export " + Backend.folder.reviewedCount + " confirmed image(s)"
+                     ? "Export " + Backend.folder.reviewedCount
+                       + (Backend.folder.reviewedCount === 1 ? " reviewed image" : " reviewed images")
                      : "Confirm at least one image first"
                 enabled: !Backend.batch.busy && Backend.folder.reviewedCount > 0
                 onClicked: Backend.batch.saveReviewed()

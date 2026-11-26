@@ -33,10 +33,12 @@ class FolderFacade(QObject):
     def folderCounts(self):
         if not self.session.entries:
             return ''
+        count = len(self.session.entries)
+        noun = 'image' if count == 1 else 'images'
         scanned = sum(entry.scanned for entry in self.session.entries)
         reviewed = sum(entry.reviewed for entry in self.session.entries)
         saved = sum(entry.saved for entry in self.session.entries)
-        return (f'{len(self.session.entries)} images · {scanned} scanned · '
+        return (f'{count} {noun} · {scanned} scanned · '
                 f'{reviewed} reviewed · {saved} saved')
 
     @Property(int, notify=folderChanged)
@@ -175,8 +177,10 @@ class FolderFacade(QObject):
             self.alerts.set_status(f'{self._label(entry.path)} · {error}')
         else:
             review.set_entry_image(image)
+            selected = len(entry.selected)
+            noun = 'box' if selected == 1 else 'boxes'
             self.alerts.set_status(
-                f'{self._label(entry.path)} · {entry.status} · {len(entry.selected)} boxes selected'
+                f'{self._label(entry.path)} · {entry.status} · {selected} {noun} selected'
             )
         self._folder_model.set_active(index)
         self._folder_model.set_selection(self.session.row_selection)

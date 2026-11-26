@@ -121,7 +121,7 @@ def prompt_rename(name):
     field.selectAll()
     field.setFocus()
     layout.addWidget(field)
-    note = QLabel('Used in the rule label for future scans. Leave blank for "Manual pattern".')
+    note = QLabel('Used in the rule tag for future scans. Leave blank for "Manual pattern".')
     note.setWordWrap(True)
     layout.addWidget(note)
     layout.addWidget(_buttons(dialog))

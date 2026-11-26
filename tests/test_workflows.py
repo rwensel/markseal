@@ -167,8 +167,18 @@ class ConfirmationTests(unittest.TestCase):
             entry('a.png', selected={0}, boxes=[(0, 0, 5, 5)],
                   scanned=True, incomplete_ocr=('color',)),
         ], 'Pixelate')
-        self.assertIn('1 image(s)', prompt)
-        self.assertIn('partial scans', prompt)
+        self.assertIn('1 image?', prompt)
+        self.assertIn('1 image has a partial scan', prompt)
+
+    def test_confirmation_prompt_handles_plural_images(self):
+        prompt = workflows.confirmation_prompt([
+            entry('a.png', selected={0}, boxes=[(0, 0, 5, 5)],
+                  scanned=True, incomplete_ocr=('color',)),
+            entry('b.png', selected={0}, boxes=[(0, 0, 5, 5)],
+                  scanned=True, incomplete_ocr=('color',)),
+        ], 'Blur')
+        self.assertIn('2 images?', prompt)
+        self.assertIn('2 images have partial scans', prompt)
 
 
 if __name__ == '__main__':
