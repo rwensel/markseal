@@ -1,19 +1,19 @@
 {
-  "version": "2.2.0",
-  "notes": "This is a minor release: detection coverage expands, and existing settings, exports, and workflows are unchanged.\n\nENHANCEMENTS\n\u2022 Unlabeled street addresses are marked when a house number and a street suffix appear together, so an address no longer needs an Address: label.\n\u2022 Values split across two aligned lines are rejoined. A wrapped SSN in a table is still found.\n\u2022 Common Unix paths such as /etc, /usr, /var, /opt, /srv, /tmp, and /root are detected. A path segment inside a URL stays with the URL rule.\n\u2022 Names written as a pair, such as John/Jane Doe, are read as two name tokens for PII inference.\n\nFIXES\n\u2022 Comma-delimited rows keep the box on the matched field. An email in a CSV export no longer redacts the whole row.\n\u2022 Markdown emphasis after a credential label no longer turns `**` into the secret. The password value is marked.\n\u2022 Credential values on the next aligned line are marked, including access codes, gate codes, door codes, security codes, passcodes, and PINs.\n\u2022 Property, billing, shipping, and similar addresses keep the full value through the city. A following label line is not swallowed.\n\u2022 Overlapping address suggestions keep the full field box and drop contained fragments.\n\u2022 Ticket IDs followed by a lowercase word after OCR are matched. Uppercase or digit continuations are still rejected.\n\u2022 Code-shaped names and bare number pairs such as Gate 3 are no longer treated as names or addresses.\n\u2022 CSV header cells are no longer treated as name fields.\n\nThe Windows installer remains unsigned; Windows may show an unknown-publisher warning. Linux and macOS builds are produced in CI without running the test suite on those platforms.",
-  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.2.0",
+  "version": "2.3.0",
+  "notes": "This is a minor release: watched folders can include subfolders, and the review surface adds accessibility and Windows preference support. Existing settings, export formats, and review workflows remain compatible.\n\nFEATURES\n• Watched folders can include subfolders. New images anywhere below the watch are collected; images already in nested folders count as ready and can be queued with PROCESS EXISTING.\n• Saved copies from a recursive watch repeat the source's subfolders under `redacted`, so exports keep their folder structure and are less likely to collide.\n• A watched folder can no longer sit inside another watched folder. Use Include subfolders on the parent, or watch the child by itself.\n\nENHANCEMENTS\n• Review boxes expose accessible names and state to screen readers. Folder and inbox rows name their status and counts.\n• The Method control has a visible keyboard focus ring, and compact controls have larger vertical hit areas.\n• MarkSeal follows Windows text size up to 110%, reduced-motion, and high-contrast preferences at launch. High contrast uses a system palette and overrides theme choices.\n• Selected boxes show a check mark, excluded boxes show a dash, and a dark keyline keeps the boundary visible on light screenshots.\n• The confirmed-image caption keeps the filename and method visible on narrow windows and groups Rule tags, Copy image, and Verify under Actions.\n• Watched-folder and blocked-pattern settings save immediately; those tabs show Close instead of Cancel and hide Apply.\n• Empty and ready states name the next step more directly, and recovery messages explain what to do after a failure.\n\nFIXES\n• Closing MarkSeal with unsaved review work asks before discarding it.\n• The error banner settles into view instead of appearing over the caption.\n• The status board uses tabular figures and a staggered flip so count changes settle in sequence.\n\nOPTIMIZATIONS\n• Changing a box no longer reloads the image.\n• Detection suggestions are assembled in one pass, so category and box handling now runs in one place.\n\nThe Windows installer remains unsigned; Windows may show an unknown-publisher warning. Linux and macOS builds are produced in CI without running the test suite on those platforms.\n",
+  "page_url": "https://github.com/rwensel/markseal/releases/tag/v2.3.0",
   "downloads": {
     "windows-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.2.0/Markseal-Setup.exe",
-      "sha256": "237fc42a98c745cbf478bfd89ca7373c69fb82ebec1dee1f67ee781bf22ba74c"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.3.0/Markseal-Setup.exe",
+      "sha256": "2e04b8f8023e52e7174b67ef341874abc0c6b433f9169b656c787fc13fd4c325"
     },
     "linux-x64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.2.0/Markseal-linux-x64.tar.gz",
-      "sha256": "b1a58b2d074cba4f4ccebe7bf3bfc29836f5ca9f9fdabb59f43379af4d11a495"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.3.0/Markseal-linux-x64.tar.gz",
+      "sha256": "a74d77445c0195373bab9cde59965fa53dccd0a3341abcec0ba62eccb701bd9c"
     },
     "macos-aarch64": {
-      "url": "https://github.com/rwensel/markseal/releases/download/v2.2.0/Markseal-macos-arm64.zip",
-      "sha256": "30ec4cbb0eb6dbbbb49358c5c4d17c5fefe1a681a4c575970de57dbc2ded470c"
+      "url": "https://github.com/rwensel/markseal/releases/download/v2.3.0/Markseal-macos-arm64.zip",
+      "sha256": "06a391bf7496e2125688e655ba6857763c9add742b45526cbaba8e0d1fba1a96"
     }
   }
 }
