@@ -42,9 +42,6 @@ class PdfReview:
         self._states[self._index] = (current, confirmed)
         return self._load(index)
 
-    def save(self, boxset, confirmed):
-        self._states[self._index] = (boxset, confirmed)
-
     def unsaved(self):
         return any(boxset.boxes for boxset, _confirmed in self._states.values())
 
