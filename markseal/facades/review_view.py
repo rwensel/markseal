@@ -8,6 +8,37 @@ class ReviewView:
         return (f'{name}: {len(owner.session.review.selected)} selected of '
                 f'{len(owner.session.review.boxes)}. Confirm to apply.')
 
+    def image_name(self):
+        owner = self.owner
+        if owner.session.pasted_image:
+            return 'Pasted image'
+        return owner.session.review.path.name if owner.session.review.path else ''
+
+    def image_size_text(self):
+        owner = self.owner
+        if owner.session.review.image is None:
+            return ''
+        width, height = owner.session.review.image.size
+        return f'{width} × {height}'
+
+    def boxes(self):
+        owner = self.owner
+        boxes = []
+        for index, box in enumerate(owner.session.review.boxes):
+            labels = tuple(owner.session.review.rules.get(box, ())) or ('Manual box',)
+            label = labels[0] if len(labels) == 1 else f'{labels[0]} +{len(labels) - 1}'
+            boxes.append({
+                'x1': box[0], 'y1': box[1], 'x2': box[2], 'y2': box[3],
+                'selected': index in owner.session.review.selected,
+                'rules': list(labels), 'ruleLabel': label,
+            })
+        return boxes
+
+    def confirm_label(self):
+        owner = self.owner
+        count = len(owner.session.row_selection) if owner.session.entries else 0
+        return f'CONFIRM {count}' if count > 1 else 'CONFIRM'
+
     def setViewSize(self, width, height):
         owner = self.owner
         owner.session.review.set_view_size(width, height)

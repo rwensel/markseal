@@ -8,11 +8,12 @@ from pathlib import Path
 from . import images
 from .watch_document import (
     EXPORTED, NEEDS_REVIEW, PRESENTED, QUEUED, STABLE_SECONDS, SeenFile,
-    WatchCounts, export_targets, file_key, key,
+    WatchCounts, export_targets, file_key, key, within,
 )
 
 
 def _settled(stamp, moment):
+    """A file counts once it has stopped changing; a future mtime is settled too."""
     age = moment - stamp.st_mtime
     return not 0 <= age < STABLE_SECONDS
 
@@ -39,21 +40,12 @@ def scan(store, folder, issues=None):
             for _relative, path, stamp in found]
 
 
-def _within(parent, child):
-    parent_text = key(parent)
-    child_text = key(child)
-    try:
-        return os.path.commonpath([parent_text, child_text]) == parent_text
-    except ValueError:
-        return False
-
-
 def contains(folder, path):
     target = Path(path)
     if key(folder.path) == key(target):
         return True
     if folder.recursive:
-        return _within(folder.path, target)
+        return within(folder.path, target)
     return key(target.parent) == key(folder.path)
 
 
@@ -81,6 +73,11 @@ def destination(folder, source):
 
 
 def baseline(store, folder, *, nested_only=False):
+    """Record current images as presented without scanning or exporting them.
+
+    ``nested_only`` leaves top-level records alone, so turning recursion on
+    cannot hide a root-level arrival that has not been swept yet.
+    """
     found = scan(store, folder)
     if found is None:
         return False
@@ -98,6 +95,7 @@ def baseline(store, folder, *, nested_only=False):
 
 
 def unseen(store, folder, *, now=None):
+    """Stable images that are new or changed and were not written by the app."""
     images = scan(store, folder)
     if images is None:
         return []
@@ -117,6 +115,7 @@ def unseen(store, folder, *, now=None):
 
 
 def pending_queued(store, folder):
+    """Files whose ``queued`` record still matches, so a crash resumes them."""
     images = scan(store, folder)
     if images is None:
         return []
@@ -132,6 +131,7 @@ def pending_queued(store, folder):
 
 
 def counts(store, folder, *, now=None):
+    """Per-watch counts, all requiring a matching stamp; never mutates the store."""
     scan_issues = []
     images = scan(store, folder, scan_issues)
     if images is None:
@@ -172,6 +172,7 @@ def counts(store, folder, *, now=None):
 
 
 def automatic_outcome(entry):
+    """The lane's decision for one scanned image: state and review detail."""
     if entry.incomplete_ocr:
         return NEEDS_REVIEW, 'Partial scan'
     if not entry.selected:
@@ -180,6 +181,11 @@ def automatic_outcome(entry):
 
 
 def prune(store, folder, names):
+    """Drop records whose file is absent from a successful listing.
+
+    With recursion off, nested records stay because they are outside the
+    current scope, not gone; turning the switch back on reuses them.
+    """
     records = store.seen.get(key(folder.path))
     if not records:
         return False

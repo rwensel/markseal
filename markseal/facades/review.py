@@ -9,7 +9,6 @@ from .review_scan_actions import ReviewScanActions
 from .review_load import ReviewLoad
 from .review_view import ReviewView
 
-
 class ReviewFacade(QObject):
     imageChanged = Signal()
     imageRevisionChanged = Signal()
@@ -36,7 +35,6 @@ class ReviewFacade(QObject):
         self._actions = ReviewActions(self)
         self._scan_actions = ReviewScanActions(self)
         self._load = ReviewLoad(self)
-
 
     @Property(bool, notify=imageChanged)
     def hasImage(self):
@@ -69,16 +67,11 @@ class ReviewFacade(QObject):
 
     @Property(str, notify=imageChanged)
     def imageName(self):
-        if self.session.pasted_image:
-            return 'Pasted image'
-        return self.session.review.path.name if self.session.review.path else ''
+        return self._view.image_name()
 
     @Property(str, notify=imageChanged)
     def imageSizeText(self):
-        if self.session.review.image is None:
-            return ''
-        width, height = self.session.review.image.size
-        return f'{width} × {height}'
+        return self._view.image_size_text()
 
     @Property(int, notify=imageRevisionChanged)
     def imageRevision(self):
@@ -94,16 +87,7 @@ class ReviewFacade(QObject):
 
     @Property(list, notify=reviewChanged)
     def boxes(self):
-        boxes = []
-        for index, box in enumerate(self.session.review.boxes):
-            labels = tuple(self.session.review.rules.get(box, ())) or ('Manual box',)
-            label = labels[0] if len(labels) == 1 else f'{labels[0]} +{len(labels) - 1}'
-            boxes.append({
-                'x1': box[0], 'y1': box[1], 'x2': box[2], 'y2': box[3],
-                'selected': index in self.session.review.selected,
-                'rules': list(labels), 'ruleLabel': label,
-            })
-        return boxes
+        return self._view.boxes()
 
     @Property(int, notify=reviewChanged)
     def selectedCount(self):
@@ -123,8 +107,7 @@ class ReviewFacade(QObject):
 
     @Property(str, notify=confirmLabelChanged)
     def confirmLabel(self):
-        count = len(self.session.row_selection) if self.session.entries else 0
-        return f'CONFIRM {count}' if count > 1 else 'CONFIRM'
+        return self._view.confirm_label()
 
     @Property(float, notify=viewChanged)
     def viewScale(self):
@@ -173,97 +156,176 @@ class ReviewFacade(QObject):
     def display_qimage(self):
         return self._display_qimage
 
-
-
     def emit_review(self):
         self.reviewChanged.emit()
 
     def emit_view(self):
         self.viewChanged.emit()
 
+    def load_image(self, image, path, pasted=False):
+        self._load.load_image(image, path, pasted)
 
-    def load_image(self, image, path, pasted=False): self._load.load_image(image, path, pasted)
-    def load_pdf(self, path): self._load.load_pdf(path)
+    def load_pdf(self, path):
+        self._load.load_pdf(path)
 
     @Slot()
-    def previousPdfPage(self): self._load.previousPdfPage()
+    def previousPdfPage(self):
+        self._load.previousPdfPage()
+
     @Slot()
-    def nextPdfPage(self): self._load.nextPdfPage()
+    def nextPdfPage(self):
+        self._load.nextPdfPage()
+
     @Slot(int)
-    def goToPdfPage(self, page): self._load.goToPdfPage(page)
+    def goToPdfPage(self, page):
+        self._load.goToPdfPage(page)
+
     def unsaved_pdf_work(self):
         return self._load.unsaved_pdf_work()
 
+    def adopt_entry(self, entry):
+        self._load.adopt_entry(entry)
 
-    def adopt_entry(self, entry): self._load.adopt_entry(entry)
-    def set_entry_image(self, image): self._load.set_entry_image(image)
-    def invalidate(self): self._load.invalidate()
-    def apply_confirmation(self): self._load.apply_confirmation()
-    def method_changed(self): self._load.method_changed()
-    def selection_changed(self): self._load.selection_changed()
+    def set_entry_image(self, image):
+        self._load.set_entry_image(image)
+
+    def invalidate(self):
+        self._load.invalidate()
+
+    def apply_confirmation(self):
+        self._load.apply_confirmation()
+
+    def method_changed(self):
+        self._load.method_changed()
+
+    def selection_changed(self):
+        self._load.selection_changed()
+
     @Slot(int, int)
-    def setViewSize(self, width, height): self._view.setViewSize(width, height)
+    def setViewSize(self, width, height):
+        self._view.setViewSize(width, height)
+
     @Slot(int, int)
-    def press(self, x, y): self._view.press(x, y)
+    def press(self, x, y):
+        self._view.press(x, y)
+
     @Slot(int, int)
-    def move(self, x, y): self._view.move(x, y)
+    def move(self, x, y):
+        self._view.move(x, y)
+
     @Slot(int, int)
-    def release(self, x, y): self._view.release(x, y)
+    def release(self, x, y):
+        self._view.release(x, y)
+
     @Slot(int, int, int)
-    def zoomAt(self, x, y, delta): self._view.zoomAt(x, y, delta)
+    def zoomAt(self, x, y, delta):
+        self._view.zoomAt(x, y, delta)
+
     @Slot(int)
-    def zoomStep(self, direction): self._view.zoomStep(direction)
+    def zoomStep(self, direction):
+        self._view.zoomStep(direction)
+
     @Slot()
-    def zoomFit(self): self._view.zoomFit()
+    def zoomFit(self):
+        self._view.zoomFit()
+
     @Slot(int, int)
-    def panStep(self, dx, dy): self._view.panStep(dx, dy)
+    def panStep(self, dx, dy):
+        self._view.panStep(dx, dy)
+
     @Slot()
-    def selectAllBoxes(self): self._view.selectAllBoxes()
+    def selectAllBoxes(self):
+        self._view.selectAllBoxes()
+
     @Slot()
-    def selectNoBoxes(self): self._view.selectNoBoxes()
+    def selectNoBoxes(self):
+        self._view.selectNoBoxes()
+
     @Slot(int, int)
-    def beginPan(self, x, y): self._view.beginPan(x, y)
+    def beginPan(self, x, y):
+        self._view.beginPan(x, y)
+
     @Slot(int, int)
-    def movePan(self, x, y): self._view.movePan(x, y)
+    def movePan(self, x, y):
+        self._view.movePan(x, y)
+
     @Slot()
-    def endPan(self): self._view.endPan()
+    def endPan(self):
+        self._view.endPan()
+
     @Slot(int)
-    def toggleBox(self, index): self._view.toggleBox(index)
+    def toggleBox(self, index):
+        self._view.toggleBox(index)
+
     @Slot(int)
-    def removeBox(self, index): self._view.removeBox(index)
+    def removeBox(self, index):
+        self._view.removeBox(index)
+
     @Slot()
-    def undo(self): self._view.undo()
+    def undo(self):
+        self._view.undo()
+
     @Property(bool, notify=reviewChanged)
     def canRedo(self):
         return self.session.review.can_redo()
 
     @Slot()
-    def redo(self): self._view.redo()
+    def redo(self):
+        self._view.redo()
+
     @Slot()
-    def editBoxes(self): self._view.editBoxes()
+    def editBoxes(self):
+        self._view.editBoxes()
+
     @Slot()
-    def clearBoxes(self): self._view.clearBoxes()
+    def clearBoxes(self):
+        self._view.clearBoxes()
+
     @Slot()
-    def confirmSelection(self): self._actions.confirmSelection()
+    def confirmSelection(self):
+        self._actions.confirmSelection()
+
     @Slot()
-    def redactAll(self): self._actions.redactAll()
+    def redactAll(self):
+        self._actions.redactAll()
+
     @Slot()
-    def cancelCapture(self): self._view.cancelCapture()
-    def cancel_capture(self): self._view.cancel_capture()
+    def cancelCapture(self):
+        self._view.cancelCapture()
+
+    def cancel_capture(self):
+        self._view.cancel_capture()
+
     @Slot()
-    def find(self): self._scan_actions.find()
-    def start_single_scan(self, area=None): self._scan_actions.start_single_scan(area)
+    def find(self):
+        self._scan_actions.find()
+
+    def start_single_scan(self, area=None):
+        self._scan_actions.start_single_scan(area)
+
     @Slot()
-    def beginScanArea(self): self._scan_actions.beginScanArea()
+    def beginScanArea(self):
+        self._scan_actions.beginScanArea()
+
     @Slot()
-    def beginAnchorCapture(self): self._scan_actions.beginAnchorCapture()
+    def beginAnchorCapture(self):
+        self._scan_actions.beginAnchorCapture()
+
     @Slot()
-    def beginLearnPattern(self): self._scan_actions.beginLearnPattern()
+    def beginLearnPattern(self):
+        self._scan_actions.beginLearnPattern()
+
     @Slot()
-    def copyRedacted(self): self._actions.copyRedacted()
+    def copyRedacted(self):
+        self._actions.copyRedacted()
+
     @Slot()
-    def save(self): self._actions.save()
-    def save_single(self): self._actions.save_single()
+    def save(self):
+        self._actions.save()
+
+    def save_single(self):
+        self._actions.save_single()
+
     @Slot()
     def verifyCurrent(self):
         self._actions.verifyCurrent()

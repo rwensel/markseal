@@ -20,6 +20,7 @@ DEFAULT_EXPORT_NAME = 'redacted'
 
 
 class WatchError(ValueError):
+    """The watched-folder document could not be read or accepted."""
     pass
 
 
@@ -38,6 +39,7 @@ class WatchedFolder:
 
     @property
     def export_directory(self):
+        """Where automatic exports for this watch go; ``redacted/`` by default."""
         if self.output_directory is not None:
             return self.output_directory
         return self.path / DEFAULT_EXPORT_NAME
@@ -73,10 +75,22 @@ class WatchCounts:
 
 
 def key(path):
+    """One identity for a folder or file: resolved and case-folded on Windows."""
     return os.path.normcase(str(Path(path).resolve()))
 
 
+def within(parent, child):
+    """Whether ``child`` is ``parent`` or sits inside it, across drives safe."""
+    parent_text = key(parent)
+    child_text = key(child)
+    try:
+        return os.path.commonpath([parent_text, child_text]) == parent_text
+    except ValueError:
+        return False
+
+
 def file_key(folder, path):
+    """A file's identity: its relative path, case-folded on Windows."""
     relative = os.path.relpath(str(path), str(folder))
     if relative == os.pardir or relative.startswith(os.pardir + os.sep):
         raise ValueError('File is outside the watch.')
@@ -84,6 +98,7 @@ def file_key(folder, path):
 
 
 def _migrated_key(folder, name):
+    """A loaded record key as a relative path, or ``None`` when it escapes."""
     candidate = Path(name)
     if candidate.is_absolute():
         return None
@@ -97,6 +112,7 @@ def _migrated_key(folder, name):
 
 
 def store_path(settings_path):
+    """The watch document sits beside ``settings.json``."""
     return Path(settings_path).parent / STORE_NAME
 
 
@@ -109,6 +125,12 @@ def find(store, path):
 
 
 def mark(store, folder, path, *, state, export=None, detail='', stamp=None):
+    """Write one record for a source file.
+
+    ``stamp`` pins the ``(size, mtime_ns)`` the file had when it was scanned,
+    so a source replaced before the record is written stays new. Without it the
+    current stamp is read.
+    """
     path = Path(path)
     if stamp is None:
         measured = path.stat()
@@ -119,6 +141,7 @@ def mark(store, folder, path, *, state, export=None, detail='', stamp=None):
 
 
 def export_targets(store):
+    """Every export path a record remembers, so the app never ingests its own copy."""
     targets = set()
     for records in store.seen.values():
         for record in records.values():
@@ -128,6 +151,7 @@ def export_targets(store):
 
 
 def record(path):
+    """A fresh seen value for a file, from one ``stat``."""
     path = Path(path)
     stamp = path.stat()
     return SeenFile(stamp.st_size, stamp.st_mtime_ns, PRESENTED)
@@ -163,6 +187,7 @@ def _store_document(store):
 
 
 def save(path, store):
+    """Write the document atomically: a temporary sibling, then replace."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
@@ -215,6 +240,11 @@ def _record_from_document(name, entry):
 
 
 def load(path):
+    """Read the document; a missing file is an empty store.
+
+    A malformed top level or an unreadable file raises ``WatchError``.
+    Malformed entries inside a well-formed document are dropped individually.
+    """
     path = Path(path)
     try:
         document = json.loads(path.read_text(encoding='utf-8'))

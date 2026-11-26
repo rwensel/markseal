@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from . import watch_scan
 from .watch_document import (
-    POLICIES, PRESENTED, SeenFile, WatchError, key,
+    POLICIES, PRESENTED, SeenFile, WatchError, key, within,
 )
 
 
 def validate(store, folder):
+    """A message when the watch cannot be added, otherwise ``None``."""
     if folder.policy not in POLICIES:
         return 'Choose a manual or automatic watch.'
     if not folder.path.is_absolute():
@@ -17,7 +18,7 @@ def validate(store, folder):
     for other in store.folders:
         if key(other.path) == folder_key:
             return 'That folder is already watched.'
-        if watch_scan._within(other.path, folder.path) or watch_scan._within(
+        if within(other.path, folder.path) or within(
                 folder.path, other.path):
             return 'Watched folders cannot be inside one another.'
         if key(other.export_directory) == folder_key:
@@ -35,6 +36,11 @@ def validate(store, folder):
 
 
 def add(store, folder):
+    """Validate and register a watch, baselining the images already there.
+
+    Nothing is filtered by age: a screenshot still being written is recorded as
+    presented, and its later stamp change makes it new.
+    """
     problem = validate(store, folder)
     if problem is not None:
         raise WatchError(problem)
@@ -51,6 +57,7 @@ def add(store, folder):
 
 
 def remove(store, path):
+    """Drop a watch and the records that belong to it."""
     target = key(path)
     store.folders = [folder for folder in store.folders if key(folder.path) != target]
     store.seen.pop(target, None)

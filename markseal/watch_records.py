@@ -19,6 +19,7 @@ class RecordChange:
 
 
 class WatchRecords:
+    """Apply one watch record transition with its count refresh and save."""
     def __init__(self, store, path):
         self.store = store
         self.path = Path(path)
