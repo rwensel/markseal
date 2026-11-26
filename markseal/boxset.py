@@ -250,16 +250,47 @@ class FolderImage:
                             incomplete_ocr=self.incomplete_ocr, scanned=self.scanned,
                             boxes=self.boxes)
 
-    def add_shared_boxes(self, boxes, rules=None, source='Copied box'):
+    def merge_boxes(self, boxes, rules=None, source='Copied box'):
         outcome = self.boxset.merge(boxes, rules, source)
         if outcome.changed:
-            self.reviewed = self.saved = False
+            self._clear_review()
         return outcome.changed
 
-    def add_suggestions(self, found, incomplete=(), rules=None):
+    def add_shared_boxes(self, boxes, rules=None, source='Copied box'):
+        return self.merge_boxes(boxes, rules, source)
+
+    def apply_scan(self, found, incomplete=(), rules=None):
         outcome = self.boxset.suggest(found, rules)
         self.scanned = True
         self.incomplete_ocr = tuple(incomplete)
-        self.reviewed = self.saved = False
+        self._clear_review()
         self.error = ''
         return outcome.added
+
+    def add_suggestions(self, found, incomplete=(), rules=None):
+        return self.apply_scan(found, incomplete, rules)
+
+    def confirm(self, confirmed):
+        self.reviewed = bool(confirmed)
+        if not self.reviewed:
+            self._clear_review()
+
+    def mark_saved(self, export_path):
+        self.saved = True
+        self.export_path = Path(export_path)
+
+    def set_method(self, method):
+        if self.method == method:
+            return False
+        self.method = method
+        self._clear_review()
+        return True
+
+    @property
+    def unsaved(self):
+        return not self.saved and bool(self.boxes or self.reviewed)
+
+    def _clear_review(self):
+        self.reviewed = False
+        self.saved = False
+        self.export_path = None

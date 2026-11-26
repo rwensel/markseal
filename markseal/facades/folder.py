@@ -80,10 +80,7 @@ class FolderFacade(QObject):
         self.session.store_active()
         if not self.session.entries:
             return True
-        pending = any(
-            not entry.saved and (entry.boxes or entry.reviewed)
-            for entry in self.session.entries
-        )
+        pending = any(entry.unsaved for entry in self.session.entries)
         return not pending or self.alerts.ask(
             'Leave folder?', 'Some images have unsaved review work. Leave this folder?'
         )

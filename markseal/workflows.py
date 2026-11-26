@@ -110,7 +110,7 @@ def export_succeeded(entry, snapshot):
 
 def auto_export_snapshot(entry, output_directory, template, include_log):
     """Confirm one image and plan its own export, refusing an existing target."""
-    entry.reviewed = True
+    entry.confirm(True)
     plan = plan_exports(
         [(0, entry)], output_directory=output_directory,
         template=template, include_log=include_log,

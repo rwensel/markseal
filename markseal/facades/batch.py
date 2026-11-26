@@ -536,7 +536,7 @@ class BatchFacade(QObject):
                 workflows.confirmation_prompt(pending, self.session.preferences.method)):
             return
         for entry in pending:
-            entry.reviewed = True
+            entry.confirm(True)
         self.session.facades.review.apply_confirmation()
         self.session.facades.folder.refresh_and_emit()
         count = len(pending)
@@ -622,9 +622,8 @@ class BatchFacade(QObject):
             if error:
                 self.alerts.set_status(f'{entry.path.name} · {error}')
             elif workflows.export_succeeded(entry, snapshot):
-                entry.saved = True
+                entry.mark_saved(target)
                 entry.error = ''
-                entry.export_path = target
                 self.session.facades.review.last_export = target
                 watches = getattr(self.session.facades, 'watches', None)
                 if watches is not None:

@@ -54,9 +54,7 @@ class SessionState:
         if not 0 <= self.active < len(self.entries):
             return
         entry = self.entries[self.active]
-        if entry.reviewed and not self.review.confirmed:
-            entry.saved = False
-        entry.reviewed = self.review.confirmed
+        entry.confirm(self.review.confirmed)
 
     def scan_settings(self):
         return preferences.scan_settings(self.preferences)

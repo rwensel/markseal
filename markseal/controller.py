@@ -135,10 +135,7 @@ class Controller(QObject):
                 'Discard PDF markings?',
                 'This PDF has unsaved markings. Close and discard them?',
             )
-        pending = [
-            entry for entry in self.session.entries
-            if not entry.saved and (entry.boxes or entry.reviewed)
-        ]
+        pending = [entry for entry in self.session.entries if entry.unsaved]
         if pending:
             count = len(pending)
             message = ('1 image has unsaved review work. Close and discard it?'

@@ -335,9 +335,7 @@ class ReviewFacade(QObject):
             return
         method = self.session.preferences.method
         for entry in self.session.entries:
-            if entry.method != method:
-                entry.method = method
-                entry.reviewed = entry.saved = False
+            entry.set_method(method)
         self.session.review.confirmed = False
         self.refresh_display()
         self.emit_review()
