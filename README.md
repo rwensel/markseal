@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/rwensel/markseal/actions/workflows/tests.yml"><img src="https://github.com/rwensel/markseal/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
   <a href="https://github.com/rwensel/markseal/releases/latest"><img src="https://img.shields.io/github/v/release/rwensel/markseal" alt="latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/rwensel/markseal" alt="AGPL-3.0 license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-blue" alt="AGPL-3.0-only license"></a>
 </p>
 
 ## Download
