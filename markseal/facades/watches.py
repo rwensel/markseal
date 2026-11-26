@@ -50,10 +50,10 @@ class WatchFacade(QObject):
         self._started = False
         self._inbox_requested = False
         self._intaking = False
-        self._auto = AutomaticLane(session, alerts, self.store, self._save,
-                                   self._refresh_counts, self._counts_for, self)
+        self.records = watch_store.WatchRecords(self.store, self._path)
+        self._auto = AutomaticLane(session, alerts, self.records, self)
         self._auto.changed.connect(self.autoChanged)
-        self._auto.recordsChanged.connect(self.watchesChanged)
+        self._auto.recordsChanged.connect(self._records_changed)
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._schedule_sweep)
         self._debounce = QTimer(self)
@@ -72,12 +72,16 @@ class WatchFacade(QObject):
         folder_key = watch_store.key(watch.path)
         result = self._counts.get(folder_key)
         if result is None:
-            result = watch_store.counts(self.store, watch)
+            result = self.records.counts_for(watch)
         return result
 
     def _refresh_counts(self, watch):
-        self._counts[watch_store.key(watch.path)] = watch_store.counts(
-            self.store, watch)
+        self._counts[watch_store.key(watch.path)] = self.records.counts_for(watch)
+
+    def _records_changed(self):
+        for folder in self.store.folders:
+            self._refresh_counts(folder)
+        self.watchesChanged.emit()
 
     @Property('QVariantList', notify=watchesChanged)
     def watchRows(self):
@@ -124,9 +128,12 @@ class WatchFacade(QObject):
             return
         self._started = True
         try:
-            self.store = watch_store.load(self._path)
+            loaded = watch_store.load(self._path)
         except watch_store.WatchError:
             self._recover_store()
+        else:
+            self.store.folders = loaded.folders
+            self.store.seen = loaded.seen
         self._auto.store = self.store
         for folder in list(self.store.folders):
             self._watch_path(folder.path)
@@ -295,15 +302,11 @@ class WatchFacade(QObject):
         folder = self.watch_for(path)
         if folder is None:
             return
-        try:
-            watch_store.mark(self.store, folder, path, state=watch_store.EXPORTED,
-                             export=target)
-        except OSError:
-            return
-        folder_key = watch_store.key(folder.path)
-        self._counts[folder_key] = watch_store.counts(self.store, folder)
-        self._save()
-        self.watchesChanged.emit()
+        change = self.records.set(folder, path, state=watch_store.EXPORTED,
+                                  export=target)
+        if change.changed:
+            self._counts[change.folder_key] = change.counts
+            self.watchesChanged.emit()
 
     @Slot(str)
     def processExisting(self, path):
@@ -312,47 +315,15 @@ class WatchFacade(QObject):
         if folder is None:
             return
         folder_key = watch_store.key(folder.path)
-        records = self.store.seen.get(folder_key, {})
-        changed = False
         self._auto.clear_stop()
+        change = self.records.process_existing(
+            folder, automatic=folder.policy == 'automatic')
+        if change.changed:
+            self._counts[folder_key] = change.counts
+            self.watchesChanged.emit()
         if folder.policy == 'automatic':
-            for name, record in list(records.items()):
-                if record.state not in (watch_store.PRESENTED, watch_store.NEEDS_REVIEW):
-                    continue
-                source = folder.path / name
-                try:
-                    stamp = source.stat()
-                except OSError:
-                    continue
-                if (stamp.st_size, stamp.st_mtime_ns) != record.stamp():
-                    continue
-                try:
-                    watch_store.mark(self.store, folder, source, state=watch_store.QUEUED)
-                except OSError:
-                    continue
-                changed = True
-            if changed:
-                self._counts[folder_key] = watch_store.counts(self.store, folder)
-                self._save()
-                self.watchesChanged.emit()
             self._auto.resume()
             return
-        for name, record in list(records.items()):
-            if record.state not in (watch_store.PRESENTED, watch_store.NEEDS_REVIEW):
-                continue
-            source = folder.path / name
-            try:
-                stamp = source.stat()
-            except OSError:
-                continue
-            if (stamp.st_size, stamp.st_mtime_ns) != record.stamp():
-                continue
-            del records[name]
-            changed = True
-        if changed:
-            self._counts[folder_key] = watch_store.counts(self.store, folder)
-            self._save()
-            self.watchesChanged.emit()
         if self._intake_open_folder():
             self.watchesChanged.emit()
 
@@ -360,20 +331,13 @@ class WatchFacade(QObject):
     def cancelAuto(self):
         self._auto.cancel()
 
-    def _write_record(self, watch, path, state, *, export=None, detail='', stamp=None):
-        try:
-            watch_store.mark(self.store, watch, path, state=state,
-                             export=export, detail=detail, stamp=stamp)
-            return True
-        except OSError:
-            return False
-
     def _mark_queued_presented(self, folder):
         records = self.store.seen.get(watch_store.key(folder.path), {})
-        for name, record in list(records.items()):
-            if record.state != watch_store.QUEUED:
-                continue
-            self._write_record(folder, folder.path / name, watch_store.PRESENTED)
+        paths = [folder.path / name for name, record in records.items()
+                 if record.state == watch_store.QUEUED]
+        change = self.records.set_many(folder, paths, state=watch_store.PRESENTED)
+        if change.changed:
+            self._counts[change.folder_key] = change.counts
 
     def _folder_changed(self):
         folder = self.session.folder
@@ -401,16 +365,12 @@ class WatchFacade(QObject):
                 return False
             changed = False
             if watch.policy == 'manual':
-                for path in paths:
-                    try:
-                        watch_store.mark(self.store, watch, path,
-                                         state=watch_store.PRESENTED)
-                    except OSError:
-                        continue
-                changed = True
+                change = self.records.set_many(
+                    watch, paths, state=watch_store.PRESENTED)
+                changed = change.changed
+                if change.changed:
+                    self._counts[change.folder_key] = change.counts
             added = self.session.facades.folder.add_paths(paths)
-            if changed or added:
-                self._save()
             wanted = set(paths)
             targets = [entry for entry in self.session.entries
                        if entry.path in wanted and not entry.scanned and not entry.error]
@@ -462,7 +422,7 @@ class WatchFacade(QObject):
 
     def _save(self):
         try:
-            watch_store.save(self._path, self.store)
+            self.records.save()
         except OSError as error:
             self.alerts.error('Cannot save watched folders', str(error))
 
@@ -472,7 +432,8 @@ class WatchFacade(QObject):
             self._path.replace(corrupt)
         except OSError:
             pass
-        self.store = watch_store.WatchStore()
+        self.store.folders.clear()
+        self.store.seen.clear()
         self.alerts.set_status(
             'The watched-folder list could not be loaded; starting with an empty list.'
         )

@@ -18,15 +18,12 @@ class AutomaticLane(QObject):
     changed = Signal()
     recordsChanged = Signal()
 
-    def __init__(self, session, alerts, store, persist, update_counts, counts_for,
-                 parent=None):
+    def __init__(self, session, alerts, records, parent=None):
         super().__init__(parent)
         self.session = session
         self.alerts = alerts
-        self.store = store
-        self._persist = persist
-        self._update_counts = update_counts
-        self._counts_for = counts_for
+        self.records = records
+        self.store = records.store
         self.hold = False
         self.stopped = False
         self._status = ''
@@ -44,7 +41,8 @@ class AutomaticLane(QObject):
         if self.jobs.busy:
             return self.jobs.progressText
         if self.stopped:
-            waiting = sum(self._counts_for(watch).queued for watch in self.store.folders)
+            waiting = sum(self.records.counts_for(watch).queued
+                          for watch in self.store.folders)
             if waiting:
                 return f'Stopped · {waiting} waiting · PROCESS EXISTING to resume'
         return self._status
@@ -92,23 +90,18 @@ class AutomaticLane(QObject):
             candidates.extend((watch, path) for path in found)
         if not candidates:
             return
-        jobs = []
+        grouped = {}
         for watch, path in candidates:
-            try:
-                watch_store.mark(self.store, watch, path, state=watch_store.QUEUED)
-            except OSError:
-                continue
-            jobs.append((watch, path))
+            grouped.setdefault(watch_store.key(watch.path), (watch, []))[1].append(path)
+        jobs = []
+        for watch, paths in grouped.values():
+            change = self.records.set_many(watch, paths, state=watch_store.QUEUED)
+            if change.changed:
+                jobs.extend((watch, path) for path in paths)
         if not jobs:
             return
         self._status = ''
         self.changed.emit()
-        touched = {}
-        for watch, _path in jobs:
-            touched[watch_store.key(watch.path)] = watch
-        for watch in touched.values():
-            self._update_counts(watch)
-        self._persist()
         self.recordsChanged.emit()
         try:
             engine = self.session.scan_engine()
@@ -180,20 +173,19 @@ class AutomaticLane(QObject):
                 _path, stamp, state, target, detail = result
             if state == PAUSED:
                 self.hold = True
-                if current.policy != 'automatic' and self._write_record(
-                        current, path, watch_store.PRESENTED, stamp=stamp):
-                    self._update_counts(current)
-                    self._persist()
-                    self.recordsChanged.emit()
+                if current.policy != 'automatic':
+                    change = self.records.set(
+                        current, path, state=watch_store.PRESENTED, stamp=stamp)
+                    if change.changed:
+                        self.recordsChanged.emit()
                 return
             if state == watch_store.EXPORTED:
                 stats['exported'] += 1
             elif state == watch_store.NEEDS_REVIEW:
                 stats['needs_review'] += 1
-            if self._write_record(current, path, state, export=target, detail=detail,
-                                  stamp=stamp):
-                self._update_counts(current)
-                self._persist()
+            change = self.records.set(current, path, state=state, export=target,
+                                      detail=detail, stamp=stamp)
+            if change.changed:
                 self.recordsChanged.emit()
 
         def finish():
@@ -235,41 +227,33 @@ class AutomaticLane(QObject):
         return (open_folder is not None
                 and watch_store.key(open_folder) == watch_store.key(watch.path))
 
-    def _write_record(self, watch, path, state, *, export=None, detail='', stamp=None):
-        try:
-            watch_store.mark(self.store, watch, path, state=state,
-                             export=export, detail=detail, stamp=stamp)
-            return True
-        except OSError:
-            return False
-
     def _retry(self, jobs):
-        touched = {}
+        grouped = {}
         for watch, path in jobs:
             current = watch_store.find(self.store, watch.path)
             if current is None or current.policy != 'automatic':
                 continue
-            if self._write_record(current, path, watch_store.QUEUED):
-                touched[watch_store.key(current.path)] = current
-        if touched:
-            for watch in touched.values():
-                self._update_counts(watch)
-            self._persist()
+            grouped.setdefault(watch_store.key(current.path), (current, []))[1].append(path)
+        changed = False
+        for watch, paths in grouped.values():
+            change = self.records.set_many(watch, paths, state=watch_store.QUEUED)
+            changed = change.changed or changed
+        if changed:
             self.recordsChanged.emit()
         self.resume()
 
     def _records_failed(self, jobs, detail):
-        changed = False
+        grouped = {}
         for watch, path in jobs:
             current = watch_store.find(self.store, watch.path)
             if current is None:
                 continue
-            if not self._write_record(current, path, watch_store.NEEDS_REVIEW,
-                                      detail=detail):
-                continue
-            changed = True
-            self._update_counts(current)
+            grouped.setdefault(watch_store.key(current.path), (current, []))[1].append(path)
+        changed = False
+        for watch, paths in grouped.values():
+            change = self.records.set_many(
+                watch, paths, state=watch_store.NEEDS_REVIEW, detail=detail)
+            changed = change.changed or changed
         if changed:
-            self._persist()
             self.recordsChanged.emit()
             self.changed.emit()
