@@ -1,4 +1,5 @@
 """Verify exported copies against their originals and coordinate logs."""
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -46,6 +47,18 @@ class VerifyExportTests(unittest.TestCase):
             exported.with_suffix('.redactions.json').unlink()
             result = audit_exports.verify_export(exported, originals)
         self.assertIn('coordinate log missing', result['issue'])
+        self.assertIsNone(result['outside_pixels_unchanged'])
+
+    def test_malformed_sidecar_reports_issue_without_raising(self):
+        with TemporaryDirectory() as folder:
+            originals, exported = self.make_export(folder)
+            sidecar = exported.with_suffix('.redactions.json')
+            sidecar.write_text(json.dumps({
+                'source_filename': 'a.png',
+                'redaction_rectangles_xyxy': [['left', 'top', 'right', 'bottom']],
+            }), encoding='utf-8')
+            result = audit_exports.verify_export(exported, originals)
+        self.assertIsNotNone(result['issue'])
         self.assertIsNone(result['outside_pixels_unchanged'])
 
 

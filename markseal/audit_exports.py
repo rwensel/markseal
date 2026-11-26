@@ -75,7 +75,7 @@ def verify_export(export_path, originals, *, patterns=(), run_ocr=False):
             item['ocr_candidates'] = classify_coverage(mask, suggested)
             residual = recognize_regions(exported, engine, settings)
             item['export_ocr_candidates'] = classify_coverage(mask, residual)
-    except (OSError, ValueError, SyntaxError, KeyError) as error:
+    except Exception as error:
         item['issue'] = str(error)
     return item
 

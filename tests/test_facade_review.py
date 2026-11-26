@@ -97,6 +97,23 @@ class ReviewFacadeTests(unittest.TestCase):
         self.assertTrue(self.review.last_verify['outside_pixels_unchanged'])
         self.assertEqual(len(signals), 1)
 
+    def test_verify_without_a_coordinate_log_names_the_setting(self):
+        self.open_image()
+        self.controller.session.review.boxes = [(10, 10, 30, 30)]
+        self.controller.session.review.selected = {0}
+        self.controller.session.review.confirmed = True
+        self.controller.session.preferences.include_log = False
+        target = Path(self.temporary.name) / 'screen_redacted.png'
+        with patch('markseal.facades.review.QFileDialog.getSaveFileName',
+                   return_value=(str(target), 'PNG image (*.png)')):
+            self.review.save_single()
+        info = []
+        self.controller.alerts.info = lambda *args, **kwargs: info.append(args)
+        self.review.verifyCurrent()
+        self.assertEqual(self.errors, [])
+        self.assertTrue(info)
+        self.assertIn('Include coordinate log', info[0][1])
+
     def test_counts_follow_the_box_set(self):
         self.open_image()
         self.controller.session.review.boxes = [(0, 0, 10, 10), (20, 20, 40, 40)]

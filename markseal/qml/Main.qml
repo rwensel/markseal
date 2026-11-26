@@ -45,6 +45,7 @@ Window {
             onSettingsClicked: settingsWindow.openSettings()
             onCaptureClicked: captureRegion.open()
             onWatchesClicked: watchesPanel.open()
+            onAuditClicked: auditPanel.open()
         }
 
         UpdateBanner {
@@ -89,6 +90,11 @@ Window {
 
     WatchesPanel {
         id: watchesPanel
+        anchors.fill: parent
+    }
+
+    AuditPanel {
+        id: auditPanel
         anchors.fill: parent
     }
 
@@ -250,7 +256,9 @@ Window {
         sequence: "Escape"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (watchesPanel.visible)
+            if (auditPanel.visible)
+                auditPanel.close()
+            else if (watchesPanel.visible)
                 watchesPanel.close()
             else if (captureRegion.visible)
                 captureRegion.visible = false

@@ -881,6 +881,14 @@ class ReviewFacade(QObject):
         if path is None or not Path(path).is_file():
             self.alerts.set_status('Save the redacted copy first, then verify it.')
             return
+        if not self.session.preferences.include_log:
+            self.alerts.info(
+                'Verify needs a coordinate log',
+                'This export was saved without a coordinate log. '
+                'Turn on Include coordinate log in Settings, save the export again, '
+                'then verify.',
+            )
+            return
         result = verify_export(Path(path), Path(source).parent)
         self.last_verify = result
         self.verifyResult.emit(result)

@@ -10,6 +10,7 @@ Item {
     signal settingsClicked()
     signal captureClicked()
     signal watchesClicked()
+    signal auditClicked()
 
     readonly property bool canScan: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
     readonly property bool canConfirm: Backend.review.hasImage && !Backend.batch.busy && !Backend.review.confirmed
@@ -224,6 +225,11 @@ Item {
             text: "Paste image  (Ctrl+V)"
             enabled: !Backend.batch.busy
             onTriggered: Backend.pasteImage()
+        }
+        MenuAction {
+            text: "Audit exports"
+            enabled: !Backend.batch.busy
+            onTriggered: toolbar.auditClicked()
         }
         MenuAction {
             text: "Scan a region"
