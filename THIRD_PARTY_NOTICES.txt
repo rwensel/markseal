@@ -17,7 +17,7 @@ ONNX Runtime 1.23.2 - MIT
 tokenizers 0.23.3 - Apache-2.0
 OpenCV 5.1.0.95 - Apache-2.0
 NumPy 2.2.6 - BSD-3-Clause
-Pillow 12.3.0 - HPND
+Pillow 13.0.0 - HPND
 pypdfium2 (PDFium) 5.15.2 - BSD-3-Clause AND Apache-2.0
 PyYAML 6.0.4 - MIT
 tqdm 4.70.1 - MPL-2.0 AND MIT
@@ -39,7 +39,7 @@ packaging 26.4 - Apache-2.0 OR BSD-2-Clause
 setuptools 65.5.0 - MIT
 pyreadline3 3.5.6 - BSD-3-Clause
 PyInstaller unknown - GPL-2.0-or-later with bootloader exception
-Python 3.10.11 - PSF-2.0
+Python 3.11 - PSF-2.0
 YuNet face detection model - MIT
 GLiNER PII Small model (Knowledgator/Wordcab) - Apache-2.0
 GLiNER runtime (urchade/GLiNER) - Apache-2.0

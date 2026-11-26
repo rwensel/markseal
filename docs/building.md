@@ -1,6 +1,6 @@
 # Building from source
 
-MarkSeal is a Python 3.10+ / PySide6 application packaged with PyInstaller. The bundle includes the QML shell, the bundled RapidOCR models, the local PII NER model, and the PDFium renderer, so the installed app needs no Python, pip, external PDF tool, or network access.
+MarkSeal is a Python 3.11+ / PySide6 application packaged with PyInstaller. The bundle includes the QML shell, the bundled RapidOCR models, the local PII NER model, and the PDFium renderer, so the installed app needs no Python, pip, external PDF tool, or network access.
 
 ## Prerequisites
 

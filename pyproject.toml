@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "markseal"
 description = "Private, review-first redaction for screenshots and PDFs with local OCR, a bundled PII model, and pixel-accurate PNG export."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "AGPL-3.0-only"}
 authors = [{name = "Richard Wensel"}]
 keywords = ["redaction", "screenshots", "privacy", "offline", "qt"]
@@ -18,13 +18,13 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Topic :: Multimedia :: Graphics",
     "Topic :: Security",
 ]
 dynamic = ["version"]
 dependencies = [
-    "Pillow==12.3.0",
+    "Pillow==13.0.0",
     "pypdfium2==5.15.2",
     "opencv-python-headless==5.1.0.95",
     "numpy==2.2.6",
