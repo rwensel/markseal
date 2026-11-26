@@ -14,6 +14,14 @@ Item {
     Accessible.name: Backend.errorText + ". " + Backend.errorDetail
     Accessible.description: "Error. Tab to Retry, Logs, or Dismiss."
 
+    transform: Translate {
+        id: revealShift
+        y: banner.visible ? 0 : 6
+        Behavior on y {
+            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+        }
+    }
+
     Connections {
         target: Backend
         function onErrorChanged() {
