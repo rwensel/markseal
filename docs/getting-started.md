@@ -63,6 +63,10 @@ After confirming:
 
 Only selected boxes are applied and included in the log. Review the log before sharing it: it contains the source filename and coordinates.
 
+## Audit an export
+
+Open **More > Audit exports**, choose the originals folder and the folder with exported PNGs, then run the local audit. The optional OCR and saved-pattern checks stay local. The panel lists per-file issues and can save a JSON report; the command-line audit remains available for scripts. This is the deeper folder check. **VERIFY** remains the quick check for one saved export.
+
 ## Keyboard
 
 | Shortcut | Action |

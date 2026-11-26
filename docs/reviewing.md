@@ -84,6 +84,10 @@ For images that shift slightly, select the boxes and click **Match by anchor**, 
 
 ## Audit exports
 
+Open **More > Audit exports** in the app. Choose the folder with the original images and the folder with the exported PNGs. The panel runs the same local checks as the command below, with optional OCR and saved-pattern passes, then shows per-file issues and a summary. **Save report** writes the result as JSON.
+
+Use the command-line audit when you want a scriptable stdout report:
+
 ```powershell
 .venv\Scripts\python.exe -m markseal.audit_exports "originals-folder" "export-folder"
 ```

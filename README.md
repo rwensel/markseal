@@ -39,7 +39,7 @@ The page is capped at 40 million pixels to keep a very large PDF from exhausting
 
 - **Your screenshots and PDFs never leave the machine.** OCR, the bundled PII model, pattern matching, PDF rendering, redaction, and export run locally. The only optional network use is the update check, which is off by default.
 - **You decide what gets covered.** Suggestions start selected; click to exclude, drag to add, and turn on rule tags to see why each box appeared.
-- **The output is verifiable.** Export a PNG plus an optional JSON coordinate log, then check it with the bundled audit tool.
+- **The output is verifiable.** Export a PNG plus an optional JSON coordinate log, then check it with **More > Audit exports** or the bundled audit tool.
 
 ## Features
 
@@ -51,6 +51,7 @@ The page is capped at 40 million pixels to keep a very large PDF from exhausting
 - Open PDFs page by page: render locally at 200 DPI, navigate pages, and save the current redacted page as PNG.
 - Folder scanning with **Scan all**, **Scan selected**, **Confirm all**, **Save reviewed**, queued/running rows, and cancel.
 - Watched folders: register folders once, optionally including subfolders, and see new captures in the inbox. Manual watches wait for you; automatic watches scan and export new images while the app runs.
+- In-app audit workflow: choose originals and exports, run local checks with optional OCR or saved patterns, and save a JSON report. The command-line audit remains available for scripts.
 - Bounded parallel jobs: set **1–16 parallel image jobs**; each active worker owns a local OCR engine.
 - Box reuse and anchor matching for screenshots with matching or shifted framing.
 - **Learn your own identifiers.** Draw a box around a value and save a reusable blocked pattern for the IDs specific to your team.
