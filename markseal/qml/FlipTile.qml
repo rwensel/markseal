@@ -7,6 +7,7 @@ Item {
     property string label: ""
     property color accent: Theme.steelLight
     property color faceColor: Theme.tile
+    property int flipDelay: 0
     property string displayValue: value
     property string pendingValue: value
 
@@ -101,6 +102,7 @@ Item {
 
     SequentialAnimation {
         id: flip
+        PauseAnimation { duration: tile.flipDelay }
         NumberAnimation {
             target: flipRotation
             property: "angle"

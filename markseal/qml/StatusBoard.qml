@@ -64,6 +64,7 @@ Item {
             value: String(Backend.review.selectedCount)
             label: "SELECTED"
             accent: Theme.amber
+            flipDelay: 0
         }
 
         FlipTile {
@@ -71,12 +72,14 @@ Item {
             label: "EXCLUDED"
             accent: Backend.review.excludedCount > 0 ? Theme.dangerText : Theme.mutedText
             faceColor: Backend.review.excludedCount > 0 ? Theme.dangerFace : Theme.tile
+            flipDelay: 35
         }
 
         FlipTile {
             value: String(Backend.review.totalBoxes)
             label: "TOTAL"
             accent: Theme.steelLight
+            flipDelay: 70
         }
 
         FlipTile {
