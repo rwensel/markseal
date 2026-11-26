@@ -79,7 +79,7 @@ class ModuleSplitTests(unittest.TestCase):
         self.assertEqual(
             [path.stem for path in modules],
             ['activity', 'alerts', 'auto_watch', 'batch', 'folder', 'review', 'settings', 'state',
-             'updates', 'watches'],
+             'updates', 'watch_inbox', 'watch_sweep', 'watches'],
         )
         for path in modules:
             tree = ast.parse(path.read_text(encoding='utf-8'))

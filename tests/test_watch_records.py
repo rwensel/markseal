@@ -74,7 +74,7 @@ class WatchRecordsTests(unittest.TestCase):
     def test_set_rolls_back_when_persistence_fails(self):
         path = self.write()
         self.records.set(self.watch, path, state=watches.PRESENTED)
-        with mock.patch('markseal.watches.save', side_effect=OSError('disk full')):
+        with mock.patch('markseal.watch_document.save', side_effect=OSError('disk full')):
             change = self.records.set(self.watch, path, state=watches.QUEUED)
 
         self.assertFalse(change.changed)
@@ -85,7 +85,7 @@ class WatchRecordsTests(unittest.TestCase):
     def test_set_many_saves_once(self):
         one = self.write('one.png')
         two = self.write('two.png')
-        with mock.patch('markseal.watches.save', wraps=watches.save) as save:
+        with mock.patch('markseal.watch_document.save', wraps=watches.save) as save:
             change = self.records.set_many(
                 self.watch, [one, two], state=watches.QUEUED)
 

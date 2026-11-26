@@ -54,7 +54,7 @@ class WatchTests(unittest.TestCase):
 
     def test_add_refuses_an_unlistable_folder(self):
         self.write('a.png')
-        with mock.patch('markseal.watches.scan', return_value=None):
+        with mock.patch('markseal.watch_scan.scan', return_value=None):
             with self.assertRaises(watches.WatchError):
                 self.add()
         self.assertEqual(self.store.folders, [])
