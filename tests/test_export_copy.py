@@ -33,13 +33,15 @@ class ExportCopyTests(unittest.TestCase):
             self.assertTrue(plan.include_log)
 
     def test_plan_refuses_an_existing_target_and_log(self):
-        with TemporaryDirectory() as folder:
-            (Path(folder) / 'a_redacted.png').write_bytes(b'x')
-            with self.assertRaises(ValueError):
-                self.copies.plan(
-                    [CopyRequest.from_entry(self.entry())],
-                    output_directory=Path(folder),
-                )
+        for existing in ('a_redacted.png', 'a_redacted.redactions.json'):
+            with self.subTest(existing=existing):
+                with TemporaryDirectory() as folder:
+                    (Path(folder) / existing).write_bytes(b'x')
+                    with self.assertRaises(ValueError):
+                        self.copies.plan(
+                            [CopyRequest.from_entry(self.entry())],
+                            output_directory=Path(folder),
+                        )
 
     def test_plan_can_allow_an_explicit_single_save_overwrite(self):
         with TemporaryDirectory() as folder:
