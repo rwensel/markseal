@@ -21,7 +21,7 @@
 | Linux x64 | [Markseal-linux-x64.tar.gz](https://github.com/rwensel/markseal/releases/latest/download/Markseal-linux-x64.tar.gz) | Untested PyInstaller build; extract and run `Markseal/Markseal`. |
 | macOS arm64 | [Markseal-macos-arm64.zip](https://github.com/rwensel/markseal/releases/latest/download/Markseal-macos-arm64.zip) | Untested, unsigned, not notarized; Gatekeeper needs an override. |
 
-All builds include the local PII model (about 86 MB), so they are larger than 2.0.7. Builds are on the [releases page](https://github.com/rwensel/markseal/releases). Or [build from source](docs/building.md).
+All builds include the local PII model (about 86 MB), so downloads are roughly 260 to 410 MB. Builds are on the [releases page](https://github.com/rwensel/markseal/releases). Or [build from source](docs/building.md).
 
 ## See it work
 
